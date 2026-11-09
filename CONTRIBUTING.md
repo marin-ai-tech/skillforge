@@ -20,7 +20,8 @@ Thank you for helping improve SkillForge.
    also update the in-app help (`packages/web/src/help/topics/`) and, where relevant, `docs/en/`.
 4. **Releases** are built by CI on a version tag (`.github/workflows/release.yml`): the tag must match the version in
    `package.json`; the workflow runs the tests, builds the archives, the CLI package and the Windows installer with
-   `node scripts/release.mjs`, and attaches them with `SHA256SUMS.txt` to the GitHub release. The release notes are
+   `node scripts/release.mjs`, and attaches them with `SHA256SUMS.txt` to the GitHub release; it also publishes the container image
+   `ghcr.io/marin-ai-tech/skillforge`. The release notes are
    the version's section of [CHANGELOG.md](CHANGELOG.md): add it before you tag.
 5. **Notices.** Keep the `Required Notice:` lines in the license files. Third-party material keeps its own license
    and is listed in [NOTICE.md](NOTICE.md).

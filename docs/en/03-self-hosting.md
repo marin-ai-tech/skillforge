@@ -54,6 +54,20 @@ returns `cli: { version, url }`, and the home page shows the command `npm i -g <
 The release also carries `docker/Dockerfile` and `docker/docker-compose.yml`, which build an image from the unpacked
 archive. They are experimental and not verified; prefer the image built from source below.
 
+## Prebuilt image
+
+Every release publishes the image `ghcr.io/marin-ai-tech/skillforge:<version>` and moves `:latest` to it. It is the
+same image the `Dockerfile` of the repository builds.
+
+```bash
+docker run -d --name skillforge -p 8787:8787 -v skillforge-data:/data ghcr.io/marin-ai-tech/skillforge:latest
+docker exec skillforge cat /data/initial-admin-password.txt
+```
+
+Pass settings with `-e NAME=value` or `--env-file skillforge.env` (see [Environment variables](#environment-variables)).
+To upgrade, pull the new tag and start a new container with the same volume; migrations run on start. Pin a version
+tag in production rather than `latest`.
+
 ## Quick start with Docker Compose
 
 1. Copy `.env.example` to `.env` and set `SKILLFORGE_ADMIN_PASSWORD` and `SKILLFORGE_BASE_URL` if needed.

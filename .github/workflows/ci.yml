@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+# Test servers on hosted runners (Windows especially) can take longer than the default 30 s to start.
+env:
+  SKILLFORGE_TEST_START_TIMEOUT_MS: "60000"
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -27,6 +31,11 @@ jobs:
 
       - name: Install
         run: npm ci
+
+      # The release tests build the archives and the Windows installer: NSIS and a Windows node.exe.
+      - name: Tools for the release tests
+        shell: bash
+        run: bash .github/scripts/release-tools.sh
 
       - name: Build
         run: npm run build
@@ -67,3 +76,27 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # The container image builds and its server answers the health check.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: skillforge:ci
+
+      - name: The container starts and answers /api/v1/health
+        run: |
+          docker run -d --name skillforge -p 8787:8787 skillforge:ci
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8787/api/v1/health; then exit 0; fi
+            sleep 2
+          done
+          docker logs skillforge
+          exit 1

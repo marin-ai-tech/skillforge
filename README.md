@@ -5,10 +5,13 @@ plugins and MCP servers**. Teams publish them once, reviewers decide what become
 the same versions into Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Qwen Code and other agents. It runs on your
 own server; nothing leaves your infrastructure.
 
+![A tour of SkillForge: the catalog, publishing a folder, review and promotion, installing into an agent](docs/en/images/tour.gif)
+
 ## On this page
 
 - [Why SkillForge](#why-skillforge)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Quick start](#quick-start)
 - [Supported agents](#supported-agents)
 - [Documentation](#-documentation)
@@ -63,19 +66,26 @@ More in [Why SkillForge](docs/en/01-why-skillforge.md).
   ([Handbook](docs/en/handbook/README.md)).
 - **In-app help** — every page has a help topic, and an optional assistant answers from the help with your own model.
 
+## Screenshots
+
+| | |
+|---|---|
+| **Catalog** — every type in one place, with status, quality grade, risk and the agents an artifact is for.<br>![Catalog](docs/en/images/catalog.png) | **Publish** — drop a folder: the type is detected and the files are validated before anything is stored.<br>![Publish page](docs/en/images/publish.png) |
+| **An artifact** — description, lifecycle status, usage signals and transfer rate, tabs for files, versions, audit and evidence.<br>![Artifact page](docs/en/images/artifact.png) | **Quality** — the security scan, context cost in tokens and the quality grade of every version.<br>![Quality tab](docs/en/images/quality.png) |
+| **Install** — one command per agent: the Claude Code marketplace or the CLI for any supported runtime.<br>![Install tab](docs/en/images/install.png) | **Lifecycle** — what to clean up today and the review queue: promote or reject candidates.<br>![Lifecycle board](docs/en/images/lifecycle.png) |
+| **Metrics** — transfer rate, sessions and token efficiency across the registry, with CSV and JSON export.<br>![Metrics](docs/en/images/metrics.png) | **In-app help** — a topic for every page, action and validation code, and an optional assistant.<br>![Help center](docs/en/images/help.png) |
+
 ## Quick start
 
-**Run the registry** with Docker Compose:
+**Run the registry** with Docker, one command:
 
 ```bash
-git clone https://github.com/marin-ai-tech/skillforge.git
-cd skillforge
-cp .env.example .env        # set SKILLFORGE_ADMIN_PASSWORD here, or let the server generate one
-docker compose up -d --build
-docker compose exec skillforge cat /data/initial-admin-password.txt   # only if you did not set one
+docker run -d --name skillforge -p 8787:8787 -v skillforge-data:/data ghcr.io/marin-ai-tech/skillforge:latest
+docker exec skillforge cat /data/initial-admin-password.txt   # the generated password of admin
 ```
 
-Open `http://localhost:8787` and sign in as `admin`. Release archives and a Windows installer are on the
+Open `http://localhost:8787` and sign in as `admin`. To build the image yourself, clone the repository and run
+`docker compose up -d --build`. Release archives and a Windows installer are on the
 [releases page](https://github.com/marin-ai-tech/skillforge/releases/latest); see
 [Self-hosting](docs/en/03-self-hosting.md) for every option.
 

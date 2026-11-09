@@ -307,12 +307,26 @@ async function main() {
   cpSync(cli, join(OUT, `skillforge-cli-${version}.tgz`));
 
   step("archives");
-  // Windows: the system bsdtar (Git's GNU tar reads "C:" as a remote host).
-  const tarExe = WIN ? join(process.env.WINDIR ?? "C:\\Windows", "System32", "tar.exe") : "tar";
-  const tar = spawnSync(tarExe, ["-czf", join(OUT, `${name}.tar.gz`), "-C", work, name], {
-    stdio: "inherit",
-  });
-  if (tar.status !== 0) throw new Error("tar failed");
+  // Windows: the system bsdtar; without it, GNU tar from PATH with --force-local (it reads "C:" as a remote host).
+  const sysTar = join(process.env.WINDIR ?? "C:\\Windows", "System32", "tar.exe");
+  const [tarExe, tarArgs] = !WIN
+    ? ["tar", []]
+    : existsSync(sysTar)
+      ? [sysTar, []]
+      : ["tar", ["--force-local"]];
+  const tar = spawnSync(
+    tarExe,
+    [...tarArgs, "-czf", join(OUT, `${name}.tar.gz`), "-C", work, name],
+    {
+      stdio: ["ignore", "inherit", "pipe"],
+      encoding: "utf8",
+    },
+  );
+  if (tar.status !== 0) {
+    throw new Error(
+      `tar failed (${tarExe}: ${tar.error?.message ?? `exit ${tar.status}`}) ${tar.stderr ?? ""}`.trim(),
+    );
+  }
   writeZip(stage, `${name}/`, join(OUT, `${name}.zip`));
 
   if (!NO_INSTALLER) {

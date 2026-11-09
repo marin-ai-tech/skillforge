@@ -1,6 +1,6 @@
-# Release: on a version tag (v0.5.0), check that the tag matches package.json, test, build the release with
-# scripts/release.mjs (archives, CLI package, Windows installer with the official Node.js) and attach it to a GitHub
-# release.
+# Release: on a version tag (v0.5.1), check that the tag matches package.json, test, build the release with
+# scripts/release.mjs (archives, CLI package, Windows installer with the official Node.js), attach it to a GitHub
+# release and publish the container image ghcr.io/marin-ai-tech/skillforge.
 #
 #   https://github.com/marin-ai-tech/skillforge/releases/latest
 name: release
@@ -11,6 +11,10 @@ on:
 
 permissions:
   contents: write
+
+# Test servers on hosted runners (Windows especially) can take longer than the default 30 s to start.
+env:
+  SKILLFORGE_TEST_START_TIMEOUT_MS: "60000"
 
 jobs:
   release:
@@ -31,6 +35,10 @@ jobs:
             exit 1
           fi
 
+      # The release tests build the installer too, so the tools come first.
+      - name: Tools for the Windows installer
+        run: bash .github/scripts/release-tools.sh
+
       - name: Install, build and test
         run: |
           npm ci
@@ -38,14 +46,6 @@ jobs:
           npm run lint
           npm test
           node --test --test-concurrency=2 tests/*.test.mjs
-
-      - name: Tools for the Windows installer
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y nsis
-          node_version="$(node -p "process.versions.node")"
-          curl -fsSLo "${RUNNER_TEMP}/node.exe" "https://nodejs.org/dist/v${node_version}/win-x64/node.exe"
-          echo "SKILLFORGE_NODE_WIN_EXE=${RUNNER_TEMP}/node.exe" >> "${GITHUB_ENV}"
 
       - name: Build the release
         run: node scripts/release.mjs --skip-build --out dist/release
@@ -60,3 +60,39 @@ jobs:
           # RELEASE-NOTES.md is built from the version's section of CHANGELOG.md
           gh release create "${GITHUB_REF_NAME}" dist/release/* --title "SkillForge ${version}" \
             --notes-file dist/release/RELEASE-NOTES.md
+
+  # The container image, after the tests and the release passed: ghcr.io/marin-ai-tech/skillforge:<version> and :latest.
+  image:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/marin-ai-tech/skillforge:${{ steps.meta.outputs.version }}
+            ghcr.io/marin-ai-tech/skillforge:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/marin-ai-tech/skillforge
+            org.opencontainers.image.title=SkillForge
+            org.opencontainers.image.description=Self-hosted registry for coding-agent artifacts
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}

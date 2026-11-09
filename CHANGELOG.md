@@ -3,6 +3,26 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.1 — 2026-11-09
+
+The first release built by GitHub Actions: 0.5.0 was tagged, but its release workflow stopped before publishing
+anything. Same product as 0.5.0, now also as a container image, with a tour and screenshots in the README.
+
+### Added
+- The container image `ghcr.io/marin-ai-tech/skillforge` (`:<version>` and `:latest`), published by the release
+  workflow: the registry starts with one `docker run`. CI builds the image and checks that it answers the health check.
+- A short animated tour and screenshots of the catalog, publishing, an artifact page, the Quality and Install tabs, the
+  lifecycle board, metrics and the help center in the README.
+
+### Changed
+- CI and the release workflow install NSIS and the official Windows `node.exe` before the tests, since the release
+  tests build the installer; test servers get 60 seconds to start on hosted runners.
+- On Windows without the system `tar.exe`, the release script uses GNU tar with `--force-local`, and a failed `tar`
+  now reports its error.
+
+### Compatibility
+- No change to data, the API or the CLI. Upgrade from 0.5.0 by installing over it.
+
 ## 0.5.0 — 2026-11-09
 
 The first public release: a self-hosted registry for coding-agent artifacts, with review, lifecycle and installation

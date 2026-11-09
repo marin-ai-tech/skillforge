@@ -1,0 +1,4 @@
+[mcp_servers.tickets]
+command = "npx"
+args = ["-y", "tickets-mcp@1.2.3"]
+env = { TICKETS_API_KEY = "FAKE-SECRET-toml-0004" }

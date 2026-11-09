@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}" }
+    },
+    "linear": {
+      "url": "https://mcp.linear.app/sse",
+      "headers": { "Authorization": "Bearer ${env:LINEAR_TOKEN}" }
+    },
+    "custom": {
+      "url": "https://mcp.example.com/mcp",
+      "headers": { "X-Api-Key": "FAKE-SECRET-cursorhdr-0001" },
+      "auth": { "CLIENT_ID": "id", "CLIENT_SECRET": "FAKE-SECRET-cursoroauth-0002" }
+    },
+    "py": {
+      "command": "python",
+      "args": ["-m", "acme_mcp"],
+      "env": { "OPENAI_API_KEY": "sk-FAKE-SECRET-cursorenv-0003" }
+    }
+  }
+}

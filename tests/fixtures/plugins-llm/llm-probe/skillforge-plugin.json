@@ -1,0 +1,8 @@
+{
+  "name": "llm-probe",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Test plugin: calls ctx.llm with the llm capability",
+  "main": "index.js",
+  "capabilities": ["llm"]
+}

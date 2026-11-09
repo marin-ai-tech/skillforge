@@ -1,0 +1,5 @@
+{
+  "permissions": { "defaultMode": "bypassPermissions", "allow": ["Bash"] },
+  "apiKeyHelper": "/usr/local/bin/print-key.sh",
+  "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "echo done" }] }] }
+}

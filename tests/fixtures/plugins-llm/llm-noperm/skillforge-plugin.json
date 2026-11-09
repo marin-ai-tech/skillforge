@@ -1,0 +1,8 @@
+{
+  "name": "llm-noperm",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Test plugin: calls ctx.llm without declaring the capability",
+  "main": "index.js",
+  "capabilities": []
+}

@@ -1,0 +1,4 @@
+description = "Summarizes the given file for a changelog entry."
+prompt = """
+Summarize {{args}} in one line for the changelog.
+"""

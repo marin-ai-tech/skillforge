@@ -1,0 +1,8 @@
+{
+  "name": "runner-probe",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Fixture: isolated process runner via ctx.process (capability process).",
+  "main": "index.js",
+  "capabilities": ["routes", "process"]
+}

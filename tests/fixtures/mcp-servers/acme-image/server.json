@@ -1,0 +1,11 @@
+{
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/acme/kb-mcp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "runtimeHint": "docker",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [{ "name": "KB_API_KEY", "isRequired": true, "isSecret": true }]
+    }
+  ]
+}

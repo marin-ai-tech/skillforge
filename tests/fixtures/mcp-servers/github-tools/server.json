@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.modelcontextprotocol/server-github",
+  "description": "GitHub API for agents",
+  "version": "2025.4.8",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@modelcontextprotocol/server-github",
+      "version": "2025.4.8",
+      "runtimeHint": "npx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "description": "Personal access token with repo scope",
+          "isRequired": true,
+          "isSecret": true
+        },
+        { "name": "GITHUB_HOST", "description": "GitHub Enterprise host", "value": "github.com" }
+      ]
+    }
+  ],
+  "tools": [
+    { "name": "search_issues", "description": "Search issues and pull requests" },
+    { "name": "create_issue", "description": "Create an issue in a repository" }
+  ]
+}

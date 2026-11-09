@@ -1,0 +1,18 @@
+{
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.sentry.dev/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Sentry user token",
+          "isRequired": true,
+          "isSecret": true,
+          "value": "Bearer {sentry_token}",
+          "variables": { "sentry_token": { "description": "Sentry token", "isRequired": true, "isSecret": true } }
+        }
+      ]
+    }
+  ]
+}

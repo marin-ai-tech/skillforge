@@ -1,0 +1,38 @@
+{
+  "id": "ecc-essentials",
+  "title": "ECC essentials",
+  "description": "Three MIT skills from affaan-m/ECC in a SkillForge edition: change impact analysis, architecture decision records and codebase onboarding. Optional; their benefit has not been measured with evals yet.",
+  "license": "MIT",
+  "source_repositories": [
+    {
+      "repo": "affaan-m/ECC",
+      "commit": "b38be6a7f6350964d59328b52f0624e1d1d552d1"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "skill",
+      "name": "change-impact",
+      "path": "skills/change-impact",
+      "repo": "affaan-m/ECC",
+      "commit": "b38be6a7f6350964d59328b52f0624e1d1d552d1",
+      "source_path": "skills/change-impact"
+    },
+    {
+      "type": "skill",
+      "name": "architecture-decision-records",
+      "path": "skills/architecture-decision-records",
+      "repo": "affaan-m/ECC",
+      "commit": "b38be6a7f6350964d59328b52f0624e1d1d552d1",
+      "source_path": "skills/architecture-decision-records"
+    },
+    {
+      "type": "skill",
+      "name": "codebase-onboarding",
+      "path": "skills/codebase-onboarding",
+      "repo": "affaan-m/ECC",
+      "commit": "b38be6a7f6350964d59328b52f0624e1d1d552d1",
+      "source_path": "skills/codebase-onboarding"
+    }
+  ]
+}

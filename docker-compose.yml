@@ -1,0 +1,12 @@
+services:
+  skillforge:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      - skillforge-data:/data
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  skillforge-data:

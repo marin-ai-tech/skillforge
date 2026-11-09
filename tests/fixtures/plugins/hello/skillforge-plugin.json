@@ -1,0 +1,16 @@
+{
+  "name": "hello",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Reference plugin: routes, migration, events, registry facade and UI contributions.",
+  "main": "index.js",
+  "capabilities": ["routes", "events", "db", "ui"],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "greeting": { "type": "string", "default": "Hello from config", "description": "Text returned by /ping" },
+      "shout": { "type": "boolean", "default": false }
+    },
+    "required": []
+  }
+}

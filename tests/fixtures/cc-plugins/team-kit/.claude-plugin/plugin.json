@@ -1,0 +1,7 @@
+{
+  "name": "team-kit",
+  "version": "1.2.0",
+  "description": "Release tooling for the platform team: notes, changelog lint, a review agent and a push guard.",
+  "author": { "name": "Platform Team" },
+  "license": "MIT"
+}

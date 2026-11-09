@@ -1,0 +1,1 @@
+{ "name": "agent-watch", "version": "0.1.0", "api": 1, "description": "Records agent.scanned events for the acceptance test." }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": ["Read", "Grep", "Glob"],
+    "deny": ["Bash(git push --force:*)", "Bash(rm -rf:*)"]
+  },
+  "env": { "DISABLE_TELEMETRY": "1" },
+  "model": "opus",
+  "includeCoAuthoredBy": true
+}

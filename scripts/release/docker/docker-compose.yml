@@ -1,0 +1,15 @@
+# Experimental in 0.2.0 (not verified on the build host). Run from the release root: docker compose -f docker/docker-compose.yml up -d
+services:
+  skillforge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SKILLFORGE_BASE_URL: "http://localhost:8080"
+    volumes:
+      - skillforge-data:/data
+    restart: unless-stopped
+volumes:
+  skillforge-data:

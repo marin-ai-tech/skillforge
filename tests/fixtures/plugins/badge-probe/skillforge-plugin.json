@@ -1,0 +1,8 @@
+{
+  "name": "badge-probe",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Lead fixture: ctx.registry.setBadge and clearBadge on artifact cards (plugin-artifact-badges)",
+  "main": "index.js",
+  "capabilities": ["registry.badges"]
+}

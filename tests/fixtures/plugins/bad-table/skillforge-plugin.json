@@ -1,0 +1,1 @@
+{ "name": "bad-table", "version": "0.0.1", "api": 1, "description": "Migration creates a table without the ext_ prefix." }

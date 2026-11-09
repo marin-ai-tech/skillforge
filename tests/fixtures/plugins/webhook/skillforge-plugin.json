@@ -1,0 +1,15 @@
+{
+  "name": "webhook",
+  "version": "0.1.0",
+  "api": 1,
+  "description": "Posts registry events to a configured URL.",
+  "capabilities": ["events"],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "Where to POST events" },
+      "events": { "type": "array", "default": ["artifact.published", "artifact.transitioned"] }
+    },
+    "required": []
+  }
+}

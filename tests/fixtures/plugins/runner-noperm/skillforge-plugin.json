@@ -1,0 +1,8 @@
+{
+  "name": "runner-noperm",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Fixture: plugin without capability process must not get a working runner.",
+  "main": "index.js",
+  "capabilities": ["routes"]
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "clarity",
+    "title": "Clarity",
+    "question": "Is the instruction clear and unambiguous for the agent reading it?"
+  },
+  {
+    "id": "scope",
+    "title": "Scope",
+    "question": "Is the scope of the task stated precisely, with no hidden assumptions?"
+  },
+  {
+    "id": "safety",
+    "title": "Safety",
+    "question": "Does the prompt avoid enabling harmful or irreversible actions without review?"
+  },
+  {
+    "id": "freshness",
+    "title": "Freshness",
+    "question": "Are there time-sensitive phrases (e.g. 'latest version') that could go stale?"
+  },
+  {
+    "id": "examples",
+    "title": "Examples",
+    "question": "Are concrete examples provided to disambiguate the expected output?"
+  },
+  {
+    "id": "structure",
+    "title": "Structure",
+    "question": "Is the artifact structured so the agent can follow it reliably?"
+  },
+  {
+    "id": "portability",
+    "title": "Portability",
+    "question": "Does the artifact avoid machine- or environment-specific assumptions?"
+  }
+]

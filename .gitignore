@@ -1,0 +1,24 @@
+node_modules/
+# Test fixtures may contain node_modules on purpose (the scanner must skip them) - they are committed.
+!tests/fixtures/**/node_modules/
+dist/
+data/
+*.log
+.env
+!tests/fixtures/agents/with-secrets/.env
+.DS_Store
+coverage/
+*.tsbuildinfo
+test-results/
+playwright-report/
+tests/e2e/.e2e-state.json
+
+# Reckon agent state (local executor runs)
+.reckon/
+
+# CodeGraph local index
+.codegraph/
+.tmp-test/
+
+# Generated output folders
+out/

@@ -1,0 +1,28 @@
+node_modules
+**/node_modules
+data
+**/data
+.git
+**/.git
+**/dist
+# Everything .gitignore excludes stays out of the build context: a host
+# tsconfig.tsbuildinfo without dist/ made `tsc -b` in the image skip the build; .env holds secrets.
+**/*.tsbuildinfo
+**/.env
+**/*.log
+**/.DS_Store
+**/coverage
+**/out
+**/test-results
+**/playwright-report
+tests/e2e/.e2e-state.json
+**/.reckon
+**/.codegraph
+**/.tmp-test
+test-results
+playwright-report
+*.md
+!README.md
+.agents
+.claude
+.github

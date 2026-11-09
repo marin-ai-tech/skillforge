@@ -1,0 +1,90 @@
+{
+  "id": "codealive",
+  "title": "CodeAlive starter pack",
+  "description": "Nine MIT skills from CodeAlive-AI used as a SkillForge starter set: settings, hooks, skills, prompts, orchestration, and engineering protocols.",
+  "license": "MIT",
+  "source_repositories": [
+    {
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82"
+    },
+    {
+      "repo": "CodeAlive-AI/pragmatic-orchestration",
+      "commit": "b349fd32607998f487d40935d2303b07ee1f9b52"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "skill",
+      "name": "settings-management",
+      "path": "skills/settings-management",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/settings-management"
+    },
+    {
+      "type": "skill",
+      "name": "hooks-management",
+      "path": "skills/hooks-management",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/hooks-management"
+    },
+    {
+      "type": "skill",
+      "name": "skills-management",
+      "path": "skills/skills-management",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/skills-management"
+    },
+    {
+      "type": "skill",
+      "name": "prompt-engineering",
+      "path": "skills/prompt-engineering",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/prompt-engineering"
+    },
+    {
+      "type": "skill",
+      "name": "code-that-fits-in-your-head",
+      "path": "skills/code-that-fits-in-your-head",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/code-that-fits-in-your-head"
+    },
+    {
+      "type": "skill",
+      "name": "bug-fix-protocol",
+      "path": "skills/bug-fix-protocol",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/bug-fix-protocol"
+    },
+    {
+      "type": "skill",
+      "name": "plan-mode",
+      "path": "skills/plan-mode",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/plan-mode"
+    },
+    {
+      "type": "skill",
+      "name": "investigating-repository-history",
+      "path": "skills/investigating-repository-history",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "af4035b657a54c9a6ff7deb85af070f494892d82",
+      "source_path": "skills/investigating-repository-history"
+    },
+    {
+      "type": "skill",
+      "name": "pragmatic-orchestration",
+      "path": "skills/pragmatic-orchestration",
+      "repo": "CodeAlive-AI/pragmatic-orchestration",
+      "commit": "b349fd32607998f487d40935d2303b07ee1f9b52",
+      "source_path": "skills/pragmatic-orchestration"
+    }
+  ]
+}

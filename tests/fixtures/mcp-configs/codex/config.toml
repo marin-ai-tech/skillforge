@@ -1,0 +1,33 @@
+model = "gpt-5"
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github@2025.4.8"]
+env_vars = ["GITHUB_TOKEN", { name = "GH_HOST", source = "local" }]
+
+[mcp_servers.github.env]
+LOG_LEVEL = "info"
+
+[mcp_servers.tickets]
+command = "uvx"
+args = ["mcp-server-tickets==0.6.2"]
+env = { TICKETS_TOKEN = "FAKE-SECRET-codexenv-0001" }
+enabled = false
+
+[mcp_servers.sentry]
+url = "https://mcp.sentry.dev/mcp"
+bearer_token_env_var = "SENTRY_TOKEN"
+http_headers = { "X-Org" = "acme" }
+env_http_headers = { "X-Api-Key" = "SENTRY_API_KEY" }
+
+[mcp_servers.vault]
+url = "https://mcp.example.com/mcp"
+http_headers = { "Authorization" = "Bearer FAKE-SECRET-codexhdr-0002" }
+
+[mcp_servers.vault.oauth]
+client_id = "abc"
+client_secret = "FAKE-SECRET-oauth-0003"
+
+[mcp_servers.image]
+command = "docker"
+args = ["run", "-i", "--rm", "ghcr.io/acme/mcp@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]

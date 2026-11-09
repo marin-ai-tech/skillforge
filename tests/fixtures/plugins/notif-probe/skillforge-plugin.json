@@ -1,0 +1,1 @@
+{ "name": "notif-probe", "version": "0.1.0", "api": 1, "description": "Records comment.created and notification.created events and can call ctx.notifications.send (acceptance fixture)." }

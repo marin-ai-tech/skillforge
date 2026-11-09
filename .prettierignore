@@ -1,0 +1,14 @@
+dist
+node_modules
+data
+coverage
+out
+package-lock.json
+*.md
+docs
+.agents
+.claude
+tests
+packages/server/starter-packs
+eslint-suppressions.json
+.tmp-test/

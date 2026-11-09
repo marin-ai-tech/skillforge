@@ -1,0 +1,32 @@
+{
+  "name": "review-assistant",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Independent review runs by external agents, judged findings, reviewer decisions",
+  "main": "index.js",
+  "capabilities": [
+    "ui.actions",
+    "registry.evidence",
+    "events",
+    "process",
+    "llm",
+    "registry.badges"
+  ],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "auto_on_publish": {
+        "type": "boolean",
+        "default": false
+      },
+      "reviewers": {
+        "type": "array",
+        "default": []
+      },
+      "max_findings": {
+        "type": "number",
+        "default": 50
+      }
+    }
+  }
+}

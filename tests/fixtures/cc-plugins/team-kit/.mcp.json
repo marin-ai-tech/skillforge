@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "release-db": { "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/release-db.js"] }
+  }
+}

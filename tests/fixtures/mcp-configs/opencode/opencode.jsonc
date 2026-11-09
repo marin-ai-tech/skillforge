@@ -1,0 +1,25 @@
+{
+  // OpenCode V1: servers directly under "mcp"
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "github": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github@2025.4.8"],
+      "environment": { "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}" },
+      "enabled": true,
+    },
+    "notes": {
+      "type": "local",
+      "command": ["bunx", "notes-mcp@latest"],
+      "environment": { "NOTES_SECRET": "FAKE-SECRET-ocenv-0001", "NOTES_KEYFILE": "{file:~/.notes/key}" },
+      "enabled": false
+    },
+    "sentry": {
+      "type": "remote",
+      "url": "https://mcp.sentry.dev/mcp", /* the // inside the string is not a comment */
+      "headers": { "Authorization": "Bearer {env:SENTRY_TOKEN}" },
+      "oauth": { "clientId": "x", "clientSecret": "FAKE-SECRET-ocoauth-0002" }
+    },
+    "legacy": { "command": ["node", "x.js"] }
+  }
+}

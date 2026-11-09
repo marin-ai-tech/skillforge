@@ -1,0 +1,95 @@
+@import "./styles/tokens.css";
+@import "tailwindcss";
+
+@theme {
+  --color-bg: var(--sf-bg);
+  --color-surface: var(--sf-surface);
+  --color-surface-2: var(--sf-surface-2);
+  --color-ink: var(--sf-ink);
+  --color-ink-2: var(--sf-ink-2);
+  --color-muted: var(--sf-muted);
+  --color-line: var(--sf-line);
+  --color-accent: var(--sf-accent);
+  --color-accent-soft: var(--sf-accent-soft);
+  --color-st-candidate: var(--sf-st-candidate);
+  --color-st-candidate-bg: var(--sf-st-candidate-bg);
+  --color-st-active: var(--sf-st-active);
+  --color-st-active-bg: var(--sf-st-active-bg);
+  --color-st-aging: var(--sf-st-aging);
+  --color-st-aging-bg: var(--sf-st-aging-bg);
+  --color-st-zombie: var(--sf-st-zombie);
+  --color-st-zombie-bg: var(--sf-st-zombie-bg);
+  --color-st-retired: var(--sf-st-retired);
+  --color-st-retired-bg: var(--sf-st-retired-bg);
+  --color-type-skill: var(--sf-type-skill);
+  --color-type-command: var(--sf-type-command);
+  --color-type-agent: var(--sf-type-agent);
+  --color-type-hook: var(--sf-type-hook);
+  --color-type-plugin: var(--sf-type-plugin);
+  --color-danger: var(--sf-danger);
+  --color-danger-bg: var(--sf-danger-bg);
+  --color-warning: var(--sf-warning);
+  --color-warning-bg: var(--sf-warning-bg);
+  --color-note: var(--sf-note);
+  --color-note-bg: var(--sf-note-bg);
+  --color-important: var(--sf-important);
+  --color-important-bg: var(--sf-important-bg);
+  --font-sans: var(--sf-font);
+  --font-mono: var(--sf-mono);
+  --radius-sf: var(--sf-radius);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sf-font);
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--sf-bg);
+  color: var(--sf-ink);
+}
+
+a {
+  color: var(--sf-accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Pinned app header and page toolbar (sticky-page-chrome): their heights are measured into these variables, and
+   parts that stick below them (help tree, table of contents, heading anchors) are offset by both. */
+:root {
+  --sf-header-h: 0px;
+  --sf-bar-h: 0px;
+}
+.sf-below-chrome {
+  top: calc(var(--sf-header-h) + var(--sf-bar-h) + 1rem);
+  max-height: calc(100vh - var(--sf-header-h) - var(--sf-bar-h) - 2rem);
+}
+@media (min-width: 1024px) {
+  .sf-below-chrome-lg {
+    top: calc(var(--sf-header-h) + var(--sf-bar-h) + 1rem);
+    max-height: calc(100vh - var(--sf-header-h) - var(--sf-bar-h) - 2rem);
+  }
+}
+.sf-anchor {
+  scroll-margin-top: calc(var(--sf-header-h) + var(--sf-bar-h) + 1rem);
+}
+
+:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 2px;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

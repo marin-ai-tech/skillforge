@@ -1,0 +1,51 @@
+{
+  "name": "skillforge",
+  "version": "0.5.0",
+  "description": "Self-hosted registry for coding-agent artifacts: skills, commands, agents, hooks, rules, plugins and MCP servers.",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "marin-ai technologies (https://github.com/marin-ai-tech)",
+  "homepage": "https://github.com/marin-ai-tech/skillforge",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marin-ai-tech/skillforge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/marin-ai-tech/skillforge/issues"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b && npm run build -w @skillforge/web",
+    "test": "npm run test --workspaces --if-present && node --test plugins/review-assistant/unit.test.mjs",
+    "lint": "eslint . && prettier --check . --ignore-path .prettierignore --ignore-path .lint-ignore.local",
+    "format": "prettier --write . --ignore-path .prettierignore --ignore-path .lint-ignore.local",
+    "dev:server": "tsc -b && node --watch packages/server/dist/index.js",
+    "dev:web": "npm run dev -w @skillforge/web",
+    "dev": "node -e \"console.log('Run in two terminals: npm run dev:server  and  npm run dev:web')\"",
+    "start": "node packages/server/dist/index.js",
+    "e2e": "playwright test",
+    "e2e:mvp": "playwright test tests/e2e/mvp-",
+    "simulate:mvp": "node scripts/simulate-mvp.mjs",
+    "local:start": "node -e \"const {spawnSync}=require('child_process');const w=process.platform==='win32';const a=w?['-NoProfile','-ExecutionPolicy','Bypass','-File','scripts/local-start.ps1','start']:['scripts/local-start.sh','start'];const r=spawnSync(w?'powershell':'bash',a,{stdio:'inherit'});process.exit(r.status===null?1:r.status)\"",
+    "local:stop": "node -e \"const {spawnSync}=require('child_process');const w=process.platform==='win32';const a=w?['-NoProfile','-ExecutionPolicy','Bypass','-File','scripts/local-start.ps1','stop']:['scripts/local-start.sh','stop'];const r=spawnSync(w?'powershell':'bash',a,{stdio:'inherit'});process.exit(r.status===null?1:r.status)\"",
+    "local:reset": "node -e \"const {spawnSync}=require('child_process');const w=process.platform==='win32';const a=w?['-NoProfile','-ExecutionPolicy','Bypass','-File','scripts/local-start.ps1','reset']:['scripts/local-start.sh','reset'];const r=spawnSync(w?'powershell':'bash',a,{stdio:'inherit'});process.exit(r.status===null?1:r.status)\"",
+    "cli:link": "npm link -w @skillforge/cli",
+    "seed:demo": "node --experimental-strip-types scripts/seed-demo.ts",
+    "release": "node scripts/release.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@playwright/test": "^1.63.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.43.0"
+  }
+}

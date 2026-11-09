@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.zip binary
+# Windows batch files must keep CRLF in the working tree (vendored starter-pack scripts).
+*.cmd text eol=crlf
+*.bat text eol=crlf

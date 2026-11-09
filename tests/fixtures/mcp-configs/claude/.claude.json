@@ -1,0 +1,16 @@
+{
+  "numStartups": 12,
+  "history": [{ "display": "deploy with FAKE-SECRET-history-0001" }],
+  "mcpServers": {
+    "memory": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory@2025.4.25"] }
+  },
+  "projects": {
+    "C:/Users/dev/FAKE-SECRET-projectpath-0002": {
+      "allowedTools": [],
+      "mcpServers": {
+        "db": { "command": "node", "args": ["db.js"], "env": { "DB_URL": "postgres://u:FAKE-SECRET-dburl-0003@h/db" } }
+      }
+    },
+    "/home/dev/other": { "mcpServers": {} }
+  }
+}

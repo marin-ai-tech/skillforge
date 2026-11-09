@@ -1,0 +1,8 @@
+{
+  "name": "actions",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Lead fixture: tab sections with actions, tab user, registry.addEvidence",
+  "main": "index.js",
+  "capabilities": ["ui.actions", "registry.evidence"]
+}

@@ -3,6 +3,17 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.2 — 2026-11-09
+
+CI on Windows is green again. No change to the product.
+
+### Changed
+- The release script and its tests share one way to run `tar`: on Windows the system `tar.exe` first and, when it
+  fails (it crashed on the GitHub Windows runner), Git's GNU tar.
+
+### Compatibility
+- No change to data, the API or the CLI.
+
 ## 0.5.1 — 2026-11-09
 
 The first release built by GitHub Actions: 0.5.0 was tagged, but its release workflow stopped before publishing

@@ -23,6 +23,7 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { zipSync } from "fflate";
+import { runTar } from "./lib/tar.mjs";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TEMPLATES = join(ROOT, "scripts", "release");
@@ -307,26 +308,9 @@ async function main() {
   cpSync(cli, join(OUT, `skillforge-cli-${version}.tgz`));
 
   step("archives");
-  // Windows: the system bsdtar; without it, GNU tar from PATH with --force-local (it reads "C:" as a remote host).
-  const sysTar = join(process.env.WINDIR ?? "C:\\Windows", "System32", "tar.exe");
-  const [tarExe, tarArgs] = !WIN
-    ? ["tar", []]
-    : existsSync(sysTar)
-      ? [sysTar, []]
-      : ["tar", ["--force-local"]];
-  const tar = spawnSync(
-    tarExe,
-    [...tarArgs, "-czf", join(OUT, `${name}.tar.gz`), "-C", work, name],
-    {
-      stdio: ["ignore", "inherit", "pipe"],
-      encoding: "utf8",
-    },
-  );
-  if (tar.status !== 0) {
-    throw new Error(
-      `tar failed (${tarExe}: ${tar.error?.message ?? `exit ${tar.status}`}) ${tar.stderr ?? ""}`.trim(),
-    );
-  }
+  // Windows: the system bsdtar, or Git's GNU tar when it fails (see scripts/lib/tar.mjs).
+  const tar = runTar(["-czf", join(OUT, `${name}.tar.gz`), "-C", work, name], [1, 3]);
+  if (tar.status !== 0) throw new Error(`tar failed: ${tar.stderr}`);
   writeZip(stage, `${name}/`, join(OUT, `${name}.zip`));
 
   if (!NO_INSTALLER) {

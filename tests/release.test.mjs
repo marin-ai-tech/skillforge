@@ -10,13 +10,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { unzipSync } from "fflate";
 import { ROOT, freePort } from "./lib/client.mjs";
+import { runTar } from "../scripts/lib/tar.mjs";
 
 const VERSION = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
 const WIN = process.platform === "win32";
-// Windows: the system bsdtar; Git Bash puts GNU tar first in PATH, and it reads "C:" as a remote host, so without
-// bsdtar GNU tar gets --force-local (as in scripts/release.mjs).
-const SYS_TAR = join(process.env.WINDIR ?? "C:\\Windows", "System32", "tar.exe");
-const [TAR, TAR_ARGS] = !WIN ? ["tar", []] : existsSync(SYS_TAR) ? [SYS_TAR, []] : ["tar", ["--force-local"]];
 const COMMIT = spawnSync("git", ["rev-parse", "--short=12", "HEAD"], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
 let work;
 let out;
@@ -115,7 +112,9 @@ test("the installer is built on this system: NSIS, a PE file with the bundled No
 test("archive: everything needed to run, without sources and development tools", () => {
   const dest = join(work, "tar");
   mkdirSync(dest);
-  assert.equal(run(TAR, [...TAR_ARGS, "-xzf", join(out, `skillforge-${VERSION}.tar.gz`), "-C", dest]).code, 0);
+  // Windows: the system bsdtar, or Git's GNU tar when it fails (scripts/lib/tar.mjs).
+  const untar = runTar(["-xzf", join(out, `skillforge-${VERSION}.tar.gz`), "-C", dest], [1, 3]);
+  assert.equal(untar.status, 0, untar.stderr);
   const root = join(dest, `skillforge-${VERSION}`);
   for (const rel of [
     "start.cmd",

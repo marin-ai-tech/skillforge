@@ -1,6 +1,6 @@
 # Why SkillForge
 
-Coding agents work from text: skills, slash commands, subagents, hooks, rules, plugins and the MCP servers they
+Coding agents work from text: skills, slash commands, subagents, hooks, plugins, settings and the MCP servers they
 connect to. In a team these files multiply fast, and most of them live where nobody else can see them. SkillForge is a
 registry for them on your own server: one place to publish, review, version and install what agents run on.
 

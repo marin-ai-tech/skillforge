@@ -1,9 +1,9 @@
 # SkillForge: a self-hosted registry for coding-agent artifacts
 
-SkillForge is an internal marketplace for what your coding agents run on: **skills, commands, agents, hooks, rules,
-plugins and MCP servers**. Teams publish them once, reviewers decide what becomes trusted, and every developer installs
-the same versions into Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Qwen Code and other agents. It runs on your
-own server; nothing leaves your infrastructure.
+SkillForge is an internal marketplace for what your coding agents run on: **skills, commands, agents, hooks, plugins,
+settings profiles and MCP servers**. Teams publish them once, reviewers decide what becomes trusted, and every
+developer installs the same versions into Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Qwen Code and other agents.
+It runs on your own server; nothing leaves your infrastructure.
 
 ![A tour of SkillForge: the catalog, publishing a folder, review and promotion, installing into an agent](docs/en/images/tour.gif)
 
@@ -44,8 +44,8 @@ More in [Why SkillForge](docs/en/01-why-skillforge.md).
 
 ## Features
 
-- **Seven artifact types** — skills, commands, agents, hooks, rules, plugins and MCP servers, each with its own
-  validation ([Artifact types](docs/en/05-artifact-types.md)).
+- **Seven artifact types** — skills, commands, agents, hooks, plugins, settings profiles and MCP servers, each with
+  its own validation ([Artifact types](docs/en/05-artifact-types.md)).
 - **Publishing and import** — the web interface, the CLI, imports from zip archives, folders and git, upstream mirrors
   and starter packs ([Publishing and import](docs/en/06-publishing-and-import.md)).
 - **Review and lifecycle** — candidate review, the lifecycle board, holds and replacements
@@ -119,7 +119,7 @@ skillforge sync --status active --runtime claude-code
 | [Devin](docs/en/agents/devin.md) | `devin` | project skills | — | — | over HTTP |
 | [Reckon](docs/en/agents/reckon.md) | `reckon` | project skills | — | — | through Claude Code |
 
-Hooks, rules, plugins and settings profiles go to the agents that support them. What each agent gets, where its files
+Hooks, plugins and settings profiles go to the agents that support them. What each agent gets, where its files
 go and how it connects: [Agents](docs/en/agents/README.md) and the in-app help topic `getting-started/agent-support`.
 
 ## 📚 Documentation

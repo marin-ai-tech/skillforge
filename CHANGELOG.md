@@ -5,11 +5,14 @@ is 0, a minor version may change behavior.
 
 ## 0.5.3 — 2026-11-09
 
-The Windows installer also builds on Windows. No change to the product.
+The Windows installer also builds on Windows, and the README names the artifact types correctly. No change to the
+product.
 
 ### Fixed
 - The release script passes the payload folder to NSIS with the host's path separator, so `makensis` on Windows finds
   `payload.zip` and the other installer files (it failed with "no files found" on the GitHub Windows runner).
+- The README, the changelog and "Why SkillForge" named rules among the artifact types; the seven types are skills,
+  commands, agents, hooks, plugins, settings profiles and MCP servers.
 
 ### Compatibility
 - No change to data, the API or the CLI.
@@ -51,7 +54,8 @@ The first public release: a self-hosted registry for coding-agent artifacts, wit
 into eight agents.
 
 ### Added
-- **Seven artifact types** with validation per type: skills, commands, agents, hooks, rules, plugins and MCP servers.
+- **Seven artifact types** with validation per type: skills, commands, agents, hooks, plugins, settings
+  profiles and MCP servers.
 - **Publishing** from the web interface and `skillforge publish`; **import** from zip archives, folders and git, with an
   import source policy and quarantine for fresh commits; upstream **mirrors** that re-import new releases as beta;
   installable **starter packs**.

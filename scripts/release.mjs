@@ -20,7 +20,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { zipSync } from "fflate";
 import { runTar } from "./lib/tar.mjs";
@@ -225,7 +225,7 @@ function buildInstaller(stage, work, version) {
     [
       "-V2",
       `-DVERSION=${version}`,
-      `-DSRC=${dir}`,
+      `-DSRC=${dir}${sep}`,
       `-DOUTFILE=${target}`,
       join(TEMPLATES, "windows", "installer.nsi"),
     ],

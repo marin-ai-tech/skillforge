@@ -1,6 +1,6 @@
 {
   "name": "skillforge",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Self-hosted registry for coding-agent artifacts: skills, commands, agents, hooks, rules, plugins and MCP servers.",
   "license": "SEE LICENSE IN LICENSE",
   "author": "marin-ai technologies (https://github.com/marin-ai-tech)",

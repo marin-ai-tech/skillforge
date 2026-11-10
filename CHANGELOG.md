@@ -3,6 +3,17 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.3 — 2026-11-09
+
+The Windows installer also builds on Windows. No change to the product.
+
+### Fixed
+- The release script passes the payload folder to NSIS with the host's path separator, so `makensis` on Windows finds
+  `payload.zip` and the other installer files (it failed with "no files found" on the GitHub Windows runner).
+
+### Compatibility
+- No change to data, the API or the CLI.
+
 ## 0.5.2 — 2026-11-09
 
 CI on Windows is green again. No change to the product.

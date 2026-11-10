@@ -1,5 +1,6 @@
-; SkillForge Windows installer (release-on-server). Built on Linux by scripts/release.mjs with makensis:
-;   makensis -V2 -DVERSION=<v> -DSRC=<folder> -DOUTFILE=<exe> installer.nsi
+; SkillForge Windows installer. Built by scripts/release.mjs with makensis (Linux or Windows):
+;   makensis -V2 -DVERSION=<v> -DSRC=<folder><separator> -DOUTFILE=<exe> installer.nsi
+; SRC ends with the separator of the host: makensis on Windows splits a File path at the last backslash only.
 ; It carries payload.zip (release + node\node.exe), version.txt, install.ps1 and uninstall.ps1 and runs install.ps1, which
 ; asks for the port and address and raises its own rights when it needs them.
 ;   /S              silent install with defaults (install.ps1 -Quiet)
@@ -17,10 +18,10 @@ AutoCloseWindow true
 SetCompress off
 
 !macro UNPACK
-  File "${SRC}/payload.zip"
-  File "${SRC}/version.txt"
-  File "${SRC}/install.ps1"
-  File "${SRC}/uninstall.ps1"
+  File "${SRC}payload.zip"
+  File "${SRC}version.txt"
+  File "${SRC}install.ps1"
+  File "${SRC}uninstall.ps1"
 !macroend
 
 Section

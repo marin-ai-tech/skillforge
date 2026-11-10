@@ -52,9 +52,16 @@ $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($task) { Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue }
 
 $target = Join-Path $InstallDir $version
-New-Item -ItemType Directory -Force -Path $target | Out-Null
-& "$env:WINDIR\System32\tar.exe" -xf (Join-Path $here "payload.zip") -C $target
-if ($LASTEXITCODE -ne 0) { throw "could not unpack payload.zip into $target" }
+# .NET reads the zip names as UTF-8 (System32\tar.exe converts them through the console code page and loses or
+# rejects non-ASCII names). A reinstall of the same version replaces its folder.
+if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+try {
+  [System.IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $here "payload.zip"), $target)
+} catch {
+  throw "could not unpack payload.zip into ${target}: $($_.Exception.Message)"
+}
 
 $current = Join-Path $InstallDir "current"
 if (Test-Path -LiteralPath $current) { cmd /c rmdir "`"$current`"" | Out-Null }

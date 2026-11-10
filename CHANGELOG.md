@@ -5,17 +5,23 @@ is 0, a minor version may change behavior.
 
 ## 0.5.3 — 2026-11-09
 
-The Windows installer also builds on Windows, and the README names the artifact types correctly. No change to the
-product.
+The Windows installer works again: the installers of 0.5.1 and 0.5.2 could stop while unpacking on Windows. The
+archives, the CLI and the container image are unchanged.
 
 ### Fixed
-- The release script passes the payload folder to NSIS with the host's path separator, so `makensis` on Windows finds
-  `payload.zip` and the other installer files (it failed with "no files found" on the GitHub Windows runner).
+- The installer unpacks its files with .NET instead of the system `tar.exe`, which converted file names through the
+  console code page and failed on a dependency file with a non-ASCII name. Reinstalling the same version replaces its
+  folder. Your data folder is not touched.
+- The release script passes the payload folder to NSIS with the host's path separator, so the installer also builds
+  with `makensis` on Windows.
 - The README, the changelog and "Why SkillForge" named rules among the artifact types; the seven types are skills,
   commands, agents, hooks, plugins, settings profiles and MCP servers.
 
+### Changed
+- The release workflow installs the Windows installer on a Windows runner before it publishes anything.
+
 ### Compatibility
-- No change to data, the API or the CLI.
+- No change to data, the API or the CLI. If the 0.5.1 or 0.5.2 installer stopped, run the 0.5.3 installer.
 
 ## 0.5.2 — 2026-11-09
 

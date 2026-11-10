@@ -17,7 +17,29 @@ env:
   SKILLFORGE_TEST_START_TIMEOUT_MS: "60000"
 
 jobs:
+  # The Windows installer is built on Linux but runs on Windows: install it there before anything is published.
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Tools for the Windows installer
+        shell: bash
+        run: bash .github/scripts/release-tools.sh
+
+      - name: Build the release and install it
+        run: |
+          npm ci
+          npm run build
+          node --test tests/release.test.mjs
+
   release:
+    needs: windows-installer
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

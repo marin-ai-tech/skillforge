@@ -220,6 +220,12 @@ test("Windows installer: bundled Node, no-task installation into temporary folde
   const install = run("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", join(ex, "install.ps1"), "-NoTask", "-Quiet", "-InstallDir", prog, "-DataDir", data, "-Port", String(port)]);
   assert.equal(install.code, 0, install.out);
   assert.ok(existsSync(join(prog, VERSION, "node", "node.exe")), "bundled node.exe");
+  // Every file of payload.zip under its own name: non-ASCII names (a dependency has "snow ☃") must survive any
+  // console code page.
+  const payload = Object.keys(unzipSync(readFileSync(join(ex, "payload.zip")))).filter((n) => !n.endsWith("/")).sort();
+  const installed = walk(join(prog, VERSION)).map((f) => f.slice(join(prog, VERSION).length + 1).replace(/\\/g, "/")).sort();
+  assert.deepEqual(installed, payload, "the installed files are exactly the files of payload.zip");
+  assert.ok(payload.some((n) => /[^\x20-\x7e]/.test(n)), "payload.zip has a non-ASCII file name to check");
   assert.ok(existsSync(join(prog, "current", "packages", "server", "dist", "index.js")), "the current pointer");
   assert.ok(existsSync(join(data, "skillforge.env")), "settings in the data folder");
 

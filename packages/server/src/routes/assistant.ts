@@ -101,6 +101,13 @@ function sseWriter(reply: FastifyReply) {
   };
 }
 
+/** HTTP status of a model error before the stream starts: a refused budget grant is the caller's, not the provider's. */
+function errorStatus(code: string): number {
+  if (code === "llm_timeout") return 504;
+  if (code === "budget_grant_rejected") return 403;
+  return 502;
+}
+
 export const assistantRoutes: FastifyPluginAsync<AssistantOpts> = async (app, opts) => {
   const { db, config } = opts;
 
@@ -176,7 +183,7 @@ export const assistantRoutes: FastifyPluginAsync<AssistantOpts> = async (app, op
       code = e instanceof LlmError ? e.code : "llm_upstream_error";
       if (out.started) out.send("error", { code });
       else if (!abort.signal.aborted) {
-        reply.raw.writeHead(code === "llm_timeout" ? 504 : 502, {
+        reply.raw.writeHead(errorStatus(code), {
           "content-type": "application/json; charset=utf-8",
         });
         reply.raw.write(JSON.stringify({ error: code }));

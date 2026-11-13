@@ -143,7 +143,12 @@ export async function previewImport(opts: {
   if (!mat.ok) return failedPreview(config.dataDir, importId, mat);
 
   try {
-    const scanned = scanImportTree(mat.files.map((f) => ({ path: f.path, content: f.content })));
+    const scanned = scanImportTree(
+      mat.files.map((f) => ({ path: f.path, content: f.content })),
+      {
+        rootSkillTakesRest: true,
+      },
+    );
 
     const candidates: PreviewCandidate[] = [];
     for (const c of scanned.candidates) {

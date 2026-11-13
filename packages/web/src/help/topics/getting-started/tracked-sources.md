@@ -32,6 +32,8 @@ The version number is the `version` from the frontmatter when it is above the la
 
 ## States
 
+The panel starts with one line that answers whether the skill is up to date: when the source was last checked and in what state, that it was never checked, or that tracking is off. The state below it is a badge: ✓ for a new beta version, ⏳ for a commit in quarantine, ⚠ for a problem.
+
 | State | Meaning | What to do |
 |---|---|---|
 | `ok` | a new version was published in `beta` | compare it with stable on the Versions tab and review it |

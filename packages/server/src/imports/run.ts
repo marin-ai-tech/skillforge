@@ -369,7 +369,12 @@ export async function runImport(opts: {
   const { meta, files } = loaded;
   const refused = refusedByPolicy(db, meta, role, ageOverrideReason);
   if (refused) return refused;
-  const scanned = scanImportTree(files.map((f) => ({ path: f.path, content: f.content })));
+  const scanned = scanImportTree(
+    files.map((f) => ({ path: f.path, content: f.content })),
+    {
+      rootSkillTakesRest: true,
+    },
+  );
 
   // Rebuild candidate list with resolved ids (same as preview)
   const candidates = resolveCandidates({ db, actor, role }, scanned, files);

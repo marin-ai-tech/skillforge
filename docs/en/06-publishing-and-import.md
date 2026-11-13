@@ -104,9 +104,13 @@ dry-run on each one and publishes the rows you select in one pass. Use it for an
 
 Limits and rules:
 
+- A skill takes its whole folder: `SKILL.md` with everything beside it and in its subfolders. A zip or a git folder
+  that holds one skill folder gives one skill with all its files; a `SKILL.md` at the root of the source takes every file
+  that no other package claims. `node_modules`, `.git`, `dist` and `.skillforge-lock.json` never go in.
 - An import holds at most 5000 files and 64 MB (`import_too_large`); set a folder inside the repository or split it.
 - The server clones git itself, with its own git setup and network access: a shallow clone of the latest commit,
-  with a two-minute limit. A private repository needs the server's own access.
+  with a two-minute limit. Files come exactly as they are in the repository, whatever the server's git line-end
+  settings. A private repository needs the server's own access.
 - `file://` addresses and local paths work only when the operator sets `SKILLFORGE_IMPORT_ALLOW_FILE_URLS`;
   other forms get `import_url_not_allowed`. `SKILLFORGE_IMPORT_GIT` (on by default) turns git import off
   (`import_git_disabled`).

@@ -237,6 +237,8 @@ export const apiErrors = {
   llm_rate_limited: "The model provider is busy. Try again in a minute.",
   llm_timeout: "The model did not answer in time.",
   llm_upstream_error: "The model provider returned an error.",
+  budget_grant_rejected:
+    "Agent Space did not accept the budget grant: it was revoked or has expired, or its task is no longer claimed. Get a new grant and try again.",
   llm_aborted: "The answer was stopped.",
 };
 

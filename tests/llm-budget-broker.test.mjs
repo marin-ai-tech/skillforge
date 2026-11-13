@@ -98,6 +98,21 @@ test("a chat without a grant goes to the broker without the grant header", { ski
   assert.equal(req.headers["x-agent-space-provider"], "deepseek");
 });
 
+// fix-broker-grant-refusal: a refused grant is named as such, not as a provider error.
+test("the broker refuses the grant (401 or 403): budget_grant_rejected, one request; without a grant 401 stays llm_unauthorized", { skip: WIN && "Unix sockets" }, async () => {
+  for (const mode of ["error401", "error403"]) {
+    const before = broker.chatRequests().length;
+    broker.next(mode);
+    const r = await chat(srv, auth.alice, { budget_grant: GRANT });
+    assert.equal(r.status, 403, `${mode}: ${r.text}`);
+    assert.equal(JSON.parse(r.text).error, "budget_grant_rejected", mode);
+    assert.equal(broker.chatRequests().length, before + 1, `${mode}: retried`);
+  }
+  broker.next("error401");
+  const plain = await chat(srv, auth.alice);
+  assert.equal(JSON.parse(plain.text).error, "llm_unauthorized", plain.text);
+});
+
 test("a malformed grant is refused before the model", { skip: WIN && "Unix sockets" }, async () => {
   const before = broker.chatRequests().length;
   for (const bad of ["abc", `as_sf_${"x".repeat(42)}`, `as_sf_${"x".repeat(43)}.extra`, 42]) {

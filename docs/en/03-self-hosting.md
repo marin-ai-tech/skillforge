@@ -330,6 +330,10 @@ SKILLFORGE_BUDGET_SOCKET=/run/agent-space-budget/model.sock
   `<grant>.<budget_grant_id>`). The grant is a bearer secret: it is never stored, returned or logged, and the plugin
   keeps it only in memory. After a restart, budget runs become `interrupted` and Agent Space resumes them with a new
   grant. A grant on a server without a broker is refused with `400 budget_grant_unsupported`.
+- **Refused grant.** When the broker answers a call with a grant with `401` or `403` (as its external port does for
+  `skillforge_grant_invalid` and `sdlc_claim_unconfirmed`), SkillForge reports `budget_grant_rejected`: the
+  assistant answers `403`, and a review-assistant run fails with that `error`. The request is not repeated. A broker
+  that answers every refusal with `502` is reported as `llm_upstream_error`.
 - **Socket access.** Whoever can write to the socket can spend the budget; the operator restricts it, for example with a
   runtime directory readable only by the server's user.
 

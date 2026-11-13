@@ -64,6 +64,12 @@ export async function startFakeLlm({ reply = DEFAULT_REPLY, scenario = "stream",
         res.end(JSON.stringify({ error: { message: `invalid api key; ${UPSTREAM_SECRET_DETAIL}`, type: "auth" } }));
         return;
       }
+      if (mode === "error403") {
+        // The Agent Space broker refuses a grant whose task claim is not confirmed (its external port: 403).
+        res.writeHead(403, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { code: "sdlc_claim_unconfirmed" } }));
+        return;
+      }
       if (mode === "toolcalls") {
         res.writeHead(200, { "content-type": "text/event-stream" });
         sse(res, chunk({ tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "publish_artifact", arguments: "{\"name\":\"evil\"}" } }] }));

@@ -28,6 +28,22 @@ type Outcome = {
 const REF_RE = /^[A-Za-z0-9._/-]{1,200}$/;
 const PROBLEMS = new Set<SourceState>(["failed", "edits_outdated", "path_missing"]);
 
+type Tone = "success" | "neutral" | "warning" | "danger";
+
+/** The badge's tone and icon: the text is the main ink on a light tone background, so it keeps 4.5:1 in both themes. */
+const TONES: Record<Tone, { icon: string; className: string }> = {
+  success: { icon: "✓", className: "border-st-active bg-st-active-bg" },
+  neutral: { icon: "", className: "border-line bg-bg" },
+  warning: { icon: "⏳", className: "border-warning bg-warning-bg" },
+  danger: { icon: "⚠", className: "border-danger bg-danger-bg" },
+};
+
+function toneOf(state: SourceState): Tone {
+  if (state === "ok") return "success";
+  if (state === "quarantined") return "warning";
+  return PROBLEMS.has(state) ? "danger" : "neutral";
+}
+
 /** The branch or tag field under the server's rule; empty means the default branch (null). */
 function parseRef(input: string): { ok: true; ref: string | null } | { ok: false } {
   const v = input.trim();
@@ -149,12 +165,23 @@ function SourceView({ source, type, name, canManage }: { source: TrackedSource }
       <h2 id={headingId} className="text-xs uppercase tracking-wide text-muted">
         {t.title}
       </h2>
+      <p data-testid="source-summary" className="text-sm font-medium text-ink">
+        {summaryText(source)}
+      </p>
       <p className="text-xs text-ink-2">{t.hint}</p>
       <SourceFacts source={source} outcome={currentOutcome(source)} />
       <EditRules edits={source.edits} />
       {canManage ? <SourceControls source={source} type={type} name={name} /> : null}
     </section>
   );
+}
+
+/** One line that answers "is this skill up to date with its source". */
+function summaryText(source: TrackedSource): string {
+  const t = STR.art.source;
+  if (!source.enabled) return t.summaryOff;
+  if (!source.state || !source.last_checked_at) return t.summaryNever;
+  return t.summaryChecked(formatDateTime(source.last_checked_at), stateLabel(source.state));
 }
 
 function Fact({ label, children, testId }: { label: string; children: ReactNode; testId: string }) {
@@ -235,13 +262,17 @@ function StateView({ outcome }: { outcome: Outcome | null }) {
   const t = STR.art.source;
   if (!outcome) return <>{t.notChecked}</>;
   const note = outcomeNote(outcome);
-  const problem = PROBLEMS.has(outcome.state);
+  const tone = toneOf(outcome.state);
+  const { icon, className } = TONES[tone];
   return (
     <div className="space-y-1">
       <span
+        data-testid="source-state-badge"
         data-state={outcome.state}
-        className={problem ? "font-medium text-danger" : "font-medium"}
+        data-tone={tone}
+        className={`inline-flex items-center gap-1 rounded-sf border px-2 py-0.5 text-sm font-medium text-ink ${className}`}
       >
+        {icon ? <span aria-hidden="true">{icon}</span> : null}
         {stateLabel(outcome.state)}
       </span>
       {outcome.state === "edits_outdated" ? <OutdatedRule detail={outcome.detail} /> : null}
@@ -349,6 +380,11 @@ function SourceControls({ source, type, name }: ControlsProps) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const key = ["source", type, name];
+  // A live region announces a change: the same text twice is cleared first, so a screen reader says it again.
+  const announce = (text: string) => {
+    setMessage("");
+    window.setTimeout(() => setMessage(text), 50);
+  };
 
   const save = useMutation({
     mutationFn: (patch: { enabled?: boolean; ref?: string | null }) =>
@@ -359,8 +395,8 @@ function SourceControls({ source, type, name }: ControlsProps) {
     },
     onSuccess: (next, patch) => {
       queryClient.setQueryData(key, next);
-      if (patch.ref === undefined) setMessage(t.saved);
-      else setMessage(patch.ref ? t.savedRef(patch.ref) : t.savedDefault);
+      if (patch.ref === undefined) announce(t.saved);
+      else announce(patch.ref ? t.savedRef(patch.ref) : t.savedDefault);
     },
     onError: (err: unknown) => setError(sourceErrorText(err)),
   });
@@ -372,7 +408,7 @@ function SourceControls({ source, type, name }: ControlsProps) {
       setMessage(t.checking);
     },
     onSuccess: async (result) => {
-      setMessage(t.checkResult(outcomeSentence(result)));
+      announce(t.checkResult(outcomeSentence(result)));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: key }),
         queryClient.invalidateQueries({ queryKey: ["artifact", type, name] }),
@@ -391,19 +427,19 @@ function SourceControls({ source, type, name }: ControlsProps) {
     <div className="space-y-3 border-t border-line pt-3">
       <TrackingToggle
         enabled={source.enabled}
-        disabled={busy}
+        busy={busy}
         onChange={(enabled) => save.mutate({ enabled })}
       />
       <RefForm
         current={source.ref}
-        disabled={busy}
+        busy={busy}
         onSave={(ref) => save.mutate({ ref })}
-        onUnchanged={() => setMessage(t.refUnchanged)}
+        onUnchanged={() => announce(t.refUnchanged)}
       />
       <CheckRow
         enabled={source.enabled}
         pending={check.isPending}
-        disabled={busy}
+        busy={busy}
         onCheck={() => check.mutate()}
       />
       <p data-testid="source-message" role="status" className="text-xs text-ink-2">
@@ -418,9 +454,13 @@ function SourceControls({ source, type, name }: ControlsProps) {
   );
 }
 
+/**
+ * While a save or a check runs, the controls stay focusable (aria-disabled, not disabled): a disabled control drops
+ * keyboard focus to the page. A repeated action meanwhile is ignored.
+ */
 function TrackingToggle(props: {
   enabled: boolean;
-  disabled: boolean;
+  busy: boolean;
   onChange: (enabled: boolean) => void;
 }) {
   const id = useId();
@@ -433,8 +473,10 @@ function TrackingToggle(props: {
           data-testid="source-enabled"
           className="h-5 w-5"
           checked={props.enabled}
-          disabled={props.disabled}
-          onChange={(e) => props.onChange(e.target.checked)}
+          aria-disabled={props.busy || undefined}
+          onChange={(e) => {
+            if (!props.busy) props.onChange(e.target.checked);
+          }}
         />
       </HelpTip>
       <label htmlFor={id} className="text-ink">
@@ -446,7 +488,7 @@ function TrackingToggle(props: {
 
 function RefForm(props: {
   current: string | null;
-  disabled: boolean;
+  busy: boolean;
   onSave: (ref: string | null) => void;
   onUnchanged: () => void;
 }) {
@@ -459,6 +501,7 @@ function RefForm(props: {
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (props.busy) return;
     const parsed = parseRef(value);
     setInvalid(!parsed.ok);
     if (!parsed.ok) return;
@@ -502,8 +545,8 @@ function RefForm(props: {
         <button
           type="submit"
           data-testid="source-ref-save"
-          className="rounded-sf border border-line px-3 py-1.5 text-sm font-medium text-ink disabled:opacity-50"
-          disabled={props.disabled}
+          className="rounded-sf border border-line px-3 py-1.5 text-sm font-medium text-ink aria-disabled:opacity-50"
+          aria-disabled={props.busy || undefined}
         >
           {t.refSave}
         </button>
@@ -515,7 +558,7 @@ function RefForm(props: {
 function CheckRow(props: {
   enabled: boolean;
   pending: boolean;
-  disabled: boolean;
+  busy: boolean;
   onCheck: () => void;
 }) {
   const t = STR.art.source;
@@ -525,10 +568,13 @@ function CheckRow(props: {
         <button
           type="button"
           data-testid="source-check"
-          className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg disabled:opacity-50"
-          disabled={props.disabled || !props.enabled}
+          className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg disabled:opacity-50 aria-disabled:opacity-50"
+          disabled={!props.enabled}
+          aria-disabled={props.busy || undefined}
           aria-busy={props.pending || undefined}
-          onClick={props.onCheck}
+          onClick={() => {
+            if (!props.busy) props.onCheck();
+          }}
         >
           {props.pending ? t.checking : t.check}
         </button>

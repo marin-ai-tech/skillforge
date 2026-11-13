@@ -66,3 +66,29 @@ test("scanImportTree: plugin-sample yields 5 candidates, reckon, hook name, skip
     }
   }
 });
+
+// fix-import-root-skill: the import takes the rest of the tree into a root skill; the agent scan keeps "only SKILL.md".
+test("scanImportTree: a root SKILL.md takes the unclaimed files only with rootSkillTakesRest", () => {
+  const md = "---\nname: root-skill\ndescription: d\n---\n\nBody.\n";
+  const files = [
+    { path: "SKILL.md", content: md },
+    { path: "scripts/run.sh", content: "echo\n" },
+    { path: "commands/deploy.md", content: "Deploy.\n" },
+    { path: "node_modules/x/index.js", content: "x" },
+    { path: ".git/config", content: "x" },
+    { path: "dist/out.js", content: "x" },
+    { path: ".skillforge-lock.json", content: "{}" },
+  ];
+  const plain = scanImportTree(files);
+  const plainSkill = plain.candidates.find((c) => c.type === "skill")!;
+  assert.deepEqual(
+    plainSkill.files.map((f) => f.path),
+    ["SKILL.md"],
+  );
+  const rest = scanImportTree(files, { rootSkillTakesRest: true });
+  const skill = rest.candidates.find((c) => c.type === "skill")!;
+  assert.equal(skill.root, "");
+  assert.deepEqual(skill.files.map((f) => f.path).sort(), ["SKILL.md", "scripts/run.sh"]);
+  assert.ok(rest.candidates.some((c) => c.id === "command/deploy"));
+  assert.ok(!rest.skipped.some((s) => s.reason === "unclaimed"), JSON.stringify(rest.skipped));
+});

@@ -26,6 +26,8 @@ Import scans a zip archive, a local folder, or a git repository for skill, comma
 
 - For admins, **Upstream mirrors** (`mirrors`): git sources the registry checks every day (`SKILLFORGE_MIRROR_INTERVAL_HOURS`) or with **Check now**. New packages arrive as candidates, changed packages as a new version in the `beta` channel, so people on `stable` get nothing until a reviewer moves it. Each check follows the source policy, the quarantine, the security scan and the hook gate; a check of a commit in quarantine reports when it can go. Deleting a mirror keeps the artifacts.
 
+- A skill takes its whole folder: `SKILL.md` with everything beside it and in its subfolders. A zip or a git `path` that holds one skill folder gives one skill with all its files; a `SKILL.md` at the root of the upload takes every file that no other package claims (commands, agents, hooks and other skill folders stay separate). `node_modules`, `.git`, `dist` and `.skillforge-lock.json` never go in.
+
 - Every package imported from git also gets a **tracked source** on its artifact page: the registry checks its folder for new commits and publishes a change as a version in the `beta` channel; local changes are kept as edit rules ([details](getting-started/tracked-sources)).
 
 ## Common tasks

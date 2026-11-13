@@ -77,6 +77,36 @@ test("preview files: shared directory stripped, 5 candidates, provenance reckon,
   importId = d.import_id;
 });
 
+// fix-import-root-skill: a folder of one skill is the whole skill, not just its SKILL.md.
+test("preview files: a single skill folder keeps all its files; other candidates stay separate", async () => {
+  const md = (name) => `---\nname: ${name}\ndescription: Counts pages of PDF files. Use when a PDF is too long to read.\n---\n\n# ${name}\n\nRun the script.\n`;
+  const one = await preview({
+    kind: "files",
+    files: toB64([
+      { path: "pdf/SKILL.md", content: md("pdf") },
+      { path: "pdf/scripts/count.py", content: "print(1)\n" },
+      { path: "pdf/references/pages.md", content: "# Pages\n" },
+    ]),
+  });
+  assert.equal(one.status, 200, JSON.stringify(one.data));
+  assert.deepEqual(one.data.candidates.map((c) => c.id), ["skill/pdf"]);
+  assert.deepEqual(one.data.candidates[0].files.map((f) => f.path).sort(), ["SKILL.md", "references/pages.md", "scripts/count.py"]);
+  assert.deepEqual(one.data.skipped.filter((s) => s.reason === "unclaimed"), []);
+  // Negative: a command beside the root skill stays a command and is not part of the skill.
+  const mixed = await preview({
+    kind: "files",
+    files: toB64([
+      { path: "SKILL.md", content: md("root-skill") },
+      { path: "README.md", content: "# root\n" },
+      { path: "commands/deploy.md", content: "Deploy the app.\n" },
+    ]),
+  });
+  assert.equal(mixed.status, 200, JSON.stringify(mixed.data));
+  assert.deepEqual(mixed.data.candidates.map((c) => c.id).sort(), ["command/deploy", "skill/root-skill"]);
+  const skill = mixed.data.candidates.find((c) => c.id === "skill/root-skill");
+  assert.deepEqual(skill.files.map((f) => f.path).sort(), ["README.md", "SKILL.md"]);
+});
+
 test("run all: 5 created 0.1.0, audit with meta.import, provenance reckon kept; a repeated run -> 410", async () => {
   const r = await run({ import_id: importId, selected: "all" });
   assert.equal(r.status, 200, JSON.stringify(r.data));
@@ -217,6 +247,12 @@ test("git: path and ref are validated; directory traversal and git options are r
     const okPath = await rawApi(allowed.base, "POST", "/api/v1/imports/preview", { source: { kind: "git", url, ref: "main", path: "skills" } }, { cookie: a.cookie });
     assert.equal(okPath.status, 200, JSON.stringify(okPath.data));
     assert.deepEqual(okPath.data.candidates.map((c) => c.id), ["skill/csv-tools"]);
+    // fix-import-root-skill: the folder's other files come with SKILL.md, whether path names the parent or the folder.
+    assert.deepEqual(okPath.data.candidates[0].files.map((f) => f.path).sort(), ["SKILL.md", "references/REFERENCE.md"]);
+    const skillPath = await rawApi(allowed.base, "POST", "/api/v1/imports/preview", { source: { kind: "git", url, ref: "main", path: "skills/csv-tools" } }, { cookie: a.cookie });
+    assert.equal(skillPath.status, 200, JSON.stringify(skillPath.data));
+    assert.deepEqual(skillPath.data.candidates.map((c) => c.id), ["skill/csv-tools"]);
+    assert.deepEqual(skillPath.data.candidates[0].files.map((f) => f.path).sort(), ["SKILL.md", "references/REFERENCE.md"]);
     const missingPath = await rawApi(allowed.base, "POST", "/api/v1/imports/preview", { source: { kind: "git", url, path: "nope" } }, { cookie: a.cookie });
     assert.equal(missingPath.status, 400);
     assert.equal(missingPath.data.error, "import_git_failed");

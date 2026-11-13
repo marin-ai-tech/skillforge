@@ -17,6 +17,7 @@ export type LlmErrorCode =
   | "llm_aborted"
   | "llm_disabled"
   | "llm_budget_exhausted"
+  | "budget_grant_rejected"
   | "unknown_purpose";
 
 export class LlmError extends Error {
@@ -40,8 +41,13 @@ type StreamOpts = {
   budgetGrant?: string;
 };
 
-function statusCode(status: number): LlmErrorCode {
-  if (status === 401 || status === 403) return "llm_unauthorized";
+/**
+ * Error code of a refused request. Through the budget broker with a grant, 401 and 403 are the broker refusing the
+ * grant (as on its external port: `skillforge_grant_invalid`, `sdlc_claim_unconfirmed`), not a bad provider key.
+ */
+function statusCode(status: number, config: AppConfig, grant: string | undefined): LlmErrorCode {
+  if (status === 401 || status === 403)
+    return config.budgetSocket && grant ? "budget_grant_rejected" : "llm_unauthorized";
   if (status === 429) return "llm_rate_limited";
   return "llm_upstream_error";
 }
@@ -145,7 +151,7 @@ export async function streamChat(opts: StreamOpts): Promise<Usage> {
     const res = await requestModel(config, settings, payload, signal, opts.budgetGrant);
     if (!res.ok || !res.body) {
       await res.body?.cancel().catch(() => undefined);
-      throw new LlmError(statusCode(res.status));
+      throw new LlmError(statusCode(res.status, config, opts.budgetGrant));
     }
     let usage: Usage | null;
     if ((res.headers.get("content-type") ?? "").includes("application/json")) {

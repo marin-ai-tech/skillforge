@@ -430,6 +430,9 @@ export const art = {
     trackingOff: "off: the registry does not check this source",
     state: "State",
     notChecked: "not checked yet",
+    summaryNever: "Not checked yet.",
+    summaryOff: "Tracking is off: the registry does not check this source.",
+    summaryChecked: (time: string, state: string) => `Checked ${time}: ${state}.`,
     states: {
       ok: "New beta version for review",
       unchanged: "Up to date",

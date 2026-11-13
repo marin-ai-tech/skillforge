@@ -29,6 +29,11 @@ export type ScanResult = {
 export type ScanImportOptions = {
   /** Runtime label for normalizeForeign (e.g. qwen {{args}} rewrite). Existing callers omit it. */
   runtime?: string | null;
+  /**
+   * Import, mirrors and tracked sources: a SKILL.md at the root of the tree takes every file no other candidate took
+   * (a folder of one skill is the whole skill). Without it a root SKILL.md is only itself, which the agent scan keeps.
+   */
+  rootSkillTakesRest?: boolean;
 };
 
 type NormFile = { path: string; content: string | Uint8Array };
@@ -119,11 +124,13 @@ function scanSkillDirectories(
   normalized: NormFile[],
   claimed: Set<string>,
   candidates: ScanCandidate[],
+  deferRoot: boolean,
 ): void {
   for (const f of normalized) {
     if (isUnderSkippedRoot(f.path)) continue;
     if (basenameOf(f.path) !== "SKILL.md") continue;
     const root = dirnameOf(f.path);
+    if (root.length === 0 && deferRoot) continue;
     const skillFiles = collectSkillDirFiles(normalized, root, claimed);
     const dirName = root.length > 0 ? basenameOf(root) : "skill";
     const skillMd = skillFiles.find((x) => x.path === "SKILL.md");
@@ -251,6 +258,32 @@ function scanSingleMdArtifacts(
   }
 }
 
+/** A root SKILL.md that takes the rest of the tree: every file not claimed, not ignored and not the lock file. */
+function claimRootSkill(
+  normalized: NormFile[],
+  claimed: Set<string>,
+  candidates: ScanCandidate[],
+): void {
+  const skillMd = normalized.find((f) => f.path === "SKILL.md");
+  if (!skillMd) return;
+  const files: ArtifactFileInput[] = [];
+  for (const f of normalized) {
+    if (claimed.has(f.path) || isUnderSkippedRoot(f.path)) continue;
+    if (basenameOf(f.path) === ".skillforge-lock.json") continue;
+    files.push({ path: f.path, content: f.content });
+    claimed.add(f.path);
+  }
+  const name = skillNameFromContent(skillMd.content, "skill");
+  candidates.unshift({
+    id: `skill/${name}`,
+    type: "skill",
+    root: "",
+    files,
+    nameHint: name,
+    provenance: { source: "human", ref: null },
+  });
+}
+
 function collectSkipped(normalized: NormFile[], claimed: Set<string>): ScanSkipped[] {
   const skipped: ScanSkipped[] = [];
   for (const f of normalized) {
@@ -302,11 +335,13 @@ export function scanImportTree(
   const claimed = new Set<string>();
   const rawCandidates: ScanCandidate[] = [];
 
-  scanSkillDirectories(normalized, claimed, rawCandidates);
+  const rootTakesRest = options?.rootSkillTakesRest === true;
+  scanSkillDirectories(normalized, claimed, rawCandidates, rootTakesRest);
   scanHookBundles(normalized, claimed, rawCandidates);
   scanReckonSkills(normalized, claimed, rawCandidates);
   scanSingleMdArtifacts(normalized, claimed, rawCandidates, "command", isCommandPath);
   scanSingleMdArtifacts(normalized, claimed, rawCandidates, "agent", isAgentPath);
+  if (rootTakesRest) claimRootSkill(normalized, claimed, rawCandidates);
 
   const { candidates, invalid } = applyNormalizeForeign(rawCandidates, options?.runtime);
 

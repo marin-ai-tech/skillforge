@@ -192,6 +192,17 @@ test("after a restart a budget run is interrupted and resumes only for its autho
   assert.equal(repeat.status, 200);
 });
 
+// fix-broker-grant-refusal: a run that failed keeps its reason; a refused grant is named as such.
+test("a check whose grant the broker refuses: failed with error budget_grant_rejected", { skip }, async () => {
+  broker.next("error403");
+  const r = await call("POST", `${EXT}/validation/runs`, { type: "skill", name: "budget-a", version: "0.1.0", ...ctx() }, auth.rita);
+  assert.equal(r.status, 202, JSON.stringify(r.data));
+  const run = await finished(r.data.run.id);
+  assert.equal(run.status, "failed", JSON.stringify(run));
+  assert.equal(run.error, "budget_grant_rejected", JSON.stringify(run));
+  assert.equal(run.reviewers[0].error, "budget_grant_rejected");
+});
+
 test("the grant is stored nowhere", { skip }, async () => {
   const db = new DatabaseSync(join(srv.dataDir, "skillforge.db"), { readOnly: true });
   for (const { name } of db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()) {

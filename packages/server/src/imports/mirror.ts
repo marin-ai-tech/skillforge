@@ -236,7 +236,12 @@ export async function syncMirror(
       skipConflicts: true,
       betaForExisting: true,
     };
-    const scanned = scanImportTree(mat.files.map((f) => ({ path: f.path, content: f.content })));
+    const scanned = scanImportTree(
+      mat.files.map((f) => ({ path: f.path, content: f.content })),
+      {
+        rootSkillTakesRest: true,
+      },
+    );
     const wanted = new Set(mirror.include);
     for (const c of resolveCandidates(ctx, scanned, mat.files)) {
       if (wanted.size > 0 && !wanted.has(c.id)) continue;

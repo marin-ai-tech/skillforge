@@ -160,7 +160,12 @@ async function publishFrom(
     skipConflicts: true,
     betaForExisting: true,
   };
-  const scanned = scanImportTree(files.map((f) => ({ path: f.path, content: f.content })));
+  const scanned = scanImportTree(
+    files.map((f) => ({ path: f.path, content: f.content })),
+    {
+      rootSkillTakesRest: true,
+    },
+  );
   const candidate = resolveCandidates(ctx, scanned, files).find(
     (c) => c.id === `${artifact.type}/${artifact.name}`,
   );

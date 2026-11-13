@@ -336,14 +336,26 @@ function reviewBadge(ctx, artifact, count) {
   }
 }
 
+/**
+ * Why a run without any result failed: the first reviewer error that is a code (`budget_grant_rejected`,
+ * `llm_timeout`). An external reviewer's stderr tail is text, not a code, and stays only in its reviewer row.
+ */
+function failureReason(results) {
+  return (
+    results.map((r) => r.error).find((e) => typeof e === "string" && /^[a-z_]{3,64}$/.test(e)) ??
+    null
+  );
+}
+
 // Returns false when the transaction failed (the run is then marked failed).
 function persistRunResults(db, runId, judged, status, reviewerRows) {
+  const error = status === "failed" ? failureReason(reviewerRows) : null;
   db.exec("BEGIN");
   try {
     insertFindings(db, runId, judged.findings);
     db.prepare(
-      "UPDATE ext_review_assistant_runs SET status = ?, reviewers = ?, judge = ?, error = NULL, finished_at = ? WHERE id = ?",
-    ).run(status, JSON.stringify(reviewerRows), JSON.stringify(judged), nowIso(), runId);
+      "UPDATE ext_review_assistant_runs SET status = ?, reviewers = ?, judge = ?, error = ?, finished_at = ? WHERE id = ?",
+    ).run(status, JSON.stringify(reviewerRows), JSON.stringify(judged), error, nowIso(), runId);
     db.exec("COMMIT");
     return true;
   } catch (e) {

@@ -3,6 +3,31 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.5 — 2026-11-13
+
+Import keeps whole skill folders, a refused Agent Space budget grant is named as such, and the Source panel is
+easier to read and to use from the keyboard.
+
+### Fixed
+- Import takes a whole skill folder: a zip, a folder upload or a git `path` that holds one skill folder used to give a
+  skill with only its `SKILL.md`, the rest listed as unclaimed. A `SKILL.md` at the root of the source now takes every
+  file no other package claims; commands, agents, hooks and other skill folders stay separate. Mirrors and tracked
+  sources follow the same rule. Versions imported before stay as they are; import the folder again to get the full
+  skill.
+- A budget grant the Agent Space broker refuses (`401` or `403`) is reported as `budget_grant_rejected` instead of a
+  provider error: the assistant answers `403` and says to get a new grant. A review-assistant run that got no result
+  keeps the reason in its `error` (a code, such as `budget_grant_rejected` or `llm_timeout`) instead of `null`.
+- The Source panel starts with a summary line (when the source was last checked and its state), shows the state as a
+  badge with an icon (✓ new beta version, ⏳ quarantine, ⚠ problem), and keeps keyboard focus on its controls while a
+  save or a check runs. A repeated message is announced again by screen readers.
+
+### Compatibility
+- No database migration. The help assistant answers a refused grant with `403 budget_grant_rejected` instead of
+  `502`; the Agent Space broker reports the refusal on its socket from the Agent Space change
+  `fix-skillforge-grant-refusal` on, and an older broker still gives `502 llm_upstream_error`.
+- A review-assistant run that failed without any result now has a code in `error` instead of `null`.
+- An import preview of one skill folder lists more files in the skill than before.
+
 ## 0.5.4 — 2026-11-13
 
 Rules as an artifact type, model calls paid from Agent Space task budgets, and updates of skills that came from the

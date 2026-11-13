@@ -135,6 +135,15 @@ test.describe("tokens and password", () => {
 
   test("dave: changing the password — mismatch, wrong current one, success", async ({ page }) => {
     await page.goto("/");
+    // The test prepares dave itself: it must not depend on the tests above that create dave and reset the password.
+    await loginAs(page, "admin");
+    const users = (await (await page.request.get("/api/v1/admin/users")).json()) as { items: Array<{ id: string; username: string }> };
+    const daveId = users.items.find((u) => u.username === "dave")?.id;
+    const ready = daveId
+      ? await page.request.patch(`/api/v1/admin/users/${daveId}`, { data: { password: "dave-pw-456" } })
+      : await page.request.post("/api/v1/admin/users", { data: { username: "dave", password: "dave-pw-456", role: "contributor" } });
+    expect([200, 201]).toContain(ready.status());
+    await logout(page);
     const login = await page.request.post("/api/v1/auth/login", { data: { username: "dave", password: "dave-pw-456" } });
     expect(login.status()).toBe(200);
     await page.goto("/me/password");

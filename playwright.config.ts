@@ -19,6 +19,9 @@ export default defineConfig({
     browserName: "chromium",
     viewport: { width: 1280, height: 800 },
     trace: "retain-on-failure",
+    // The sandbox container has a small /dev/shm (256 MB): shared memory goes to temporary files instead, so a page
+    // does not crash when it runs out.
+    launchOptions: { args: ["--disable-dev-shm-usage"] },
   },
   // Default project is chromium; the Edge-channel run is opt-in (E2E_EDGE=1) because
   // stateful specs share one seeded stand — running them twice per suite fails on

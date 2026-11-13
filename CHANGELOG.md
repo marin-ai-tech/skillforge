@@ -3,6 +3,19 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.7 — 2026-11-13
+
+Steadier tests and release tooling. No change to the product.
+
+### Changed
+- The end-to-end tests start Chromium without `/dev/shm` shared memory, so a page no longer crashes in a container
+  with a small `/dev/shm`; the password change test prepares its user itself and runs on its own.
+- The release tools script shows the NSIS installation, retries it and checks `makensis` right away, so a failed
+  install stops the job at once instead of the release tests minutes later.
+
+### Compatibility
+- No change to data, the API or the CLI.
+
 ## 0.5.6 — 2026-11-13
 
 Keyboard focus stays on buttons, fields and checkboxes while their request runs.

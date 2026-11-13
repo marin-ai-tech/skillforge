@@ -85,11 +85,18 @@ function parseResponseData(text: string): unknown {
   }
 }
 
+/** What a server code means and what to do next (fix-readable-codes); the code stays first, scripts grep for it. */
+const CODE_HINTS: Record<string, string> = {
+  version_exists: "this version already exists; publish a higher one with --version",
+  digest_exists:
+    "the same content is already published as another version; change the files to publish a new one",
+};
+
 function messageFromResultData(result: RequestResult): string {
   let message = `HTTP ${result.status}`;
   if (result.data && typeof result.data === "object" && result.data !== null) {
     const err = (result.data as { error?: unknown }).error;
-    if (typeof err === "string") message = err;
+    if (typeof err === "string") message = CODE_HINTS[err] ? `${err}: ${CODE_HINTS[err]}` : err;
     else if (typeof (result.data as { message?: unknown }).message === "string") {
       message = (result.data as { message: string }).message;
     }

@@ -63,7 +63,7 @@ A single publish may hold at most 1000 files and 32 MiB in total, and 16 MiB per
 
 ## After the upload
 
-A new version lands as **candidate**. Agents do not see it through MCP or the marketplace yet: only **active** artifacts are offered there. A reviewer or admin promotes it on the Lifecycle board. The author of the latest version cannot promote it themselves; an admin can, with a reason, and the audit marks it.
+A new artifact lands as **candidate**. Agents do not see it through MCP or the marketplace yet: only **active** artifacts are offered there. A new version of an existing artifact keeps the artifact's status: a new version of an **active** artifact reaches agents at once, so publish it to the `beta` channel when it needs a review first. A reviewer or admin promotes it on the Lifecycle board. The author of the latest version cannot promote it themselves; an admin can, with a reason, and the audit marks it.
 
 The first publish of a name makes you its owner. After that, only the owner, co-authors, reviewers and admins can add versions.
 

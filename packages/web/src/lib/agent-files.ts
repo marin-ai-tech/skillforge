@@ -4,6 +4,8 @@
  * auth.json, .env…) stays in the browser. This mirrors `artifactUploadPaths` of @skillforge/core path for path;
  * both are checked against the shared fixture tests/fixtures/agents/with-secrets(.expected.json).
  */
+import { secretFileReason } from "./secret-files.ts";
+
 export type UploadPaths = { upload: string[]; notSent: string[] };
 
 const CLIENT_DIR = String.raw`(?:^|/)\.(?:claude|codex|cursor|opencode|qwen|gemini)/`;
@@ -79,6 +81,9 @@ export function agentUploadPaths(paths: readonly string[]): UploadPaths {
   claimSingleFiles(candidates, claimed, AGENT_RE);
   const upload: string[] = [];
   const notSent: string[] = [];
-  paths.forEach((p, i) => (claimed.has(norm[i]!) ? upload : notSent).push(p));
+  // A secret file never leaves the browser, even inside an artifact folder (publish-secret-files).
+  paths.forEach((p, i) =>
+    (claimed.has(norm[i]!) && !secretFileReason(norm[i]!) ? upload : notSent).push(p),
+  );
   return { upload, notSent };
 }

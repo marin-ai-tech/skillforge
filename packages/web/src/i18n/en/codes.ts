@@ -3,6 +3,8 @@ export const codes = {
   // Validation errors (block publication)
   E_TYPE_UNKNOWN: "The artifact type is not one of the supported types.",
   E_PATH_UNSAFE: "A file path is absolute, contains “..”, empty segments or control characters.",
+  E_SECRET_FILE:
+    "A file looks like a secret (.env, a private key, credentials): it would be handed to everyone who installs the artifact. Remove it, or rename a template to .env.example.",
   E_PATH_FORBIDDEN: "A path is inside .git/ or node_modules/, which are never allowed in a bundle.",
   E_PATH_DUPLICATE: "Two files resolve to the same relative path.",
   E_BUNDLE_TOO_LARGE: "The total size of the files exceeds 32 MiB.",

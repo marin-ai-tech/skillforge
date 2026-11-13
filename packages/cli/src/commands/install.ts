@@ -27,7 +27,7 @@ import {
 } from "../bundle.ts";
 import type { SkillforgeClient } from "../client.ts";
 import { ApiError } from "../client.ts";
-import { EXIT } from "../exit.ts";
+import { EXIT, type ExitCode } from "../exit.ts";
 import {
   invalidPinWarning,
   lockPathFor,
@@ -802,6 +802,8 @@ type SyncSummary = {
   up_to_date: string[];
   removed: string[];
   skipped: SyncSkipped[];
+  /** Artifacts whose installation failed; sync went on with the others. */
+  failed: Array<{ artifact: string; reason: string; code: ExitCode }>;
 };
 
 /** A replaced artifact gives way to its successor (artifact-replacement). */
@@ -880,8 +882,11 @@ async function syncInstallItems(
         summary.skipped.push({ artifact: key, reason: "purged" });
         continue;
       }
-      if (!(err instanceof DowngradeError) && !(err instanceof RiskyError)) throw err;
-      summary.skipped.push({ artifact: key, reason: err.message });
+      if (err instanceof DowngradeError || err instanceof RiskyError) {
+        summary.skipped.push({ artifact: key, reason: err.message });
+        continue;
+      }
+      recordFailure(summary, key, err);
       continue;
     }
     const label = `${result.key}@${result.version}`;
@@ -889,6 +894,23 @@ async function syncInstallItems(
     else if (result.status === "updated") summary.updated.push(label);
     else summary.up_to_date.push(label);
   }
+}
+
+/**
+ * One artifact that could not be installed (a signature or a file that does not match the signed release, a server
+ * error for that artifact) goes to `failed`, and sync goes on with the rest (fix-sync-continue). An unreachable
+ * registry or a refused sign-in concern every artifact, so they stop sync at once.
+ */
+function recordFailure(summary: SyncSummary, key: string, err: unknown): void {
+  if (
+    err instanceof ApiError &&
+    (err.exitCode === EXIT.UNREACHABLE || err.exitCode === EXIT.UNAUTHORIZED)
+  ) {
+    throw err;
+  }
+  const code = err instanceof ApiError ? err.exitCode : EXIT.VALIDATION;
+  const reason = err instanceof Error ? err.message : String(err);
+  summary.failed.push({ artifact: key, reason, code });
 }
 
 function pruneUnwanted(
@@ -916,13 +938,14 @@ function printSyncSummary(ctx: AppContext, summary: SyncSummary): void {
     return;
   }
   ctx.out.write(
-    `sync: installed=${summary.installed.length} updated=${summary.updated.length} up_to_date=${summary.up_to_date.length} removed=${summary.removed.length} skipped=${summary.skipped.length}`,
+    `sync: installed=${summary.installed.length} updated=${summary.updated.length} up_to_date=${summary.up_to_date.length} removed=${summary.removed.length} skipped=${summary.skipped.length} failed=${summary.failed.length}`,
   );
   for (const x of summary.installed) ctx.out.write(`  installed ${x}`);
   for (const x of summary.updated) ctx.out.write(`  updated ${x}`);
   for (const x of summary.up_to_date) ctx.out.write(`  up_to_date ${x}`);
   for (const x of summary.removed) ctx.out.write(`  removed ${x}`);
   for (const x of summary.skipped) ctx.out.write(`  skipped ${x.artifact}: ${x.reason}`);
+  for (const x of summary.failed) ctx.out.write(`  failed ${x.artifact}: ${x.reason}`);
 }
 
 export async function runSync(ctx: AppContext, flags: SyncFlags): Promise<void> {
@@ -958,6 +981,7 @@ export async function runSync(ctx: AppContext, flags: SyncFlags): Promise<void> 
     up_to_date: [],
     removed: [],
     skipped: [],
+    failed: [],
   };
 
   const wantedKeys = new Set<string>(assignments.required.map(keyOf));
@@ -979,7 +1003,10 @@ export async function runSync(ctx: AppContext, flags: SyncFlags): Promise<void> 
   }
 
   printSyncSummary(ctx, summary);
-  setExit(EXIT.OK);
+  // The worst code among the failed artifacts; 0 when every artifact was handled.
+  setExit(
+    summary.failed.reduce<ExitCode>((worst, f) => (f.code > worst ? f.code : worst), EXIT.OK),
+  );
 }
 
 export type OutdatedRow = {

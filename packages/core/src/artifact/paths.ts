@@ -1,3 +1,4 @@
+import { secretFileMessage, secretFileReason } from "./secret-files.ts";
 import { ISSUE_CODES, LIMITS } from "./types.ts";
 import type { ArtifactFileInput, Issue } from "./types.ts";
 
@@ -155,6 +156,15 @@ export function prepareFiles(input: ArtifactFileInput[]): PrepareResult {
       warnings.push({
         code: ISSUE_CODES.W_FILE_DROPPED,
         message: `Dropped junk file: ${f.path}`,
+        path: f.path,
+      });
+      continue;
+    }
+    const secret = secretFileReason(norm.path);
+    if (secret) {
+      errors.push({
+        code: ISSUE_CODES.E_SECRET_FILE,
+        message: secretFileMessage(f.path, secret),
         path: f.path,
       });
       continue;

@@ -3,6 +3,31 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.8 — 2026-11-13
+
+### Security
+- A file whose name says it holds a secret (`.env`, a private key or key store, a credentials file such as
+  `auth.json` or `settings.local.json`) never becomes part of a version. The CLI and the Publish page stop before
+  anything is sent, the registry refuses it with `E_SECRET_FILE` on every path (publish, import, mirrors, tracked
+  sources), and agent snapshots leave it on the machine. Templates such as `.env.example` are allowed.
+
+### Fixed
+- `skillforge sync` no longer stops on one artifact it cannot install (a forged signature, a damaged file): it lists
+  it in `failed`, installs the rest and exits with the worst code among the failures.
+- An anonymous browser tab no longer asks for the session every second, and a signed-in user no longer sees
+  **Sign in** flash while the page loads.
+- `skillforge publish` of an existing version prints one message with the code and the next step instead of the bare
+  code twice. Notification titles and kind labels are written in the reader's language.
+- `npm run seed:demo` works again on a fresh local registry.
+- `skillforge agent scan --runtime reckon` run from inside `.reckon` finds the learned skills.
+- Help: provenance sources, what a new version does to the artifact's status, the `scope` and `labels` commands,
+  the OpenCode files read by `--mcp`, how review runs start, and what "imported" means in the inventory.
+
+### Compatibility
+- A publish or an import that carried such a secret file and passed before is refused now; a mirror or a tracked
+  source with one gets `failed` with `E_SECRET_FILE`. Already published versions stay as they are.
+- `skillforge sync --json` has a new `failed` list.
+
 ## 0.5.7 — 2026-11-13
 
 Steadier tests and release tooling. No change to the product.

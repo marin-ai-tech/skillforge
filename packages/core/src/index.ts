@@ -73,6 +73,7 @@ export {
 } from "./duplicates/index.ts";
 export { scanImportTree } from "./artifact/scan.ts";
 export { artifactUploadPaths } from "./artifact/upload-paths.ts";
+export { secretFileMessage, secretFileReason } from "./artifact/secret-files.ts";
 export type { UploadPaths } from "./artifact/upload-paths.ts";
 export * from "./mcp/index.ts";
 export type {

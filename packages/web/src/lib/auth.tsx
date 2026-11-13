@@ -7,8 +7,9 @@ export function useMe() {
     queryFn: me,
     retry: false,
     staleTime: 0,
-    // While anonymous, poll so API-cookie logins (e2e loginAs) appear without a full reload.
-    refetchInterval: (q) => (q.state.data ? false : 1000),
+    // No timer (fix-session-ui): an anonymous tab used to ask every second. The session is read again when a page
+    // loads and when the window gets focus; signing in and out in the app update it themselves.
+    refetchOnWindowFocus: true,
   });
 }
 

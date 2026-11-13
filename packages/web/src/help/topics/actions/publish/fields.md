@@ -6,7 +6,7 @@ related: pages/publish, getting-started/provenance
 
 ## What it does
 
-Form fields for type, name, description, optional version, changelog, model compatibility, and provenance source/ref (human|reckon|agentspace|dreamteam|import).
+Form fields for type, name, description, optional version, changelog, model compatibility, and provenance source/ref (human|reckon|agentspace|dreamteam|import|agent|harvest).
 
 ## When to use
 

@@ -1,3 +1,4 @@
+import { secretFileMessage, secretFileReason } from "./secret-files.ts";
 /** Client-side file collection and base64 encoding. Limits mirror core LIMITS. */
 export const CLIENT_LIMITS = {
   maxFileBytes: 16 * 1024 * 1024,
@@ -12,7 +13,7 @@ export type LocalFile = {
 };
 
 export type EncodeIssue = {
-  code: "E_FILE_TOO_LARGE" | "E_BUNDLE_TOO_LARGE";
+  code: "E_FILE_TOO_LARGE" | "E_BUNDLE_TOO_LARGE" | "E_SECRET_FILE";
   message: string;
   path?: string;
 };
@@ -137,6 +138,17 @@ export async function encodeFiles(
   files: LocalFile[],
 ): Promise<{ ok: true; files: EncodedFile[] } | { ok: false; issues: EncodeIssue[] }> {
   const issues: EncodeIssue[] = [];
+  // A secret file stops the upload before anything is sent, the dry run included (publish-secret-files).
+  for (const f of files) {
+    const reason = secretFileReason(f.path);
+    if (reason)
+      issues.push({
+        code: "E_SECRET_FILE",
+        message: secretFileMessage(f.path, reason),
+        path: f.path,
+      });
+  }
+  if (issues.length > 0) return { ok: false, issues };
   let total = 0;
   for (const f of files) {
     if (f.size > CLIENT_LIMITS.maxFileBytes) {

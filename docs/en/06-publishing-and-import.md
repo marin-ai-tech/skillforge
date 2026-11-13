@@ -66,6 +66,15 @@ registry configured or reachable, `4` unauthorized.
 A token with the MCP option works only on the MCP endpoint, so the CLI gets `mcp_token_forbidden` with it. MCP
 itself cannot upload; see [MCP](13-mcp.md).
 
+### Secret files
+
+A file whose name says it holds a secret never becomes part of a version: `.env` and `.env.*` (templates such as
+`.env.example` are allowed), private keys and key stores (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`,
+`id_rsa` and the like), and credentials (`credentials*.json`, `.credentials.json`, `auth.json`, `*.local.json`, `.netrc`,
+`.npmrc`, `.git-credentials`). `skillforge publish`, `skillforge validate` and the Publish page stop before anything is
+sent; the registry refuses the file with `E_SECRET_FILE` on every path, import and mirrors included, and agent snapshots
+leave it on the machine.
+
 ## Provenance
 
 Every version records `provenance: { source, ref }`: where the package came from. Reviewers use it to decide what

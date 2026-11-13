@@ -17,7 +17,7 @@ The inventory answers "what actually stands on our machines". People and the CLI
 ## What you see
 
 - Totals (`inventory-totals`): people, agents, copies and copies by state — in sync, outdated (matches an older version), modified (matches no version) and not in the registry.
-- A table of artifacts (`inventory-artifacts`): origin — own (published here), imported (came through import, a mirror or a starter pack) or not in the registry — with copies, people, variants (different contents) and copies by state. Artifacts that need attention come first.
+- A table of artifacts (`inventory-artifacts`): origin — own (published here), imported (provenance `import`, which upstream mirrors, starter packs and tracked sources write; the Import page keeps the source it detects, so a folder imported by hand usually counts as own) or not in the registry — with copies, people, variants (different contents) and copies by state. Artifacts that need attention come first.
 - A table by person (`inventory-people`): agents, copies, copies outside the registry and the time of the last snapshot.
 
 ## Common tasks

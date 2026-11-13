@@ -2,6 +2,8 @@ import {
   AgentDeclarationError,
   isArtifactType,
   parseAgentDeclarations,
+  secretFileMessage,
+  secretFileReason,
   type AgentDeclaration,
 } from "@skillforge/core";
 import { collectPublishFiles } from "../bundle.ts";
@@ -47,8 +49,23 @@ function printIssues(ctx: AppContext, errors: Issue[], warnings: Issue[]): void 
   }
 }
 
+/**
+ * A secret file (by name) stops the command before anything is sent (publish-secret-files): a refusal by the server
+ * would come after the file has already crossed the network.
+ */
+function refuseSecretFiles(files: Array<{ path: string }>): void {
+  const found = files.flatMap((f) => {
+    const reason = secretFileReason(f.path);
+    return reason ? [`E_SECRET_FILE ${secretFileMessage(f.path, reason)}`] : [];
+  });
+  if (found.length > 0) {
+    throw new ApiError([...found, "Nothing was sent."].join("\n"), EXIT.VALIDATION);
+  }
+}
+
 function buildBody(inputPath: string, flags: PublishFlags): Record<string, unknown> {
   const files = collectPublishFiles(inputPath);
+  refuseSecretFiles(files);
   const body: Record<string, unknown> = { files };
   if (flags.type) body.type = flags.type;
   if (flags.name) body.name = flags.name;
@@ -135,7 +152,7 @@ function printPublishFailure(ctx: AppContext, res: { data: unknown }): void {
     message?: string;
   };
   printIssues(ctx, data.errors ?? [], data.warnings ?? []);
-  if (data.error && data.error !== "not_owner") ctx.out.write(data.error);
+  // The code itself is reported once, in stderr, with its meaning (fix-readable-codes).
   if (data.message) ctx.out.write(data.message);
 }
 

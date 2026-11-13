@@ -342,6 +342,8 @@ function ensureUsage(db: Database, summary: SummaryLine[]): void {
       helped: 1,
       source: "demo-seed",
       report_id: USAGE_REPORT_ID,
+      // A demo report is not based on anything measured; `basis` is required since session-sources.
+      basis: null,
     },
   });
   if (result.kind === "not_found") {
@@ -436,7 +438,8 @@ function main(): void {
       );
       process.exit(1);
     }
-    console.error("seed:demo failed:", e instanceof Error ? e.message : e);
+    // The stack, not only the message: a bare "cannot be bound to parameter 9" did not say where it failed.
+    console.error("seed:demo failed:", e instanceof Error ? (e.stack ?? e.message) : e);
     process.exit(1);
   } finally {
     try {

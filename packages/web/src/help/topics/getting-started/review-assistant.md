@@ -9,7 +9,7 @@ learn:
 related: getting-started/self-hosting, getting-started/plugins, actions/plugins/ext-action-run
 ---
 
-The review-assistant plugin gives SkillForge an independent, evidence-backed review step. When an artifact version enters the review queue, the plugin starts a **run**: several external reviewers, each a different model, audit the prompt against a checklist. A **judge** merges their findings into one list with an agreement measure (how many of the reviewers agreed on each finding), and a **reviewer** then decides each finding. The finished run is stored as evidence on the version, so the review survives as part of the artifact's history.
+The review-assistant plugin gives SkillForge an independent, evidence-backed review step. A reviewer starts a **run** for a version with **Run review** on the plugin tab, or the plugin starts one on every publish when the admin turns on `auto_on_publish`: several external reviewers, each a different model, audit the prompt against a checklist. A **judge** merges their findings into one list with an agreement measure (how many of the reviewers agreed on each finding), and a **reviewer** then decides each finding. The finished run is stored as evidence on the version, so the review survives as part of the artifact's history.
 
 ## What a run looks like
 

@@ -10,14 +10,16 @@ learn:
 related: getting-started/versions-and-digests, actions/publish/fields
 ---
 
-Each artifact version stores `provenance: { source, ref }`. Allowed `source` values are **human**, **reckon**, **agentspace**, **dreamteam**, and **import**. Default is `{ source: "human", ref: null }`. Invalid sources are rejected as `provenance_invalid`. Provenance answers where a package came from; digests answer what exact bytes were stored; lifecycle status answers whether you should still use it.
+Each artifact version stores `provenance: { source, ref }`. Allowed `source` values on Publish are **human**, **reckon**, **agentspace**, **dreamteam**, **import**, **agent** and **harvest**; Import offers the first five. Default is `{ source: "human", ref: null }`. Invalid sources are rejected as `provenance_invalid`. Provenance answers where a package came from; digests answer what exact bytes were stored; lifecycle status answers whether you should still use it.
 
 ## Sources
 
 - **human** — Authored and uploaded by a person through UI or CLI.
 - **reckon** — learned skills from a Reckon agent; put the run id in `ref` when available.
 - **agentspace** / **dreamteam** — Team pipeline origins; use `ref` for job or repo identifiers.
-- **import** — Brought in by the importer from agent folders (`.claude`, `.codex`, `.cursor`, `.opencode`, `.qwen`, `.reckon/skills`), git, or zip import flows.
+- **import** — Brought in from outside: upstream mirrors, starter packs and tracked sources always write it. The Import page keeps the source it detects (for example reckon for `.reckon/skills`, human for a plain folder) unless you choose import.
+- **agent** — Published from an agent snapshot (`skillforge agent publish` or the Agents page).
+- **harvest** — A draft made by rule harvesting from review comments or agent sessions.
 
 ## Where you set it
 

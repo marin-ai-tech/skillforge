@@ -6,6 +6,7 @@ import {
   markNotificationsRead,
   putNotificationPrefs,
   type NotificationPrefs,
+  type NotificationDto,
 } from "../../api/client.ts";
 import { RequireUser } from "../../components/RequireUser.tsx";
 import { PageHeader } from "../../components/PageHeader.tsx";
@@ -25,6 +26,12 @@ const PREF_KINDS = [
 ] as const;
 
 /** Interface label of a notification kind; an unknown kind from the server is shown as is. */
+/** A title in the reader's language for kinds with an artifact; plugins and others keep the server's own title. */
+function notificationTitle(n: NotificationDto): string {
+  const build = STR.ws.notifications.titles[n.kind];
+  return build && n.artifact ? build(`${n.artifact.type}/${n.artifact.name}`) : n.title;
+}
+
 function kindLabel(kind: string): string {
   return (STR.ws.notifications.kinds as Record<string, string | undefined>)[kind] ?? kind;
 }
@@ -162,11 +169,11 @@ function NotificationsInner() {
                       if (!n.read) markOne.mutate(n.id);
                     }}
                   >
-                    {n.title}
+                    {notificationTitle(n)}
                   </Link>
                 ) : (
                   <span className="font-medium" translate="no">
-                    {n.title}
+                    {notificationTitle(n)}
                   </span>
                 )}
                 <div className="mt-1 text-xs text-muted">

@@ -13,13 +13,14 @@ related: getting-started/upload-artifacts, getting-started/artifact-types, actio
 
 ## What this page is for
 
-Publish is the UI for `POST /api/v1/artifacts`. Contributors upload or paste a package, validate it, and create a new immutable semver with a content digest. New artifacts start in **candidate** status for reviewer endorsement. Validation emits Blocking `E_*` and Warning `W_*` codes with help links. Hard limits: 32 MiB total, 16 MiB per file, at most 1000 files; names 1-64 characters of `a-z0-9-`; descriptions at most 1024 characters. Omitting version auto-assigns `0.1.0` or patch+1. Conflicts `version_exists` and `digest_exists` leave prior versions untouched. Provenance source must be one of human, reckon, agentspace, dreamteam, or import.
+Publish is the UI for `POST /api/v1/artifacts`. Contributors upload or paste a package, validate it, and create a new immutable semver with a content digest. New artifacts start in **candidate** status for reviewer endorsement. Validation emits Blocking `E_*` and Warning `W_*` codes with help links. Hard limits: 32 MiB total, 16 MiB per file, at most 1000 files; names 1-64 characters of `a-z0-9-`; descriptions at most 1024 characters. Omitting version auto-assigns `0.1.0` or patch+1. Conflicts `version_exists` and `digest_exists` leave prior versions untouched. Provenance source must be one of human, reckon, agentspace, dreamteam, import, agent or harvest.
 
 ## What you see
 
 - Mode switches for upload versus paste (and related publish modes).
 - Fields for type, name, description, optional version, changelog, and provenance source/ref.
 - Staged files list with sizes; live issue list showing Blocking errors and Warnings with issue-help links.
+- A file that looks like a secret by its name (`.env`, a private key, credentials) stops the upload before anything is sent ([E_SECRET_FILE](codes/E_SECRET_FILE)).
 - After dry-run validation, Quality (`publish-quality`) and Possible duplicates (`publish-duplicates`) blocks appear; they are advisory and do not change whether Submit is enabled.
 - Submit control posting to the artifacts API using the session cookie (CLI may use Bearer tokens instead).
 - Success navigates toward the new artifact detail; failures keep the form and highlight issues.

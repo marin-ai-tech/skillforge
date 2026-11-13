@@ -28,6 +28,9 @@ type Listed = { paths: Map<string, string>; lock: unknown | null };
 /** Relative path → absolute path of every file under root, except node_modules/.git and the lock file. */
 function listAgentDir(root: string): Listed | { error: string } {
   const paths = new Map<string, string>();
+  // The scanner knows a Reckon skill by `.reckon/skills/<name>.md`; scanned from inside `.reckon`, the paths keep
+  // that folder, as an upload of the folder in the web does (fix-reckon-agent-scan).
+  const prefix = path.basename(root) === ".reckon" ? ".reckon/" : "";
   let lock: unknown | null = null;
   function walk(current: string): string | null {
     let entries: fs.Dirent[];
@@ -45,7 +48,7 @@ function listAgentDir(root: string): Listed | { error: string } {
       } else if (ent.isFile() && ent.name === ".skillforge-lock.json") {
         lock = readLock(abs);
       } else if (ent.isFile()) {
-        paths.set(path.relative(root, abs).split(path.sep).join("/"), abs);
+        paths.set(prefix + path.relative(root, abs).split(path.sep).join("/"), abs);
       }
     }
     return null;

@@ -19,8 +19,9 @@ test.describe("import", () => {
   });
 
   test("zip: preview, run, cards; repeat — conflicts and skipped", async ({ page }) => {
-    await page.goto("/");
     await loginAs(page, "alice");
+    // the session is read on load and on window focus (fix-session-ui), not by a timer
+    await page.goto("/");
     await page.locator(tid("nav-user")).click();
     await page.locator(tid("menu-import")).click();
     await expect(page).toHaveURL(/\/import$/);

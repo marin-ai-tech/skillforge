@@ -45,7 +45,7 @@ The CLI prints Blocking `E_*` and Warning `W_*` codes, then `type/name@version` 
 > [!WARNING]
 > `--force` overwrites locally edited tracked files and unmanaged files alike; check what changed before you use it.
 
-Before writing files, `install` and `sync` check three things. A version whose security scan failed is refused with exit code 1 until you review it and pass `--allow-risky`. Moving to a lower version than the installed one is refused with exit code 5 unless you pass `--allow-downgrade`. Every file and the version signature are checked against the registry key remembered at login; a different key stops the command with `signing key changed` until you run `skillforge login` again, and a damaged copy in the registry stops it with `blob_corrupt` without installing anything.
+Before writing files, `install` and `sync` check three things. A version whose security scan failed is refused with exit code 1 until you review it and pass `--allow-risky`. Moving to a lower version than the installed one is refused with exit code 5 unless you pass `--allow-downgrade`. Every file and the version signature are checked against the registry key remembered at login; a different key stops the command with `signing key changed` until you run `skillforge login` again, and a damaged copy in the registry stops it with `blob_corrupt` without installing anything. `sync` does not stop on one such artifact: it lists it in `failed` (`failed type/name: reason` lines, or `{ artifact, reason, code }` with `--json`), installs the rest and exits with the worst code among the failures; an unreachable registry or a refused sign-in still stop it at once.
 
 `sync` also follows your teams: artifacts your teams require or install by default join the selected set, and artifacts no longer available to your teams leave it. An artifact marked as replaced gives way to its successor (`replaced <old> -> <new>` on stderr), and `install` of a replaced artifact prints a warning naming the successor. `uninstall` of an artifact your team requires needs `--force`.
 
@@ -78,7 +78,7 @@ skillforge agent rm --name laptop
 
 `scan` walks the directory (skips `node_modules` and `.git`), attaches `.skillforge-lock.json` as lock metadata, and prints `summary: local_only=N in_sync=N outdated=N modified=N registry_only=N` plus a table of items. Only files that make up artifacts are sent; the rest of the folder stays on your machine, and `scan` prints `not sent: N file(s) outside artifacts` (with `--json`, the paths in `not_sent`). Exit codes match the table above (missing `--name` or directory, or no artifact files in it → 1; conflict → 2; unauthorized → 4; unknown agent/item → 6). See `getting-started/agents` for statuses, server agents, and provenance.
 
-`--mcp` is your consent, for this run only, to also read the MCP server configs of the runtime (Claude Code, Codex, Cursor, OpenCode): project files from the current directory (`.mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `opencode.json`) and user files from your home (`~/.claude.json`, `~/.codex/config.toml`, `~/.cursor/mcp.json`, `~/.config/opencode/opencode.json`; `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are honoured). Only names, transport, package and pinned version, the origin of a remote address and the names of variables and headers are sent, never their values, arguments or paths. `scan` then prints `mcp: N server(s), U unpinned, S with literal secrets` and a table that marks `unpinned` and `literal secret: <names>`. Without `--mcp` no MCP config is opened. Other runtimes exit with 1.
+`--mcp` is your consent, for this run only, to also read the MCP server configs of the runtime (Claude Code, Codex, Cursor, OpenCode): project files from the current directory (`.mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `opencode.json`, `opencode.jsonc`, `.opencode/opencode.json` and `.opencode/opencode.jsonc`) and user files from your home (`~/.claude.json`, `~/.codex/config.toml`, `~/.cursor/mcp.json`, `~/.config/opencode/opencode.json` and `opencode.jsonc`; `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are honoured). Only names, transport, package and pinned version, the origin of a remote address and the names of variables and headers are sent, never their values, arguments or paths. `scan` then prints `mcp: N server(s), U unpinned, S with literal secrets` and a table that marks `unpinned` and `literal secret: <names>`. Without `--mcp` no MCP config is opened. Other runtimes exit with 1.
 
 
 ## Project hints
@@ -104,7 +104,7 @@ skillforge agent rm --name laptop
 - `skillforge pack list` shows team method packs; `skillforge pack install <name[@version]> --role <role>` installs a pack, or one role of it, at its pinned versions.
 - `skillforge evals push|run|runs|batch|batches|journal` manages eval suites and runs; `batch` runs one kind of eval across several runners.
 - `skillforge runs list|show|watch`, `skillforge workflows list|save|run|trace` and `skillforge routines list|save|run|runs|disable` work with recorded runs, workflows and scheduled routines.
-- `skillforge teams list|show|create|add|remove|scope|labels` manages teams, an artifact's visibility scope and registry labels.
+- `skillforge teams list|show|create|add|remove` manages teams; `skillforge scope` changes an artifact's visibility scope and `skillforge labels` its registry labels.
 
 ## Exit codes and JSON
 

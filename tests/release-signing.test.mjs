@@ -136,6 +136,22 @@ test("CLI: verified install passes; a corrupted file and a forged signature are 
   assert.match(forged.stderr, /signature/i);
 });
 
+// fix-sync-continue: a refused artifact does not stop sync; the rest is installed and the failure is listed.
+test("CLI sync: a forged or damaged artifact goes to failed, the others are installed, exit 1", async () => {
+  const into = join(work, "agent-sync");
+  const r = cli("sync", "--into", into, "--json");
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  const summary = JSON.parse(r.stdout);
+  const failed = summary.failed.map((f) => f.artifact).sort();
+  assert.deepEqual(failed, ["skill/forged-skill", "skill/tampered-skill"], JSON.stringify(summary));
+  assert.match(summary.failed.find((f) => f.artifact === "skill/forged-skill").reason, /signature/i);
+  assert.ok(summary.installed.some((x) => x.startsWith("skill/signed-skill@")), JSON.stringify(summary));
+  assert.ok(existsSync(join(into, "skills", "signed-skill", "SKILL.md")));
+  // Negative: nothing of the refused artifacts is written.
+  assert.equal(existsSync(join(into, "skills", "forged-skill")), false);
+  assert.equal(existsSync(join(into, "skills", "tampered-skill")), false);
+});
+
 test("CLI: a version without a signature is installed with a warning", async () => {
   await publish("unsigned-skill");
   const c = db();

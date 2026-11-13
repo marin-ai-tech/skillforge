@@ -1,4 +1,5 @@
 import { scanImportTree } from "./scan.ts";
+import { secretFileReason } from "./secret-files.ts";
 
 export type UploadPaths = { upload: string[]; notSent: string[] };
 
@@ -19,7 +20,9 @@ export function artifactUploadPaths(paths: readonly string[]): UploadPaths {
   const notSent: string[] = [];
   for (const p of paths) {
     const norm = normalize(p);
-    if (!skipped.has(norm) || manifests.has(norm)) upload.push(p);
+    // A secret file never leaves the machine, even inside an artifact folder (publish-secret-files).
+    if (secretFileReason(norm)) notSent.push(p);
+    else if (!skipped.has(norm) || manifests.has(norm)) upload.push(p);
     else notSent.push(p);
   }
   return { upload, notSent };

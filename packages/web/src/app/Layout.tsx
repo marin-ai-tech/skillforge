@@ -201,9 +201,10 @@ export function Layout() {
               </Link>
             </HelpTip>
           ) : null}
+          {/* While the session loads, the place stays empty: neither Sign in nor the menu flashes (fix-session-ui). */}
           {user ? (
             <UserMenu user={user} />
-          ) : (
+          ) : meQuery.isPending ? null : (
             <HelpTip action="nav-login">
               <Link
                 to="/login"

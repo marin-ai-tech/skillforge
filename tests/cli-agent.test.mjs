@@ -91,6 +91,23 @@ test("agent scan: summary and table; node_modules and settings.json do not inter
   assert.deepEqual(parsed.not_sent, ["settings.json"]);
 });
 
+// fix-reckon-agent-scan: a scan from inside .reckon finds the learned skills, as a scan of its parent does.
+test("agent scan --runtime reckon from inside .reckon: skills/<name>.md is a Reckon skill", async () => {
+  const parent = join(work, "reckon-agent");
+  const reckon = join(parent, ".reckon");
+  mkdirSync(join(reckon, "skills"), { recursive: true });
+  writeFileSync(join(reckon, "skills", "nutrition.md"), "---\nname: nutrition\ndescription: Plans meals. Use when asked about nutrition.\n---\n\nEat well.\n");
+  const inside = await cli(["agent", "scan", reckon, "--name", "reckon-in", "--runtime", "reckon", "--json"]);
+  assert.equal(inside.code, 0, inside.stdout + inside.stderr);
+  const a = JSON.parse(inside.stdout);
+  assert.ok(a.items.some((i) => i.key === "skill/nutrition"), JSON.stringify(a.items));
+  assert.deepEqual(a.not_sent, []);
+  // Negative: the entry point does not change the result.
+  const outside = await cli(["agent", "scan", parent, "--name", "reckon-out", "--runtime", "reckon", "--json"]);
+  assert.equal(outside.code, 0, outside.stdout + outside.stderr);
+  assert.ok(JSON.parse(outside.stdout).items.some((i) => i.key === "skill/nutrition"), outside.stdout);
+});
+
 test("agent status / list / publish / rm and exit codes", async () => {
   const status = await cli(["agent", "status", "--name", "laptop", "--json"]);
   assert.equal(status.code, 0, status.stderr);

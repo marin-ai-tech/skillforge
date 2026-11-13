@@ -17,6 +17,7 @@ import { ErrorState } from "../../components/ErrorState.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 type Props = { type: string; name: string; canManage: boolean; isAdmin: boolean };
 
@@ -184,35 +185,35 @@ export function Routines({ type, name, canManage, isAdmin }: Props) {
               </span>
               {canManage ? (
                 <HelpTip action="routine-run-now">
-                  <button
+                  <Button
                     className="btn btn-sm"
                     data-testid={`rt-run-${r.routine_id}`}
-                    disabled={runM.isPending}
+                    pending={runM.isPending}
                     onClick={() => runM.mutate(r.routine_id)}
                   >
                     {STR.flow.routines.runNow}
-                  </button>
+                  </Button>
                 </HelpTip>
               ) : null}
               {r.enabled && canManage ? (
-                <button
+                <Button
                   className="btn btn-sm"
                   data-testid={`rt-toggle-${r.routine_id}`}
-                  disabled={toggleM.isPending}
+                  pending={toggleM.isPending}
                   onClick={() => toggleM.mutate({ rt: r.routine_id, enabled: false })}
                 >
                   {STR.flow.routines.disable}
-                </button>
+                </Button>
               ) : null}
               {!r.enabled && isAdmin ? (
-                <button
+                <Button
                   className="btn btn-sm"
                   data-testid={`rt-toggle-${r.routine_id}`}
-                  disabled={toggleM.isPending}
+                  pending={toggleM.isPending}
                   onClick={() => toggleM.mutate({ rt: r.routine_id, enabled: true })}
                 >
                   {STR.flow.routines.enable}
-                </button>
+                </Button>
               ) : null}
             </li>
           ))}
@@ -244,14 +245,14 @@ export function Routines({ type, name, canManage, isAdmin }: Props) {
             </pre>
           ) : null}
           <div className="flex gap-2">
-            <button
+            <Button
               className="btn btn-sm btn-primary"
               data-testid="rt-save"
-              disabled={saveM.isPending}
+              pending={saveM.isPending}
               onClick={() => saveM.mutate()}
             >
               {STR.flow.common.save}
-            </button>
+            </Button>
             <button className="btn btn-sm" onClick={() => setEditorText(null)}>
               {STR.flow.common.cancel}
             </button>

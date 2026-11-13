@@ -18,6 +18,7 @@ import { RelativeTime } from "../../components/RelativeTime.tsx";
 import { useAgentRuntimeOptions } from "../../lib/runtimes.ts";
 import { STR } from "../../lib/strings.ts";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 function formatError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -197,14 +198,15 @@ function AdminAgentsPage({ user }: { user: MeUser }) {
           </label>
         </div>
         <HelpTip action="server-agent-submit">
-          <button
+          <Button
             type="submit"
             data-testid="server-agent-submit"
-            disabled={createMut.isPending || !rootsEnabled}
+            pending={createMut.isPending}
+            disabled={!rootsEnabled}
             className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             {createMut.isPending ? STR.adm.agents.creating : STR.adm.agents.create}
-          </button>
+          </Button>
         </HelpTip>
       </form>
 

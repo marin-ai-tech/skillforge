@@ -5,6 +5,7 @@ import { STR } from "../../lib/strings.ts";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 function PasswordPage() {
   const [current, setCurrent] = useState("");
@@ -117,14 +118,14 @@ function PasswordPage() {
           </div>
         ) : null}
         <HelpTip action="password-submit">
-          <button
+          <Button
             type="submit"
             data-testid="password-submit"
-            disabled={submitting}
+            pending={submitting}
             className="w-full rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             {submitting ? STR.password.submitting : STR.password.submit}
-          </button>
+          </Button>
         </HelpTip>
       </form>
     </div>

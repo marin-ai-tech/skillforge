@@ -5,6 +5,7 @@ import type { SecurityPolicy } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { HelpTip } from "./HelpTip.tsx";
+import { Button } from "./Button.tsx";
 
 /** Whether the content scan blocks publishing (content-security-scan); admin page only. */
 export function SecurityPolicyPanel() {
@@ -47,15 +48,15 @@ export function SecurityPolicyPanel() {
       </label>
       <div className="flex flex-wrap items-center gap-2">
         <HelpTip action="security-policy-save">
-          <button
+          <Button
             type="button"
             data-testid="security-policy-save"
-            disabled={save.isPending}
+            pending={save.isPending}
             onClick={() => save.mutate()}
             className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
           >
             {STR.adm.lifecycle.securitySave}
-          </button>
+          </Button>
         </HelpTip>
         {message ? (
           <span data-testid="security-policy-message" role="status" className="text-ink-2">

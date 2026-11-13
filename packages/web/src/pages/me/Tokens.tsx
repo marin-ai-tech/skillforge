@@ -16,6 +16,7 @@ import {
   type McpClient,
   type McpConnectSnippets,
 } from "../../lib/mcp-connect.ts";
+import { Button } from "../../components/Button.tsx";
 
 const MCP_CLIENT_KEY = "skillforge.mcpClient";
 const DEFAULT_MCP_CLIENT: McpClient = "claude-code";
@@ -165,14 +166,14 @@ function TokensPage() {
           </HelpTip>
         </label>
         <HelpTip action="token-create-submit">
-          <button
+          <Button
             type="submit"
             data-testid="token-create-submit"
-            disabled={createMut.isPending}
+            pending={createMut.isPending}
             className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             {createMut.isPending ? STR.tokens.creating : STR.tokens.create}
-          </button>
+          </Button>
         </HelpTip>
       </form>
 

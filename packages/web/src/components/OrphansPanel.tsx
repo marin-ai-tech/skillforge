@@ -6,6 +6,7 @@ import type { Orphan } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { HelpTip } from "./HelpTip.tsx";
+import { Button } from "./Button.tsx";
 
 /** Artifacts whose owner is disabled or gone (orphaned-artifacts), with a hand-over to a new owner. */
 export function OrphansPanel() {
@@ -66,15 +67,16 @@ function OrphanRow({ orphan }: { orphan: Orphan }) {
         onChange={(e) => setOwner(e.target.value)}
       />
       <HelpTip action="orphan-transfer">
-        <button
+        <Button
           type="button"
           data-testid="orphan-transfer"
-          disabled={hand.isPending || owner.trim() === ""}
+          pending={hand.isPending}
+          disabled={owner.trim() === ""}
           onClick={() => hand.mutate()}
           className="rounded-sf border border-line px-2 py-1 text-xs disabled:opacity-50"
         >
           {STR.adm.users.orphanTransfer}
-        </button>
+        </Button>
       </HelpTip>
       {error ? <span className="text-danger">{error}</span> : null}
     </li>

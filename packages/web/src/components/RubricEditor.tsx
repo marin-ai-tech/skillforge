@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { QualityRubric, RubricCriterion, RubricResult } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 import { HelpTip } from "./HelpTip.tsx";
+import { Button } from "./Button.tsx";
 
 const QUALITY_CODES = Object.keys(STR.codes).filter((c) => c.startsWith("Q_"));
 const TYPES: RubricCriterion["type"][] = ["require_heading", "require_file", "forbid_phrase"];
@@ -204,15 +205,15 @@ export function RubricEditor({ testId, title, value, onSave, saving, message }: 
       </button>
       <div className="flex flex-wrap items-center gap-2">
         <HelpTip action="rubric-save">
-          <button
+          <Button
             type="button"
             data-testid="rubric-save"
-            disabled={saving}
+            pending={saving}
             onClick={() => onSave(draft)}
             className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
           >
             {S.save}
-          </button>
+          </Button>
         </HelpTip>
         {message ? (
           <span data-testid="rubric-message" role="status" className="text-ink-2">

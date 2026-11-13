@@ -5,6 +5,7 @@ import type { Mirror } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText, formatDateTime } from "../i18n/index.ts";
 import { HelpTip } from "./HelpTip.tsx";
+import { Button } from "./Button.tsx";
 
 /** Upstream mirrors (upstream-mirror): admins only, under the import source policy. */
 export function MirrorsPanel({ role }: { role: string }) {
@@ -51,26 +52,26 @@ function MirrorRow({ m, onDone }: { m: Mirror; onDone: (text: string) => void })
       </div>
       <div className="flex gap-2">
         <HelpTip action="mirror-check">
-          <button
+          <Button
             type="button"
             data-testid="mirror-check"
-            disabled={check.isPending}
+            pending={check.isPending}
             onClick={() => check.mutate()}
             className="rounded-sf border border-line px-2 py-1 text-xs disabled:opacity-50"
           >
             {STR.import.mirrorCheck}
-          </button>
+          </Button>
         </HelpTip>
         <HelpTip action="mirror-delete">
-          <button
+          <Button
             type="button"
             data-testid="mirror-delete"
-            disabled={remove.isPending}
+            pending={remove.isPending}
             onClick={() => remove.mutate()}
             className="rounded-sf border border-line px-2 py-1 text-xs text-danger disabled:opacity-50"
           >
             {STR.import.mirrorDelete}
-          </button>
+          </Button>
         </HelpTip>
       </div>
     </li>
@@ -113,15 +114,16 @@ function MirrorsForm() {
             translate="no"
           />
           <HelpTip action="mirror-add">
-            <button
+            <Button
               type="button"
               data-testid="mirror-add"
-              disabled={add.isPending || url.trim() === ""}
+              pending={add.isPending}
+              disabled={url.trim() === ""}
               onClick={() => add.mutate()}
               className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
             >
               {STR.import.mirrorAdd}
-            </button>
+            </Button>
           </HelpTip>
         </div>
         {message ? (

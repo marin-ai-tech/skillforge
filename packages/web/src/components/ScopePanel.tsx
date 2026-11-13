@@ -7,6 +7,7 @@ import { HelpTip } from "./HelpTip.tsx";
 import { roleAtLeast, useMe } from "../lib/auth.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
+import { Button } from "./Button.tsx";
 
 type Props = { artifact: ArtifactSummary; canEdit: boolean };
 
@@ -143,15 +144,15 @@ export function ScopePanel({ artifact, canEdit }: Props) {
             />
           </label>
           <HelpTip action="scope-save">
-            <button
+            <Button
               type="button"
               data-testid="scope-save"
               className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-              disabled={mut.isPending}
+              pending={mut.isPending}
               onClick={save}
             >
               {STR.art.scope.save}
-            </button>
+            </Button>
           </HelpTip>
           {error ? (
             <span data-testid="scope-error" className="text-xs text-danger">

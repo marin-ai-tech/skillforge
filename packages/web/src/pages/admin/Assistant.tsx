@@ -16,6 +16,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { STR } from "../../lib/strings.ts";
 import { apiErrorMessage, errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 /**
  * LLM settings for the help assistant. Every setting except the API key is
@@ -181,15 +182,15 @@ function ValidationSection({
       {active && ready ? (
         <div className="flex flex-wrap items-center gap-2">
           <HelpTip action="llm-validation-backfill">
-            <button
+            <Button
               type="button"
               data-testid="llm-validation-backfill"
-              disabled={backfill.isPending}
+              pending={backfill.isPending}
               onClick={() => backfill.mutate()}
               className="rounded-sf border border-line px-3 py-1.5 text-sm text-ink-2 disabled:opacity-50"
             >
               {STR.adm.assistant.backfill}
-            </button>
+            </Button>
           </HelpTip>
           {result ? (
             <span
@@ -301,25 +302,25 @@ function SettingsForm({ view }: { view: AdminLlmView }) {
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <HelpTip action="llm-save">
-          <button
+          <Button
             type="submit"
             data-testid="llm-save"
-            disabled={save.isPending}
+            pending={save.isPending}
             className="rounded-sf bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
             {STR.adm.assistant.save}
-          </button>
+          </Button>
         </HelpTip>
         <HelpTip action="llm-test">
-          <button
+          <Button
             type="button"
             data-testid="llm-test"
-            disabled={check.isPending}
+            pending={check.isPending}
             onClick={() => check.mutate()}
             className="rounded-sf border border-line px-3 py-1.5 text-sm text-ink-2 disabled:opacity-50"
           >
             {STR.adm.assistant.test}
-          </button>
+          </Button>
         </HelpTip>
         {test ? (
           <span data-testid="llm-test-result" role="status" className="text-sm text-ink-2">

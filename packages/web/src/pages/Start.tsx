@@ -22,6 +22,7 @@ import { roleAtLeast, useMe } from "../lib/auth.tsx";
 import type { MeUser } from "../api/client.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
+import { Button } from "../components/Button.tsx";
 
 type StepStatus = "done" | "todo" | "blocked";
 type StepId = "signed_in" | "starter_installed" | "candidates_promoted" | "connect_ready";
@@ -177,15 +178,15 @@ function StarterPacksSection({
               ) : null}
             </div>
             <HelpTip action="start-install-pack">
-              <button
+              <Button
                 type="button"
                 data-testid={`install-starter-pack-${pack.id}`}
                 className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                disabled={pending}
+                pending={pending}
                 onClick={() => onInstall(pack.id)}
               >
                 {STR.ws.start.install}
-              </button>
+              </Button>
             </HelpTip>
           </li>
         ))}
@@ -252,15 +253,15 @@ function BatchPromoteSection({
           />
         </label>
         <HelpTip action="start-batch-promote">
-          <button
+          <Button
             type="button"
             data-testid="batch-promote-all"
             className="rounded-sf border border-line px-3 py-1.5 text-sm hover:border-accent disabled:opacity-50"
-            disabled={pending}
+            pending={pending}
             onClick={onOpenConfirm}
           >
             {STR.ws.start.promoteAll}
-          </button>
+          </Button>
         </HelpTip>
       </>
     );

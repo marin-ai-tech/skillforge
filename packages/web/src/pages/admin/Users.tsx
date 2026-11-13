@@ -10,6 +10,7 @@ import { errorText } from "../../i18n/index.ts";
 import { PageHeader } from "../../components/PageHeader.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { Button } from "../../components/Button.tsx";
 
 const ROLES: Role[] = ["viewer", "contributor", "reviewer", "admin"];
 
@@ -249,14 +250,14 @@ function UsersPage() {
         </label>
         <div className="sm:col-span-2">
           <HelpTip action="create-submit">
-            <button
+            <Button
               type="submit"
               data-testid="create-submit"
-              disabled={createMut.isPending}
+              pending={createMut.isPending}
               className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             >
               {createMut.isPending ? STR.admin.submitting : STR.admin.submit}
-            </button>
+            </Button>
           </HelpTip>
         </div>
       </form>

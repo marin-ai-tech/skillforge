@@ -10,6 +10,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { formatBytes } from "../../lib/format.ts";
 import { STR } from "../../lib/strings.ts";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 function formatError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -97,10 +98,10 @@ function BackupsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <HelpTip action="backup-create">
-          <button
+          <Button
             type="button"
             data-testid="backup-create"
-            disabled={createMut.isPending}
+            pending={createMut.isPending}
             className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
             onClick={() => {
               setError(null);
@@ -108,7 +109,7 @@ function BackupsPage() {
             }}
           >
             {createMut.isPending ? STR.backups.creating : STR.backups.create}
-          </button>
+          </Button>
         </HelpTip>
       </div>
 

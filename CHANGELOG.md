@@ -3,6 +3,20 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.6 — 2026-11-13
+
+Keyboard focus stays on buttons, fields and checkboxes while their request runs.
+
+### Fixed
+- Buttons, fields and checkboxes keep keyboard focus while their request runs: they are marked unavailable to
+  assistive technology (`aria-disabled`, `aria-busy`) instead of being disabled, and a second press meanwhile is
+  ignored, so a form is not sent twice. Controls that are unavailable by meaning (an empty required field) stay
+  disabled.
+
+### Compatibility
+- No change to data, the API or the CLI. Scripts and tests that look for the `disabled` attribute on a button while
+  its request runs see `aria-disabled="true"` instead.
+
 ## 0.5.5 — 2026-11-13
 
 Import keeps whole skill folders, a refused Agent Space budget grant is named as such, and the Source panel is

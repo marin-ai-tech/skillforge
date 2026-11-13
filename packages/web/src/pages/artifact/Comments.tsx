@@ -15,6 +15,7 @@ import { CommentBody } from "../../lib/comment-text.tsx";
 import { roleAtLeast, useMe } from "../../lib/auth.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 type Props = {
   type: string;
@@ -139,13 +140,14 @@ function CommentRow({
             onChange={(e) => setEditBody(e.target.value)}
           />
           <div className="flex gap-2">
-            <button
+            <Button
               type="submit"
               className="rounded-sf border border-line px-2 py-1 text-xs hover:bg-surface-2"
-              disabled={patchMut.isPending || editBody.trim() === ""}
+              pending={patchMut.isPending}
+              disabled={editBody.trim() === ""}
             >
               {STR.art.common.save}
-            </button>
+            </Button>
             <button
               type="button"
               className="rounded-sf border border-line px-2 py-1 text-xs hover:bg-surface-2"
@@ -324,14 +326,15 @@ export function Comments({ type, name, versions, selectedVersion }: Props) {
           />
           <div className="flex items-center gap-2">
             <HelpTip action="comment-submit">
-              <button
+              <Button
                 type="submit"
                 data-testid="comment-submit"
-                disabled={createMut.isPending || body.trim() === ""}
+                pending={createMut.isPending}
+                disabled={body.trim() === ""}
                 className="rounded-sf border border-line px-3 py-1 text-sm hover:bg-surface-2 disabled:opacity-50"
               >
                 {STR.art.comments.post}
-              </button>
+              </Button>
             </HelpTip>
             {formError ? (
               <p data-testid="comment-error" role="alert" className="text-xs text-danger">

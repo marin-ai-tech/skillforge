@@ -7,6 +7,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { STR } from "../../lib/strings.ts";
 import { apiErrorMessage, errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 function formatError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -186,11 +187,11 @@ function PluginsPage() {
                   }
                 />
                 <HelpTip action="plugin-config-save">
-                  <button
+                  <Button
                     type="button"
                     data-testid="plugin-config-save"
                     className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
-                    disabled={patchMut.isPending}
+                    pending={patchMut.isPending}
                     onClick={() => {
                       setError(null);
                       try {
@@ -209,7 +210,7 @@ function PluginsPage() {
                     }}
                   >
                     {STR.adm.plugins.saveConfig}
-                  </button>
+                  </Button>
                 </HelpTip>
               </div>
             </div>

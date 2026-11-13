@@ -51,6 +51,7 @@ import { MetadataPanel } from "../components/MetadataPanel.tsx";
 import { PurgePanel } from "../components/PurgePanel.tsx";
 import { useMe, roleAtLeast } from "../lib/auth.tsx";
 import { getTeam, putWatch } from "../api/client.ts";
+import { Button } from "../components/Button.tsx";
 
 const TAB_IDS = [
   "overview",
@@ -329,15 +330,15 @@ function WatchControls({
     <>
       {username ? (
         <HelpTip action="watch-toggle">
-          <button
+          <Button
             type="button"
             data-testid="watch-toggle"
             className="rounded-sf border border-line px-2 py-1 text-xs hover:bg-surface-2 disabled:opacity-50"
-            disabled={pending}
+            pending={pending}
             onClick={() => onToggle(!(viewer?.watching ?? false))}
           >
             {viewer?.watching ? STR.art.page.watching : STR.art.page.watch}
-          </button>
+          </Button>
         </HelpTip>
       ) : null}
       {watchError ? (

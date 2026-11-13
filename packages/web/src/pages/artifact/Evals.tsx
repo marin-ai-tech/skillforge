@@ -27,6 +27,7 @@ import { HelpTip } from "../../components/HelpTip.tsx";
 import { useMe, roleAtLeast } from "../../lib/auth.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 type Props = {
   type: string;
@@ -379,18 +380,19 @@ function RunEvalPanel({
           </select>
         </label>
         <HelpTip action="eval-run-start">
-          <button
+          <Button
             type="button"
             data-testid="eval-run-start"
             className="rounded-sf bg-accent px-3 py-1.5 text-xs font-medium text-white"
-            disabled={runMut.isPending || !runVersion}
+            pending={runMut.isPending}
+            disabled={!runVersion}
             onClick={() => {
               setRunMsg(null);
               runMut.mutate();
             }}
           >
             {STR.flow.evals.startRun}
-          </button>
+          </Button>
         </HelpTip>
       </div>
       {runMsg ? (
@@ -782,18 +784,18 @@ export function Evals({ type, name, versions, canManage }: Props) {
             {STR.flow.evals.addTaskCase}
           </button>
           <HelpTip action="eval-save">
-            <button
+            <Button
               type="button"
               data-testid="eval-save"
               className="rounded-sf bg-accent px-3 py-1 text-xs font-medium text-white"
-              disabled={saveMut.isPending}
+              pending={saveMut.isPending}
               onClick={() => {
                 setSuiteMsg(null);
                 saveMut.mutate({ gate, cases: buildPayloadCases() });
               }}
             >
               {STR.flow.evals.saveSuite}
-            </button>
+            </Button>
           </HelpTip>
         </div>
         {suiteMsg ? (

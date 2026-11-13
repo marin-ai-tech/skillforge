@@ -13,6 +13,7 @@ import {
 import { HelpTip } from "./HelpTip.tsx";
 import { errorText, useLang } from "../i18n/index.ts";
 import { STR } from "../lib/strings.ts";
+import { Button } from "./Button.tsx";
 
 /**
  * Read-only help assistant: a conversation kept in this tab's
@@ -171,14 +172,15 @@ function Shell({
  * Agent Space task budget grant (llm-budget-broker): shown only when the server has a budget broker. The value lives in
  * component state only — never in localStorage or the stored conversation — and goes with each question.
  */
+/** While an answer streams the field is read-only (not disabled): focus stays where the person left it. */
 function BudgetGrantField({
   value,
   onChange,
-  disabled,
+  busy,
 }: {
   value: string;
   onChange: (v: string) => void;
-  disabled: boolean;
+  busy: boolean;
 }) {
   return (
     <HelpTip action="assistant-budget-grant">
@@ -191,7 +193,8 @@ function BudgetGrantField({
           spellCheck={false}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
+          readOnly={busy}
+          aria-disabled={busy || undefined}
           aria-describedby="assistant-budget-grant-hint"
           className="mt-1 w-full rounded-sf border border-line bg-bg px-3 py-2 text-sm"
         />
@@ -282,7 +285,7 @@ export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
   return (
     <Shell mode={mode} onMode={onMode}>
       {status.budget_grant ? (
-        <BudgetGrantField value={budgetGrant} onChange={setBudgetGrant} disabled={busy} />
+        <BudgetGrantField value={budgetGrant} onChange={setBudgetGrant} busy={busy} />
       ) : null}
       {mode === "onboarding" ? (
         <p className="text-xs text-muted">{STR.tips.help.assistant.onboardingHint}</p>
@@ -346,10 +349,10 @@ export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
             </HelpTip>
           )}
           <HelpTip action="assistant-new">
-            <button
+            <Button
               type="button"
               data-testid="assistant-new"
-              disabled={busy}
+              pending={busy}
               onClick={() => {
                 setTurns([]);
                 setError(null);
@@ -359,7 +362,7 @@ export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
             >
               <RotateCcw size={14} aria-hidden="true" />
               {STR.tips.help.assistant.newChat}
-            </button>
+            </Button>
           </HelpTip>
           {typeof status.remaining_today === "number" ? (
             <span className="ml-auto text-xs text-muted">

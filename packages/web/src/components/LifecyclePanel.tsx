@@ -15,6 +15,7 @@ import { RelativeTime } from "./RelativeTime.tsx";
 import { roleAtLeast, useMe } from "../lib/auth.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText, formatDateTime } from "../i18n/index.ts";
+import { Button } from "./Button.tsx";
 
 type Props = {
   artifact: ArtifactSummary;
@@ -332,10 +333,11 @@ export function LifecyclePanel({ artifact, allowedTransitions, latestAuthor }: P
                 />
               </label>
               <HelpTip action="lifecycle-hold-set">
-                <button
+                <Button
                   type="button"
                   data-testid="hold-set"
-                  disabled={holdSetMut.isPending || !holdUntil || holdReason.trim().length < 5}
+                  pending={holdSetMut.isPending}
+                  disabled={!holdUntil || holdReason.trim().length < 5}
                   className="rounded-sf border border-line px-3 py-1 text-sm hover:bg-surface-2 disabled:opacity-50"
                   onClick={() => {
                     setHoldError(null);
@@ -343,12 +345,13 @@ export function LifecyclePanel({ artifact, allowedTransitions, latestAuthor }: P
                   }}
                 >
                   {STR.art.lifecycle.setHold}
-                </button>
+                </Button>
               </HelpTip>
-              <button
+              <Button
                 type="button"
                 data-testid="hold-clear"
-                disabled={holdClearMut.isPending || !hold}
+                pending={holdClearMut.isPending}
+                disabled={!hold}
                 className="rounded-sf border border-line px-3 py-1 text-sm hover:bg-surface-2 disabled:opacity-50"
                 onClick={() => {
                   setHoldError(null);
@@ -356,7 +359,7 @@ export function LifecyclePanel({ artifact, allowedTransitions, latestAuthor }: P
                 }}
               >
                 {STR.art.lifecycle.clearHold}
-              </button>
+              </Button>
             </div>
             {holdError ? (
               <p data-testid="hold-error" role="alert" className="text-xs text-danger">

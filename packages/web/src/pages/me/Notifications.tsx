@@ -13,6 +13,7 @@ import { HelpTip } from "../../components/HelpTip.tsx";
 import { isSafeInternalPath } from "../../lib/comment-text.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 const PREF_KINDS = [
   "comment",
@@ -53,9 +54,11 @@ function PrefsPanel({ prefs }: { prefs: NotificationPrefs }) {
                 data-testid={`notif-pref-${kind}`}
                 type="checkbox"
                 checked={prefs[kind]}
-                disabled={locked || mut.isPending}
+                disabled={locked}
+                aria-disabled={mut.isPending || undefined}
                 onChange={(e) => {
-                  if (locked) return;
+                  // Focus stays on the checkbox while it saves; a change meanwhile is ignored.
+                  if (locked || mut.isPending) return;
                   mut.mutate({ [kind]: e.target.checked });
                 }}
               />
@@ -120,15 +123,16 @@ function NotificationsInner() {
           {STR.ws.notifications.unread} {listQ.data?.unread_count ?? "…"}
         </span>
         <HelpTip action="notifications-mark-all">
-          <button
+          <Button
             type="button"
             data-testid="notifications-mark-all"
             className="rounded-sf border border-line px-3 py-1 hover:bg-surface-2 disabled:opacity-50"
-            disabled={markAll.isPending || (listQ.data?.unread_count ?? 0) === 0}
+            pending={markAll.isPending}
+            disabled={(listQ.data?.unread_count ?? 0) === 0}
             onClick={() => markAll.mutate()}
           >
             {STR.ws.notifications.markAll}
-          </button>
+          </Button>
         </HelpTip>
       </div>
 

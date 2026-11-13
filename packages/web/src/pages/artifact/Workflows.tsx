@@ -22,6 +22,7 @@ import { ErrorState } from "../../components/ErrorState.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 type Props = { type: string; name: string; canManage: boolean; isAdmin: boolean };
 
@@ -196,14 +197,14 @@ export function Workflows({ type, name, canManage, isAdmin }: Props) {
               </span>
               {canManage ? (
                 <HelpTip action="workflow-run-start">
-                  <button
+                  <Button
                     className="btn btn-sm"
                     data-testid={`wf-run-${w.workflow_id}`}
-                    disabled={runM.isPending}
+                    pending={runM.isPending}
                     onClick={() => runM.mutate(w.workflow_id)}
                   >
                     {STR.flow.workflows.run}
-                  </button>
+                  </Button>
                 </HelpTip>
               ) : null}
             </li>
@@ -358,14 +359,14 @@ function WorkflowEditor({
         </pre>
       ) : null}
       <div className="flex gap-2">
-        <button
+        <Button
           className="btn btn-sm btn-primary"
           data-testid="wf-save"
-          disabled={saveM.isPending}
+          pending={saveM.isPending}
           onClick={() => saveM.mutate()}
         >
           {STR.flow.common.save}
-        </button>
+        </Button>
         <button className="btn btn-sm" onClick={onCancel}>
           {STR.flow.common.cancel}
         </button>

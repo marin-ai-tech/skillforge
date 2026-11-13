@@ -18,6 +18,7 @@ import { IssueList } from "../components/IssueList.tsx";
 import { ImportPolicyPanel } from "../components/ImportPolicyPanel.tsx";
 import { MirrorsPanel } from "../components/MirrorsPanel.tsx";
 import { ImportFreshness } from "../components/ImportFreshness.tsx";
+import { Button } from "../components/Button.tsx";
 
 type SourceKind = "zip" | "git" | "folder";
 
@@ -289,15 +290,15 @@ export function ImportPage() {
         ) : null}
 
         <HelpTip action="import-preview">
-          <button
+          <Button
             type="button"
             data-testid="import-preview"
             className="rounded-sf bg-accent px-3 py-1.5 text-sm text-accent-fg disabled:opacity-50"
-            disabled={busy}
+            pending={busy}
             onClick={() => void onPreview()}
           >
             {STR.import.preview}
-          </button>
+          </Button>
         </HelpTip>
       </div>
 

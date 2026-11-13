@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useHelp } from "../help/HelpProvider.tsx";
 import { HelpTip } from "./HelpTip.tsx";
 import { STR } from "../lib/strings.ts";
+import { Button } from "./Button.tsx";
 
 const NEEDS_REASON = new Set(["retired", "zombie"]);
 
@@ -117,26 +118,27 @@ export function TransitionDialog({
         ) : null}
         <div className="mt-4 flex justify-end gap-2">
           <HelpTip action="transition-cancel">
-            <button
+            <Button
               type="button"
               data-testid="transition-cancel"
               className="rounded-sf border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-2"
               onClick={onCancel}
-              disabled={busy}
+              pending={busy}
             >
               {STR.art.common.cancel}
-            </button>
+            </Button>
           </HelpTip>
           <HelpTip action="transition-confirm">
-            <button
+            <Button
               type="button"
               data-testid="transition-confirm"
               className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-              disabled={!canConfirm || busy}
+              pending={busy}
+              disabled={!canConfirm}
               onClick={() => onConfirm(reason.trim())}
             >
               {confirmLabel}
-            </button>
+            </Button>
           </HelpTip>
         </div>
       </div>

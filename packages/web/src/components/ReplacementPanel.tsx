@@ -7,6 +7,7 @@ import { useMe } from "../lib/auth.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { HelpTip } from "./HelpTip.tsx";
+import { Button } from "./Button.tsx";
 
 /** "Replaced by" (artifact-replacement): a notice for everyone, an editor for people who may publish it. */
 export function ReplacementPanel({ artifact }: { artifact: ArtifactSummary }) {
@@ -52,15 +53,15 @@ export function ReplacementPanel({ artifact }: { artifact: ArtifactSummary }) {
           translate="no"
         />
         <HelpTip action="replacement-save">
-          <button
+          <Button
             type="button"
             data-testid="replacement-save"
-            disabled={save.isPending}
+            pending={save.isPending}
             onClick={() => save.mutate()}
             className="rounded-sf border border-line px-2 py-1 text-xs disabled:opacity-50"
           >
             {STR.art.overview.replacementSave}
-          </button>
+          </Button>
         </HelpTip>
       </div>
       {error ? (

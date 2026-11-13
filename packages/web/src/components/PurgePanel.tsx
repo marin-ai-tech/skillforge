@@ -4,6 +4,7 @@ import { ApiError, purgeArtifact, type PurgeResult } from "../api/client.ts";
 import { HelpTip } from "./HelpTip.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
+import { Button } from "./Button.tsx";
 
 /** Outcome of a completed purge: deleted/failed/shared blobs and affected backups. */
 function PurgeResultView({ result }: { result: PurgeResult }) {
@@ -165,17 +166,16 @@ export function PurgePanel({
                     {error}
                   </p>
                 )}
-                <button
+                <Button
                   type="button"
                   data-testid="purge-submit"
-                  disabled={
-                    busy || reason.length < 10 || reason.length > 500 || confirm !== reference
-                  }
+                  pending={busy}
+                  disabled={reason.length < 10 || reason.length > 500 || confirm !== reference}
                   className="rounded-sf bg-danger px-3 py-1.5 text-white disabled:opacity-50"
                   onClick={() => void submit()}
                 >
                   {STR.art.purge.submit}
-                </button>
+                </Button>
               </>
             )}
             <button

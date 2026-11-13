@@ -7,6 +7,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 const lines = (s: string) =>
   s
@@ -97,15 +98,16 @@ function RolloutPage() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <HelpTip action="rollout-start">
-          <button
+          <Button
             type="button"
             data-testid="rollout-start"
-            disabled={run.isPending || !q.data?.configured}
+            pending={run.isPending}
+            disabled={!q.data?.configured}
             onClick={() => run.mutate()}
             className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
           >
             {S.start}
-          </button>
+          </Button>
         </HelpTip>
         {error ? <span className="text-sm text-danger">{error}</span> : null}
       </div>

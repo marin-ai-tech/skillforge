@@ -13,6 +13,7 @@ import { Skeleton } from "../../components/Skeleton.tsx";
 import { roleAtLeast, useMe } from "../../lib/auth.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 const POLICY_ROWS: Array<{
   key: keyof Awaited<ReturnType<typeof getLifecyclePolicy>>;
@@ -211,10 +212,10 @@ function AdminLifecycleBody() {
       </section>
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
           data-testid="sweep-dry-run"
-          disabled={dryMut.isPending}
+          pending={dryMut.isPending}
           className="rounded-sf border border-line px-3 py-1.5 text-sm hover:bg-surface-2 disabled:opacity-50"
           onClick={() => {
             setError(null);
@@ -222,12 +223,12 @@ function AdminLifecycleBody() {
           }}
         >
           {STR.adm.lifecycle.dryRun}
-        </button>
+        </Button>
         <HelpTip action="sweep-run">
-          <button
+          <Button
             type="button"
             data-testid="sweep-run"
-            disabled={runMut.isPending}
+            pending={runMut.isPending}
             className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
             onClick={() => {
               setError(null);
@@ -235,7 +236,7 @@ function AdminLifecycleBody() {
             }}
           >
             {STR.adm.lifecycle.runSweep}
-          </button>
+          </Button>
         </HelpTip>
       </div>
 

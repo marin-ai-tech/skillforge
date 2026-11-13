@@ -10,6 +10,7 @@ import { Skeleton } from "../components/Skeleton.tsx";
 import { roleAtLeast } from "../lib/auth.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
+import { Button } from "../components/Button.tsx";
 
 function humanTeamError(err: unknown): string {
   if (!(err instanceof ApiError)) return STR.ws.teams.errors.requestFailed;
@@ -84,14 +85,15 @@ function TeamsInner({ isAdmin }: { isAdmin: boolean }) {
               />
             </label>
             <HelpTip action="team-create">
-              <button
+              <Button
                 type="submit"
                 data-testid="team-create"
                 className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                disabled={createMut.isPending || !name.trim() || !lead.trim()}
+                pending={createMut.isPending}
+                disabled={!name.trim() || !lead.trim()}
               >
                 {STR.ws.teams.create}
-              </button>
+              </Button>
             </HelpTip>
             {error ? (
               <span data-testid="team-create-error" className="text-xs text-danger">

@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/PageHeader.tsx";
 import { HelpTip } from "../../components/HelpTip.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 const input = "rounded-sf border border-line bg-bg px-2 py-1 text-sm";
 
@@ -44,15 +45,16 @@ function Draft({ harvest }: { harvest: Harvest }) {
         </select>
       </HelpTip>
       <HelpTip action="harvest-draft">
-        <button
+        <Button
           type="button"
           data-testid="harvest-draft"
-          disabled={make.isPending || !name.trim()}
+          pending={make.isPending}
+          disabled={!name.trim()}
           onClick={() => make.mutate()}
           className="rounded-sf border border-line px-3 py-1 text-sm hover:bg-surface-2 disabled:opacity-50"
         >
           {S.draft}
-        </button>
+        </Button>
       </HelpTip>
       {result?.ok ? (
         <Link
@@ -149,15 +151,16 @@ function HarvestPage() {
           />
         </label>
         <HelpTip action="harvest-run">
-          <button
+          <Button
             type="button"
             data-testid="harvest-run"
-            disabled={run.isPending || !repo.trim()}
+            pending={run.isPending}
+            disabled={!repo.trim()}
             onClick={() => run.mutate()}
             className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
           >
             {S.run}
-          </button>
+          </Button>
         </HelpTip>
         {error ? <span className="text-sm text-danger">{error}</span> : null}
       </div>

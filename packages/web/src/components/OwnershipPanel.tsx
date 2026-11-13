@@ -12,6 +12,7 @@ import { HelpTip } from "./HelpTip.tsx";
 import { useMe, roleAtLeast } from "../lib/auth.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
+import { Button } from "./Button.tsx";
 
 type Props = {
   artifact: ArtifactSummary;
@@ -152,18 +153,19 @@ export function OwnershipPanel({ artifact }: Props) {
               />
             </label>
             <HelpTip action="transfer-owner">
-              <button
+              <Button
                 type="button"
                 data-testid="transfer-owner"
                 className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                disabled={transferMut.isPending || !newOwner.trim() || !reason.trim()}
+                pending={transferMut.isPending}
+                disabled={!newOwner.trim() || !reason.trim()}
                 onClick={() => {
                   setTransferError(null);
                   setConfirmOpen(true);
                 }}
               >
                 {STR.art.ownership.transfer}
-              </button>
+              </Button>
             </HelpTip>
             {transferError ? (
               <span data-testid="transfer-owner-error" className="text-xs text-danger">
@@ -184,18 +186,19 @@ export function OwnershipPanel({ artifact }: Props) {
               />
             </label>
             <HelpTip action="add-maintainer">
-              <button
+              <Button
                 type="button"
                 data-testid="add-maintainer"
                 className="rounded-sf border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:border-accent disabled:opacity-50"
-                disabled={addMut.isPending || !maintainerName.trim()}
+                pending={addMut.isPending}
+                disabled={!maintainerName.trim()}
                 onClick={() => {
                   setMaintainerError(null);
                   addMut.mutate();
                 }}
               >
                 {STR.art.ownership.addMaintainer}
-              </button>
+              </Button>
             </HelpTip>
             {maintainerError ? (
               <span data-testid="add-maintainer-error" className="text-xs text-danger">
@@ -210,18 +213,18 @@ export function OwnershipPanel({ artifact }: Props) {
                 <li key={u} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-mono">{u}</span>
                   <HelpTip action="remove-maintainer">
-                    <button
+                    <Button
                       type="button"
                       data-testid={`remove-maintainer-${u}`}
                       className="rounded-sf border border-line px-2 py-0.5 text-xs text-ink-2 hover:border-danger hover:text-danger disabled:opacity-50"
-                      disabled={removeMut.isPending}
+                      pending={removeMut.isPending}
                       onClick={() => {
                         setRemoveError(null);
                         removeMut.mutate(u);
                       }}
                     >
                       {STR.art.ownership.remove}
-                    </button>
+                    </Button>
                   </HelpTip>
                 </li>
               ))}

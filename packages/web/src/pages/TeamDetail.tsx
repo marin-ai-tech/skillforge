@@ -13,6 +13,7 @@ import { roleAtLeast } from "../lib/auth.tsx";
 import type { MeUser } from "../api/client.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
+import { Button } from "../components/Button.tsx";
 
 function humanMemberError(err: unknown): string {
   if (!(err instanceof ApiError)) return STR.ws.teamDetail.errors.requestFailed;
@@ -83,14 +84,15 @@ function AddMemberForm({
         </select>
       </label>
       <HelpTip action="team-member-add">
-        <button
+        <Button
           type="submit"
           data-testid="team-member-add"
           className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-          disabled={addMut.isPending || !username.trim()}
+          pending={addMut.isPending}
+          disabled={!username.trim()}
         >
           {STR.ws.teamDetail.addMember}
-        </button>
+        </Button>
       </HelpTip>
       {addError ? (
         <span data-testid="team-member-add-error" className="text-xs text-danger">
@@ -197,18 +199,18 @@ function TeamDetailInner({ user }: { user: MeUser }) {
                 </span>
                 {canManage ? (
                   <HelpTip action="team-member-remove">
-                    <button
+                    <Button
                       type="button"
                       data-testid={`team-member-remove-${m.username}`}
                       className="rounded-sf border border-line px-2 py-0.5 text-xs text-ink-2 hover:border-danger hover:text-danger disabled:opacity-50"
-                      disabled={removeMut.isPending}
+                      pending={removeMut.isPending}
                       onClick={() => {
                         setRemoveError(null);
                         removeMut.mutate(m.username);
                       }}
                     >
                       {STR.ws.teamDetail.remove}
-                    </button>
+                    </Button>
                   </HelpTip>
                 ) : null}
               </li>

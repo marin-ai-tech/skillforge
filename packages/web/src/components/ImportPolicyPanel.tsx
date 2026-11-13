@@ -5,6 +5,7 @@ import type { ImportPolicy } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { HelpTip } from "./HelpTip.tsx";
+import { Button } from "./Button.tsx";
 
 /** Admin-only import source policy (import-source-policy): git allowlist, uploads, release quarantine. */
 export function ImportPolicyPanel({ role }: { role: string }) {
@@ -95,15 +96,15 @@ function PolicyForm() {
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <HelpTip action="import-policy-save">
-            <button
+            <Button
               type="button"
               data-testid="import-policy-save"
-              disabled={save.isPending}
+              pending={save.isPending}
               onClick={() => save.mutate()}
               className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
             >
               {STR.import.policySave}
-            </button>
+            </Button>
           </HelpTip>
           {message ? (
             <span data-testid="import-policy-message" role="status" className="text-ink-2">

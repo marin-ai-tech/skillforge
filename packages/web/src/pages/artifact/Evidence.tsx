@@ -13,6 +13,7 @@ import { roleAtLeast, useMe } from "../../lib/auth.tsx";
 import { formatTransferRate, isSafeEvidenceHref } from "../../lib/evidence-url.ts";
 import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 const KINDS: EvidenceKind[] = ["gate", "run", "diff", "review", "eval", "ablation"];
 
@@ -333,14 +334,14 @@ export function Evidence({ type, name, artifact, version }: Props) {
                 onChange={(e) => setHelped(e.target.value)}
               />
             </label>
-            <button
+            <Button
               type="submit"
               data-testid="usage-report"
-              disabled={usageMut.isPending}
+              pending={usageMut.isPending}
               className="rounded-sf border border-line px-3 py-1 text-sm hover:bg-surface-2 disabled:opacity-50"
             >
               {STR.evidence.report}
-            </button>
+            </Button>
             {usageError ? (
               <p data-testid="usage-error" role="alert" className="w-full text-xs text-danger">
                 {usageError}
@@ -539,14 +540,15 @@ export function Evidence({ type, name, artifact, version }: Props) {
           ) : null}
           <div className="flex items-center gap-2">
             <HelpTip action="evidence-add">
-              <button
+              <Button
                 type="submit"
                 data-testid="evidence-add"
-                disabled={evidenceMut.isPending || (url.trim() === "" && !file)}
+                pending={evidenceMut.isPending}
+                disabled={url.trim() === "" && !file}
                 className="rounded-sf border border-line px-3 py-1 text-sm hover:bg-surface-2 disabled:opacity-50"
               >
                 {STR.evidence.add}
-              </button>
+              </Button>
             </HelpTip>
             {evidenceError ? (
               <p data-testid="evidence-error" role="alert" className="text-xs text-danger">

@@ -6,6 +6,7 @@ import { HelpTip } from "./HelpTip.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { formatDeclaration } from "../lib/runtimes.ts";
+import { Button } from "./Button.tsx";
 
 type Field = "description" | "display_name" | "tags" | "agents";
 
@@ -92,14 +93,14 @@ export function MetadataPanel({ artifact }: { artifact: ArtifactSummary }) {
           onChange={(e) => setDescription(e.target.value)}
         />
         {error.description && <p className="text-danger">{error.description}</p>}
-        <button
+        <Button
           type="button"
           data-testid="metadata-reset-description"
-          disabled={busy}
+          pending={busy}
           onClick={() => reset("description")}
         >
           {STR.art.metadata.resetDescription}
-        </button>
+        </Button>
       </div>
       <div>
         <label htmlFor="metadata-display-name">{STR.art.metadata.displayName}</label>
@@ -112,14 +113,14 @@ export function MetadataPanel({ artifact }: { artifact: ArtifactSummary }) {
           onChange={(e) => setDisplayName(e.target.value)}
         />
         {error.display_name && <p className="text-danger">{error.display_name}</p>}
-        <button
+        <Button
           type="button"
           data-testid="metadata-reset-display_name"
-          disabled={busy}
+          pending={busy}
           onClick={() => reset("display_name")}
         >
           {STR.art.metadata.resetDisplayName}
-        </button>
+        </Button>
       </div>
       <div>
         <label htmlFor="metadata-tags">{STR.art.metadata.tags}</label>
@@ -131,14 +132,14 @@ export function MetadataPanel({ artifact }: { artifact: ArtifactSummary }) {
           onChange={(e) => setTags(e.target.value)}
         />
         {error.tags && <p className="text-danger">{error.tags}</p>}
-        <button
+        <Button
           type="button"
           data-testid="metadata-reset-tags"
-          disabled={busy}
+          pending={busy}
           onClick={() => reset("tags")}
         >
           {STR.art.metadata.resetTags}
-        </button>
+        </Button>
       </div>
       <div>
         <label htmlFor="metadata-agents">{STR.art.metadata.agents}</label>
@@ -158,21 +159,21 @@ export function MetadataPanel({ artifact }: { artifact: ArtifactSummary }) {
             {error.agents}
           </p>
         )}
-        <button
+        <Button
           type="button"
           data-testid="metadata-reset-agents"
-          disabled={busy}
+          pending={busy}
           onClick={() => reset("agents")}
         >
           {STR.art.metadata.resetAgents}
-        </button>
+        </Button>
       </div>
       <HelpTip action="metadata-save">
-        <button
+        <Button
           type="button"
           data-testid="metadata-save"
           className="rounded-sf bg-accent px-3 py-1.5 text-white"
-          disabled={busy}
+          pending={busy}
           onClick={() =>
             void save({
               description,
@@ -186,7 +187,7 @@ export function MetadataPanel({ artifact }: { artifact: ArtifactSummary }) {
           }
         >
           {STR.art.metadata.save}
-        </button>
+        </Button>
       </HelpTip>
     </section>
   );

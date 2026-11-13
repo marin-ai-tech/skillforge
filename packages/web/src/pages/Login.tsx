@@ -6,6 +6,7 @@ import type { AuthProviderInfo } from "../api/types.ts";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { HelpTip } from "../components/HelpTip.tsx";
 import { STR } from "../lib/strings.ts";
+import { Button } from "../components/Button.tsx";
 
 function safeNext(raw: string | null): string {
   if (!raw) return "/";
@@ -203,14 +204,14 @@ export function Login() {
           </div>
         ) : null}
         <HelpTip action="login-submit">
-          <button
+          <Button
             type="submit"
             data-testid="login-submit"
-            disabled={submitting}
+            pending={submitting}
             className="w-full rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             {submitting ? STR.login.submitting : STR.login.submit}
-          </button>
+          </Button>
         </HelpTip>
       </form>
       {oidcProviders.length > 0 ? (

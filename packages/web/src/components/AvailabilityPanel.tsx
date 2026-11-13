@@ -60,10 +60,12 @@ export function AvailabilityPanel({ type, name }: { type: string; name: string }
                       data-testid={`availability-${t.name}`}
                       className="rounded-sf border border-line bg-bg px-2 py-1 text-xs"
                       value={stateOf(t.name)}
-                      disabled={save.isPending}
-                      onChange={(e) =>
-                        save.mutate({ team: t.name, state: e.target.value as AvailabilityState })
-                      }
+                      aria-disabled={save.isPending || undefined}
+                      onChange={(e) => {
+                        // Focus stays on the select while it saves; a change meanwhile is ignored.
+                        if (!save.isPending)
+                          save.mutate({ team: t.name, state: e.target.value as AvailabilityState });
+                      }}
                     >
                       {STATES.map((s) => (
                         <option key={s} value={s}>

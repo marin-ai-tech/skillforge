@@ -13,6 +13,7 @@ import { agentUploadPaths } from "../../lib/agent-files.ts";
 import { useAgentRuntimeOptions } from "../../lib/runtimes.ts";
 import { STR } from "../../lib/strings.ts";
 import { codeMessage, errorText } from "../../i18n/index.ts";
+import { Button } from "../../components/Button.tsx";
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -316,14 +317,14 @@ function AgentsPage() {
               >
                 {STR.ws.agents.cancel}
               </button>
-              <button
+              <Button
                 type="submit"
                 data-testid="agent-add-submit"
-                disabled={addMut.isPending}
+                pending={addMut.isPending}
                 className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
               >
                 {addMut.isPending ? STR.ws.agents.uploading : STR.ws.agents.addSubmit}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

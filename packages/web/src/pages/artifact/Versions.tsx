@@ -14,6 +14,7 @@ import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
 import { PurgePanel } from "../../components/PurgePanel.tsx";
 import { VersionCompare } from "../../components/VersionCompare.tsx";
+import { Button } from "../../components/Button.tsx";
 
 type Props = {
   type: string;
@@ -94,15 +95,15 @@ function ChannelControls({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <HelpTip action="set-channel">
-        <button
+        <Button
           type="button"
           data-testid={`set-channel-${v.version}`}
           className="rounded-sf border border-line px-2 py-1 text-xs text-ink-2 hover:border-accent"
-          disabled={pending}
+          pending={pending}
           onClick={() => requestChannelChange(v.version, nextChannel)}
         >
           {v.channel === "beta" ? STR.art.versions.promoteStable : STR.art.versions.moveBeta}
-        </button>
+        </Button>
       </HelpTip>
       {channelError?.version === v.version ? (
         <span data-testid={`set-channel-error-${v.version}`} className="text-xs text-danger">
@@ -413,15 +414,15 @@ export function Versions({ type, name, versions, onSelect, isAdmin }: Props) {
                 {STR.art.common.cancel}
               </button>
               <HelpTip action="validate-confirm">
-                <button
+                <Button
                   type="button"
                   data-testid="validate-confirm"
                   className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white"
-                  disabled={mut.isPending}
+                  pending={mut.isPending}
                   onClick={() => mut.mutate()}
                 >
                   {STR.art.versions.validate}
-                </button>
+                </Button>
               </HelpTip>
             </div>
           </div>

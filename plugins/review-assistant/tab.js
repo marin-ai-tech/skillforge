@@ -5,6 +5,13 @@
 // a tracking-pixel image, HTML or a table. `.` and `/` stay so that ordinary phrases read as they are.
 const MD_SPECIALS = /([\\`*_{}[\]()#+\-!|<>&~])/g;
 
+/** Runs paid from an Agent Space task budget (llm-budget-broker) have two more states. */
+const STATUS_NOTES = {
+  interrupted:
+    "The run stopped before it finished (a server restart or no budget grant in memory); Agent Space resumes it with a new grant.",
+  awaiting_publication: "The check waits for this version to be published.",
+};
+
 export function escapeMarkdown(text) {
   if (typeof text !== "string") return "";
   return text.replace(MD_SPECIALS, "\\$1");
@@ -63,6 +70,8 @@ function renderSummary(ctx, artifact, run) {
   lines.push(
     `**Review run #${run.id}** — status: \`${run.status}\` (trigger: \`${run.trigger}\`).`,
   );
+  const note = STATUS_NOTES[run.status];
+  if (note) lines.push(note);
   const reviewers = JSON.parse(run.reviewers);
   if (Array.isArray(reviewers)) {
     for (const r of reviewers) {

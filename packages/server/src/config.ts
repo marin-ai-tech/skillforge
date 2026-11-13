@@ -134,6 +134,11 @@ export type AppConfig = {
   llmApiKey: string | null;
   /** SKILLFORGE_LLM_KEY_ORIGINS: origins (scheme://host[:port]) the key may be sent to; empty = never sent. */
   llmKeyOrigins: string[];
+  /**
+   * SKILLFORGE_BUDGET_SOCKET (llm-budget-broker): absolute path of the Agent Space budget broker's Unix socket. When set,
+   * every model call goes through it and never to the provider directly; null = no broker.
+   */
+  budgetSocket: string | null;
   /** SKILLFORGE_GITHUB_TOKEN (pr-rollout): only from the environment, sent only to githubApiUrl, never returned. */
   githubToken: string | null;
   /** SKILLFORGE_GITHUB_API_URL: GitHub REST API, default https://api.github.com; http only for loopback. */
@@ -656,11 +661,23 @@ function parseGitHubEnv(env: NodeJS.ProcessEnv): Pick<AppConfig, "githubToken" |
   };
 }
 
-/** LLM key and the origins it may be sent to. */
-function parseLlmEnv(env: NodeJS.ProcessEnv): Pick<AppConfig, "llmApiKey" | "llmKeyOrigins"> {
+/** SKILLFORGE_BUDGET_SOCKET: empty = no broker; otherwise an absolute path without NUL, else a startup error. */
+export function parseBudgetSocket(raw: string | undefined): string | null {
+  const value = raw?.trim() ?? "";
+  if (value === "") return null;
+  if (!path.isAbsolute(value) || value.includes(String.fromCharCode(0)))
+    throw new ConfigError("SKILLFORGE_BUDGET_SOCKET");
+  return value;
+}
+
+/** LLM key, the origins it may be sent to and the budget broker. */
+function parseLlmEnv(
+  env: NodeJS.ProcessEnv,
+): Pick<AppConfig, "llmApiKey" | "llmKeyOrigins" | "budgetSocket"> {
   return {
     llmApiKey: env.SKILLFORGE_LLM_API_KEY?.trim() || null,
     llmKeyOrigins: parseLlmKeyOrigins(env.SKILLFORGE_LLM_KEY_ORIGINS),
+    budgetSocket: parseBudgetSocket(env.SKILLFORGE_BUDGET_SOCKET),
   };
 }
 

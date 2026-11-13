@@ -5,7 +5,7 @@ import { getArtifactById } from "../repo.ts";
 import { canView } from "../visibility/index.ts";
 import { preferenceEnabled, visibleUnreadCount } from "../notifications/notify.ts";
 
-const kinds = ["comment", "mention", "new_version", "status_change", "plugin"] as const;
+const kinds = ["comment", "mention", "new_version", "status_change", "plugin", "source"] as const;
 type Row = {
   id: string;
   kind: string;

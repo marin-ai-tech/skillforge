@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { draftSkillMarkdown, harvestRules, type HarvestItem } from "@skillforge/core";
+import {
+  draftRuleMarkdown,
+  draftSkillMarkdown,
+  harvestRules,
+  type HarvestItem,
+  type HarvestRule,
+} from "@skillforge/core";
 import type { AppContext } from "../context.ts";
 import { setExit } from "../context.ts";
 import { EXIT } from "../exit.ts";
@@ -11,7 +17,29 @@ import { EXIT } from "../exit.ts";
  * session logs, as a skill draft on disk. Only the person's own words count (not the agent's replies or tool
  * output), and nothing leaves the machine: review the draft, then publish it as usual.
  */
-export type HarvestSessionsOpts = { dir?: string; out?: string; name?: string; min?: string };
+export type HarvestSessionsOpts = {
+  dir?: string;
+  out?: string;
+  name?: string;
+  min?: string;
+  /** rule-artifacts: `rule` (default) or `skill`. */
+  type?: string;
+};
+
+/** Where the draft goes and what it holds: a rule file, or a skill folder as before. */
+function draftTarget(type: "rule" | "skill", out: string, name: string, rules: HarvestRule[]) {
+  const origin = "your agent sessions";
+  if (type === "rule") {
+    const dir = path.join(out, "rules");
+    return {
+      dir,
+      file: path.join(dir, `${name}.md`),
+      text: draftRuleMarkdown(name, rules, origin),
+    };
+  }
+  const dir = path.join(out, "skills", name);
+  return { dir, file: path.join(dir, "SKILL.md"), text: draftSkillMarkdown(name, rules, origin) };
+}
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const MAX_FILES = 2000;
@@ -70,27 +98,37 @@ function itemsOf(file: string, root: string): HarvestItem[] {
   return items;
 }
 
+/** Name, type and output folder of the draft, or null when the options are not usable. */
+function draftOptions(
+  opts: HarvestSessionsOpts,
+): { name: string; type: "rule" | "skill"; out: string } | null {
+  const name = opts.name ?? "";
+  const type = opts.type ?? "rule";
+  if (!NAME_RE.test(name) || !opts.out || (type !== "rule" && type !== "skill")) return null;
+  return { name, type, out: path.resolve(opts.out) };
+}
+
 export async function runHarvestSessions(
   ctx: AppContext,
   opts: HarvestSessionsOpts,
 ): Promise<void> {
-  const name = opts.name ?? "";
-  if (!NAME_RE.test(name) || !opts.out) {
+  const draft = draftOptions(opts);
+  if (!draft) {
     ctx.out.error(
-      "usage: skillforge harvest sessions --out <dir> --name <kebab-name> [--dir <logs>] [--min 3]",
+      "usage: skillforge harvest sessions --out <dir> --name <kebab-name> [--type rule|skill] [--dir <logs>] [--min 3]",
     );
     setExit(EXIT.INVALID_INPUT);
     return;
   }
+  const { name, type } = draft;
   const root = path.resolve(opts.dir ?? path.join(os.homedir(), ".claude", "projects"));
   const min = opts.min ? Number(opts.min) : 3;
   const items = sessionFiles(root).flatMap((f) => itemsOf(f, root));
   const rules = harvestRules(items, { minCount: Number.isInteger(min) && min > 1 ? min : 3 });
-  const dir = path.join(path.resolve(opts.out), "skills", name);
-  const file = path.join(dir, "SKILL.md");
+  const { dir, file, text } = draftTarget(type, draft.out, name, rules);
   if (rules.length > 0) {
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(file, draftSkillMarkdown(name, rules, "your agent sessions"), "utf8");
+    fs.writeFileSync(file, text, "utf8");
   }
   if (ctx.out.json) {
     ctx.out.printJson({ rules, file: rules.length > 0 ? file : null });
@@ -98,7 +136,7 @@ export async function runHarvestSessions(
     ctx.out.write("No recurring rules found in the session logs.");
   } else {
     ctx.out.write(
-      `Draft written to ${file} with ${rules.length} rules. Review it, then: skillforge publish ${dir}`,
+      `Draft written to ${file} with ${rules.length} rules. Review it, then: skillforge publish ${type === "rule" ? file : dir}`,
     );
   }
   setExit(EXIT.OK);

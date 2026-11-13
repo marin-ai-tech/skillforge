@@ -30,6 +30,8 @@ function view(db: Database, config: AppConfig) {
     settings,
     key: {
       set: !!config.llmApiKey,
+      /** llm-budget-broker: the key lives in the Agent Space budget broker; SkillForge never sends one. */
+      managed: !!config.budgetSocket,
       env: "SKILLFORGE_LLM_API_KEY",
       origins_env: "SKILLFORGE_LLM_KEY_ORIGINS",
       allowed_for_base_url: keyAllowedFor(config, settings.base_url),

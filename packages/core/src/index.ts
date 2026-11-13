@@ -116,6 +116,7 @@ export {
   parseAgentDeclarations,
   formatAgentDeclarations,
   AgentDeclarationError,
+  translateRule,
 } from "./runtimes/index.ts";
 export type {
   NormalizeForeignResult,
@@ -132,6 +133,7 @@ export type {
   AgentTranslateMethod,
   AgentDeclaration,
   AgentCompat,
+  RuleTranslation,
 } from "./runtimes/index.ts";
 export {
   parseVersionSpec,
@@ -150,5 +152,5 @@ export {
 } from "./process-runner.ts";
 export type { SpawnIsolatedOptions, SpawnIsolatedResult } from "./process-runner.ts";
 export { unifiedDiff } from "./diff/lines.ts";
-export { harvestRules, draftSkillMarkdown } from "./harvest/rules.ts";
+export { harvestRules, draftSkillMarkdown, draftRuleMarkdown } from "./harvest/rules.ts";
 export type { HarvestItem, HarvestRule } from "./harvest/rules.ts";

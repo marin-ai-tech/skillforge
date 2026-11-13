@@ -6,10 +6,11 @@ Most coding agents can only spawn copies of themselves or a small built-in model
 
 For example:
 
-- send repository research to a stateful Grok 4.7 worker that can be steered and continued, with Grok 4.5 available as a fast context-research profile;
+- send a repository investigation to a suitable stateful worker that can be steered and continued;
 - ask Claude Fable to produce an independent plan;
-- delegate an implementation to Codex, Claude, Grok, OpenCode, or Devin;
-- review the same change with several unrelated model families and compare what they find.
+- delegate an implementation to Codex, Claude, Grok, OpenCode, Devin, or Antigravity (`agy`);
+- review the same change with several unrelated model families and compare what they find;
+- transcribe a recording with Antigravity, or generate, edit and animate (GIF) images with Codex or Antigravity (`porch media`).
 
 Each worker runs through its real coding-agent harness, with access to the tools and repository context appropriate for the selected mode. This is not role-play inside one model.
 
@@ -69,9 +70,10 @@ You also need Python 3 and at least one supported coding-agent CLI:
 |---|---|---|
 | [Codex CLI](https://github.com/openai/codex) | `codex` | review, delegate |
 | [Claude Code](https://docs.claude.com/claude-code) | `claude` | review, delegate |
-| [OpenCode](https://opencode.ai) | `opencode` | review, delegate |
+| [OpenCode 2.2.6+ (2.x)](https://opencode.ai) | `opencode` | review, delegate |
 | [Grok Build](https://grok.x.ai) | `grok` | review, delegate |
 | [Devin CLI](https://devin.ai) | `devin` | review, delegate |
+| [Antigravity CLI](https://antigravity.google/docs/cli/reference/) | `agy` | review, delegate |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `gemini` | review only |
 
 Authentication stays with each CLI. If it already works in your terminal, Porch can use it.
@@ -86,39 +88,40 @@ List the configured workers:
 scripts/porch --list-agents
 ```
 
-### Ask several model families
+### Ask one independent reviewer
 
 ```bash
-scripts/porch review ask -a grok,claude-fable,opencode-go-kimi-k3 \
-  "Propose a migration plan from REST to event-driven processing."
+scripts/porch review ask -a grok "Propose a migration plan from REST to event-driven processing."
 ```
 
-The agents work independently. Their answers are returned under separate headings so your primary agent — or you — can compare them without an artificial consensus.
+Choose one configured profile by its exact ID. The reviewer returns its own
+assessment for the caller to verify.
 
-### Use Grok as a stateful repository researcher
+### Run a stateful repository investigation
 
 ```bash
-scripts/porch delegate -a grok \
+scripts/porch delegate -a codex --name trace-auth \
   "Read-only investigation: trace authentication from the HTTP entry point to authorization checks. Cite repository-relative files and do not edit anything."
 ```
 
-Run the command from the repository Grok should inspect. The worker keeps a real session, so an incomplete investigation can continue through `delegate steer` and its final answer can be collected with `delegate wait`. Delegation is still a full-access runtime: a read-only research task is an instruction to the worker, not a sandbox guarantee, so the caller must verify that no files changed.
+Run the command from the repository the worker should inspect. The worker keeps a real session, so an incomplete investigation can continue through `delegate steer` and its final answer can be collected with `delegate wait`. Delegation is still a full-access runtime: a read-only research task is an instruction to the worker, not a sandbox guarantee, so the caller must verify that no files changed. For a simple question, inspect directly; for an independent read-only investigation without a stateful delegate, use `review ask`.
 
 For a remote repository, check it out into a user-approved working directory first and run Porch there. Porch no longer owns a separate clone-and-cleanup path.
 
 ### Ask GPT-6 Astra for a difficult second opinion
 
-GPT-6 Sol (`codex`, `high` effort) and GPT-6 Luna (`codex-gpt-6-luna`, `low` effort) join the default review pool. GPT-6 Astra (`codex-gpt-6-astra`) is disabled in the default review pool. Select it explicitly when a difficult specification or optimization plan benefits from an independent second view:
+GPT-6.1 Sol (`codex`, `high` effort) and GPT-6 Luna (`codex-gpt-6-luna`, `low` effort) join the default review pool. GPT-6 Astra (`codex-gpt-6-astra`) is disabled in the default review pool. Select it explicitly when a difficult specification or optimization plan benefits from an independent second view:
 
 ```bash
 scripts/porch review ask --progress compact -a codex-gpt-6-astra \
   "Verify SPEC.md against the implementation and identify mismatches."
 ```
 
-Claude Code defaults to `claude-opus` (Opus 5.5, `medium` effort).
-Fable remains available by explicitly selecting `-a claude-fable`.
+Claude Code defaults to `claude-opus` (`medium` effort). Select
+`claude-fable`, `claude-sonnet`, or `claude-haiku` explicitly for the other
+model families. These profiles use Claude Code's floating model aliases.
 
-### Ask Claude Fable 5.1 for a plan
+### Ask Claude Fable for a plan
 
 ```bash
 scripts/porch review ask -a claude-fable \
@@ -128,11 +131,13 @@ scripts/porch review ask -a claude-fable \
 ### Delegate real work to another agent
 
 ```bash
-scripts/porch delegate -a grok \
+scripts/porch delegate -a codex --name add-cache \
   "Implement the caching layer described in DESIGN.md and run the relevant tests."
 ```
 
 `delegate` runs exactly one explicitly selected agent in the current directory and is steerable by default. It has no sandbox or approval prompts, so use it only when you intend to give that agent full control of the repository. Use `--one-shot` for the legacy direct execution path.
+
+Every new task is prefixed with a short executor contract (`prompts/delegate-executor.txt`): the assignment sets the worker's scope and authority, project-wide ownership granted by `AGENTS.md` belongs to the caller, out-of-scope findings go into the report, and checks are not weakened. The contract is a prompt, not a sandbox. Steering messages and `--continue-run` follow-ups are sent as written.
 
 When delegating to a less capable model, the calling agent must provide a precise
 task contract, anticipate task-specific pitfalls, and request a deviation journal
@@ -143,20 +148,16 @@ not automatic model ranking by the CLI. See the
 [delegate protocol](references/delegate.md#delegating-to-a-less-capable-model),
 including the reporting rule for strictly read-only investigations.
 
-### Review code with independent specialists
+### Review code with one profile
 
 ```bash
-# Security + correctness
-scripts/porch review code path/to/file.py
-
-# Security, correctness, performance, architecture, and consistency
-scripts/porch review code --depth specialists path/to/file.py
-
-# Review a diff
-git diff HEAD | scripts/porch review code --diff
+scripts/porch review code -a grok path/to/file.py
+git diff HEAD | scripts/porch review code -a grok --diff
 ```
 
-For deeper, multi-stage reviews with a final judge, use `--depth super` or `--depth ultra`.
+For a repository review, add known related files with `--related FILE`. These
+paths are a starting point, not a scope boundary. Check findings and citations
+against the source. Legacy multi-review depths and judges have been removed.
 
 ## Long-running delegation
 
@@ -180,7 +181,7 @@ The CLI does not schedule supervision automatically.
 Use `--detach` when work should continue after the calling session exits:
 
 ```bash
-RUN_ID=$(scripts/porch delegate -a grok --detach \
+RUN_ID=$(scripts/porch delegate -a codex --detach --name implement-spec \
   "Implement the task in SPEC.md and run the test suite.")
 
 scripts/porch delegate events "$RUN_ID" --max-events 50
@@ -196,7 +197,7 @@ registry files and `audit.jsonl` are diagnostic internals, not monitoring APIs.
 Every normal delegate is steerable, so the caller can add guidance or change direction while the worker is running:
 
 ```bash
-scripts/porch delegate -a grok \
+scripts/porch delegate -a codex --name refactor-storage \
   "Refactor the storage layer."
 
 # From another process, using the run_id printed at startup
@@ -241,9 +242,20 @@ run is known.
 
 `sessions` reads the session stores your coding agents already write —
 Claude Code, Codex CLI/Desktop, OpenCode, Grok, Devin CLI, Gemini, Cursor,
-Qwen Code, Kimi Code, OMP, Claude Desktop, and Porch's own runs. It
+Qwen Code, Kimi Code, OMP, Hermes, Claude Desktop, and Porch's own runs. It
 creates no index or database; every record carries a native locator
 (file:line or db table:key) back to the raw source.
+
+`grep` searches normalized text from JSON, SQLite, and other supported stores;
+it is not a shell call to grep or ripgrep. Matching uses the full text, then
+returns a bounded excerpt around the match. Format details and verification
+status are in the [compatibility matrix](references/session-compatibility.md).
+Compressed Codex rollouts require Python 3.14+. Cursor ACP currently exposes
+conversation text; omitted tool, shell, or reasoning nodes make coverage partial.
+
+We are grateful to [Agent Sessions](https://github.com/jazzyalex/agent-sessions)
+for its open-source format research, fixtures, and session-browser ideas that
+informed the Codex, OpenCode, Cursor ACP, and Hermes integrations.
 
 Multi-layer stores keep their authority straight: Codex surfaces the
 canonical `rollout-*.jsonl` bodies, the `state_*.sqlite` thread index
@@ -261,6 +273,10 @@ scripts/porch sessions roots
 
 # Recent Codex sessions in a project
 scripts/porch sessions list -a codex --since 2026-01-01 --cwd my-project
+
+# Find a title or group matching fragments by session
+scripts/porch sessions list --title "retry"
+scripts/porch sessions grep --cwd /work/repo --cwd-exact --group-by-session "retry"
 
 # What did the human actually ask? (prompts only, all harnesses)
 scripts/porch sessions grep --scope prompts -i "rollback"
@@ -287,7 +303,7 @@ per-harness format recipes live in
 After installing the skill, ask your agent naturally:
 
 ```text
-Use pragmatic-orchestration to delegate a read-only repository investigation to Grok.
+Use pragmatic-orchestration for a read-only repository investigation.
 Explain how background jobs are retried, cite the relevant files, and do not edit anything.
 ```
 
@@ -297,7 +313,7 @@ Do not modify the repository.
 ```
 
 ```text
-Delegate this implementation to Grok. Watch the run, collect its result,
+Delegate this implementation to an appropriate worker. Watch the run, collect its result,
 then verify the changes and tests yourself.
 ```
 
@@ -321,16 +337,21 @@ Agent profiles live in `config.json`. A profile chooses the harness, model, reas
     "grok-fast": {
       "enabled": false,
       "backend": "grok-build",
-      "model": "grok-4.5",
+      "model": "grok-4.7-build-fast",
       "effort": "high",
       "role": "analyst",
-      "label": "Grok 4.5 (fast context research)"
+      "label": "Grok 4.7 Fast (native)"
     }
   }
 }
 ```
 
 Edit `config.json` or point `PORCH_CONFIG` to another file. Model and effort can also be overridden for one invocation:
+
+`grok-fast` is opt-in and requires an eligible Grok Build plan; it uses faster
+infrastructure at higher rates. The `grok-4.5` profile preserves the older model.
+Local configuration files replace the example, so update them explicitly to add
+these profiles.
 
 ```bash
 CLAUDE_EFFORT=medium scripts/porch review ask \
@@ -346,13 +367,13 @@ Available overrides: `CODEX_MODEL` / `CODEX_EFFORT`, `CLAUDE_MODEL` / `CLAUDE_EF
 - A delegate asked to research read-only still runs with full access. The caller must scope the working directory, state the no-edit constraint, and verify the tree afterwards.
 - Live progress goes to stderr; the final answer goes to stdout. Normalized events use a closed PorchEvent schema; unknown types are not persisted.
 - Complete run artifacts are saved under `PORCH_OUTPUT_DIR` unless `PORCH_SAVE_OUTPUTS=0`.
-- There is no Porch execution timeout, token budget, or fan-out concurrency limit. Set `PORCH_MAX_PARALLEL=N` to bound review fan-out. Opt-in `PORCH_DEBUG_EVENTS=1` writes a bounded RAW→FINAL event tape.
+- There is no Porch execution timeout or token budget. Opt-in `PORCH_DEBUG_EVENTS=1` writes a bounded RAW→FINAL event tape.
 
 ## Command map
 
 ```bash
-scripts/porch review ask [...]
-scripts/porch review code --depth basic|specialists|super|ultra [...]
+scripts/porch review ask -a <exact-agent-id> [...]
+scripts/porch review code -a <exact-agent-id> [...]
 scripts/porch delegate -a <exact-agent-id> [...]
 scripts/porch delegate -a <exact-agent-id> --steerable|--one-shot|--detach [...]
 scripts/porch delegate steer|status|cancel|wait|wait-any|watch|events|list [...]

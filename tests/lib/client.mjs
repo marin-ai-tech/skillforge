@@ -40,9 +40,13 @@ export const toB64 = (files) =>
   files.map((f) => ({ path: f.path, content_base64: Buffer.from(f.content).toString("base64") }));
 
 /** Starts the built server on a free port with a temporary data directory. */
-export async function startServer(env = {}, { prefix = "skillforge-test-", port: fixedPort } = {}) {
+/** `dataDir` reuses an existing data directory (a restart) and leaves it in place on stop. */
+export async function startServer(env = {}, { prefix = "skillforge-test-", port: fixedPort, dataDir: reuseDir } = {}) {
   assert.ok(existsSync(SERVER), `built server not found: ${SERVER} — run npm run build`);
-  const dataDir = mkdtempSync(join(tmpdir(), prefix));
+  // A restart must find its data: a server started without `dataDir` removes its directory on stop, and reusing that
+  // path would silently start on an empty database (review-assistant-budget restart test, 2026-11-12).
+  if (reuseDir) assert.ok(existsSync(reuseDir), `dataDir ${reuseDir} does not exist: start the first server with dataDir too`);
+  const dataDir = reuseDir ?? mkdtempSync(join(tmpdir(), prefix));
   const port = fixedPort ?? (await freePort());
   const base = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, [SERVER], {
@@ -86,7 +90,7 @@ export async function startServer(env = {}, { prefix = "skillforge-test-", port:
   const stop = async () => {
     if (child.exitCode === null) child.kill();
     await Promise.race([exited, new Promise((r) => setTimeout(r, 5000))]);
-    rmSync(dataDir, { recursive: true, force: true });
+    if (!reuseDir) rmSync(dataDir, { recursive: true, force: true });
   };
   if (!up) {
     const code = child.exitCode;

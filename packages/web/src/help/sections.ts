@@ -61,6 +61,7 @@ const GUIDE_ORDER = [
   "getting-started/metadata",
   "getting-started/labels",
   "getting-started/provenance",
+  "getting-started/tracked-sources",
   "getting-started/duplicates",
   "getting-started/quality",
   "getting-started/hook-risks",

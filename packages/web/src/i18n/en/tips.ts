@@ -194,6 +194,10 @@ const actionTips = {
   "scope-save":
     "Save artifact visibility and owner team. Narrowing and widening ask for confirmation.",
   "labels-save": "Save registry labels on this artifact (kebab-case, up to 20).",
+  "source-check":
+    "Check the tracked source now. A new upstream commit that changes this folder becomes a beta version.",
+  "source-toggle": "Turn tracking of the upstream source on or off. When off, nothing is checked.",
+  "source-ref-save": "Follow this branch or tag of the source; leave empty for the default branch.",
   "comment-submit":
     "Post a comment or reply on this artifact. Plain text only; use @user to mention.",
   "comment-delete":
@@ -226,6 +230,8 @@ const actionTips = {
   "harvest-run":
     "Read the review comments of the repository for the period and keep the rules that recur.",
   "harvest-draft": "Publish these rules as a candidate skill; it goes through the usual review.",
+  "harvest-draft-type":
+    "A rule (default) is loaded by the agent always or for matching files; a skill is used on demand.",
   "menu-admin-rollout":
     "Open the rollout page: pull requests that add artifacts to the chosen repositories.",
   "rollout-start":
@@ -254,6 +260,8 @@ const actionTips = {
   "assistant-mode":
     "Getting started: the assistant asks about your goal and suggests a path. Ask a question: it answers yours.",
   "assistant-send": "Send your question. Enter sends, Shift+Enter starts a new line.",
+  "assistant-budget-grant":
+    "A one-time secret from Agent Space that charges the answers to a task budget. Leave empty to use the shared budget.",
   "assistant-stop": "Stop the answer that is being written.",
   "assistant-new": "Start a new conversation; the current one is cleared from this tab.",
   "metrics-export-csv": "Download the metrics board as CSV with the current filters (signed-in).",
@@ -356,6 +364,9 @@ export const tips = {
       onboardingHint:
         "Tell the assistant what you want to do, and it will suggest a path through the help.",
       placeholder: "Ask about SkillForge…",
+      budgetGrant: "Agent Space task budget grant (optional)",
+      budgetGrantHint:
+        "Paste the grant Agent Space issued for a task: the answer is paid from that task's budget. It is sent with each question and not kept in the browser.",
       send: "Send",
       stop: "Stop",
       newChat: "New conversation",

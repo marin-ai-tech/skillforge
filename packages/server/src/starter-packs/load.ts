@@ -1,3 +1,4 @@
+import { parseEdits, type SourceEdit } from "../tracked/edits.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveUnderRoot } from "../imports/sources.ts";
@@ -9,6 +10,8 @@ export type PackArtifact = {
   repo: string;
   commit: string;
   source_path: string;
+  /** tracked-sources: the pack's local changes as edit rules of the source. */
+  edits?: SourceEdit[];
 };
 
 export type StarterPack = {
@@ -41,7 +44,11 @@ function parseArtifact(raw: unknown): PackArtifact | null {
   if (!isNonEmptyString(a.repo) || !isNonEmptyString(a.commit)) return null;
   if (!isNonEmptyString(a.source_path)) return null;
   if (!/^[0-9a-f]{40}$/.test(a.commit)) return null;
+  const edits =
+    a.edits === undefined ? { ok: true as const, edits: undefined } : parseEdits(a.edits);
+  if (!edits.ok) return null;
   return {
+    ...(edits.edits ? { edits: edits.edits } : {}),
     type: "skill",
     name: a.name,
     path: a.path,

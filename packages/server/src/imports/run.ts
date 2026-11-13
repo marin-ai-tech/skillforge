@@ -68,6 +68,9 @@ export type ImportRunContext = {
   provenanceSource: string | undefined;
   /** upstream-mirror: provenance ref is this prefix and the package folder (address@commit:root). */
   provenanceRefPrefix?: string;
+  /** tracked-sources: the exact provenance ref (`<url>@<commit>:<path>`) and an explicit version, if any. */
+  provenanceRefOverride?: string;
+  versionOverride?: string;
   skipConflicts: boolean;
 };
 
@@ -209,6 +212,7 @@ export function resolveCandidates(
 }
 
 function provenanceRef(ctx: ImportRunContext, c: ImportCandidate): string | null {
+  if (ctx.provenanceRefOverride) return ctx.provenanceRefOverride;
   if (!ctx.provenanceRefPrefix) return c.provenance.ref;
   return c.root ? `${ctx.provenanceRefPrefix}:${c.root}` : ctx.provenanceRefPrefix;
 }
@@ -217,6 +221,7 @@ function provenanceRef(ctx: ImportRunContext, c: ImportCandidate): string | null
 function candidateBody(ctx: ImportRunContext, c: ImportCandidate): Record<string, unknown> {
   const body = preparePublishBody(c, ctx.tree);
   if (ctx.betaForExisting && c.exists) body.channel = "beta";
+  if (ctx.versionOverride) body.version = ctx.versionOverride;
   return body;
 }
 

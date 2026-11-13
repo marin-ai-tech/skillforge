@@ -37,11 +37,13 @@ esac
 AGENT_ID=""
 PROMPT=""
 PROMPT_FILE=""
+PROMPT_SOURCE=""  # positional | file | stdin
 STEERABLE=1
 LAUNCH_MODE="default"
 DETACH=0
 PERSIST_SESSION=0
 CONTINUE_RUN=""
+RECOVER_SESSION=0
 RUN_NAME=""
 
 while [[ $# -gt 0 ]]; do
@@ -93,12 +95,17 @@ while [[ $# -gt 0 ]]; do
             PERSIST_SESSION=1
             shift
             ;;
+        --recover-session)
+            RECOVER_SESSION=1
+            shift
+            ;;
         --detach)
             DETACH=1
             shift
             ;;
         --prompt-file)
-            shift; PROMPT_FILE="${1:-}"; shift
+            [[ $# -ge 2 && -n "$2" ]] || { echo "Error: --prompt-file requires a path" >&2; exit $EXIT_USAGE; }
+            PROMPT_FILE="$2"; PROMPT_SOURCE="file"; shift 2
             ;;
         --name)
             shift
@@ -125,6 +132,7 @@ Usage:
 
 Full-YOLO delegation to exactly one agent in the current working directory.
 No sandbox, no approval prompts. Gemini is not supported (review-only).
+Every new task is prefixed with the executor contract from prompts/delegate-executor.txt.
 
 Delegate starts a long-lived steerable supervisor by default, with a filesystem
 mailbox for steer / status / cancel. --one-shot selects the legacy direct run.
@@ -147,6 +155,8 @@ before waiting again. Neither observer cancels workers.
 only a new instruction in that session, as a new linked run. It requires the
 latest successful run, the same CWD/profile/model/effort/binary, and exclusive
 session access. Failed or unknown outcomes are never replayed automatically.
+After inspecting effects, add --recover-session to continue a failed/cancelled
+durable run with a new instruction. Backend cleanup must be completed first.
 Exit: 0 completed, 130 cancelled, 70 supervisor died, 74 completed but no
 answer text, otherwise the agent's own failure code.
 
@@ -165,14 +175,15 @@ Options:
   --detach               Start the steerable session detached; print run_id and exit
   --persist-session      Preserve native Codex conversation after completion
   --continue-run RUN_ID   Continue the latest successful durable Codex run
+  --recover-session      Allow --continue-run after failure/cancellation; inspect effects first
   --prompt-file <path>   Task / guidance from file
   -h, --help
 EOF
             exit $EXIT_OK
             ;;
-        --) shift; PROMPT="${1:-}"; break ;;
+        --) shift; PROMPT="${1:-}"; PROMPT_SOURCE="positional"; break ;;
         -*) echo "Error: unknown flag: $1" >&2; exit $EXIT_USAGE ;;
-        *)  PROMPT="$1"; shift; break ;;
+        *)  PROMPT="$1"; PROMPT_SOURCE="positional"; shift; break ;;
     esac
 done
 
@@ -204,20 +215,46 @@ cleanup_delegate_prompt() { rm -f "$_del_prompt_tmp"; }
 trap cleanup_delegate_prompt EXIT
 
 if [[ -n "$PROMPT_FILE" ]]; then
+    [[ "$PROMPT_SOURCE" != "positional" ]] || { echo "Error: cannot combine --prompt-file with a positional prompt" >&2; exit $EXIT_USAGE; }
     [[ -r "$PROMPT_FILE" ]] || { echo "Error: prompt source not readable: $PROMPT_FILE" >&2; exit $EXIT_USAGE; }
-    if ! cat -- "$PROMPT_FILE" > "$_del_prompt_tmp"; then
+    if ! cat < "$PROMPT_FILE" > "$_del_prompt_tmp"; then
         echo "Error: failed to read prompt source: $PROMPT_FILE" >&2
         exit $EXIT_USAGE
     fi
-elif [[ -n "$PROMPT" ]]; then
+elif [[ "$PROMPT_SOURCE" == "positional" ]]; then
     printf '%s' "$PROMPT" > "$_del_prompt_tmp"
 elif [[ ! -t 0 ]]; then
     cat > "$_del_prompt_tmp"
 fi
 
-if [[ ! -s "$_del_prompt_tmp" ]]; then
+if [[ ! -s "$_del_prompt_tmp" ]] || ! LC_ALL=C grep -q '[^[:space:]]' "$_del_prompt_tmp"; then
     echo "Error: no task prompt provided" >&2
     exit $EXIT_USAGE
+fi
+
+# Every NEW task starts with the executor contract. A --continue-run follow-up
+# goes to a session that already received it with its first task, and
+# `delegate steer` never reaches this code. The caller's bytes follow the
+# contract unchanged; there is no fallback to the raw task.
+if [[ -z "$CONTINUE_RUN" ]]; then
+    _del_contract="$LIB_DIR/../../prompts/delegate-executor.txt"
+    if [[ ! -r "$_del_contract" || ! -s "$_del_contract" ]]; then
+        echo "Error: delegate executor contract missing, unreadable or empty: $_del_contract" >&2
+        exit $EXIT_CONFIG_ERROR
+    fi
+    _del_composed_tmp="$(mktemp "${TMPDIR:-/tmp}/porch-delegate-composed.XXXXXX")"
+    chmod 600 "$_del_composed_tmp"
+    if ! { cat < "$_del_contract" && cat < "$_del_prompt_tmp"; } > "$_del_composed_tmp"; then
+        rm -f "$_del_composed_tmp"
+        echo "Error: failed to compose delegate prompt with $_del_contract" >&2
+        exit $EXIT_CONFIG_ERROR
+    fi
+    # mv keeps the original path, so the EXIT traps keep cleaning it up.
+    if ! mv -f "$_del_composed_tmp" "$_del_prompt_tmp"; then
+        rm -f "$_del_composed_tmp"
+        echo "Error: failed to install composed delegate prompt" >&2
+        exit $EXIT_CONFIG_ERROR
+    fi
 fi
 
 config_validate || exit $EXIT_CONFIG_ERROR
@@ -234,6 +271,11 @@ SUPPORTS_DELEGATE="$(config_get_field "$AGENT_ID" supports_delegate 2>/dev/null 
 if [[ "$BACKEND" == "gemini-cli" || "$SUPPORTS_DELEGATE" == "false" || "$SUPPORTS_DELEGATE" == "0" ]]; then
     echo "Error: agent '$AGENT_ID' is review-only (supports_delegate=false)" >&2
     exit $EXIT_CONFIG_ERROR
+fi
+
+if [[ "$RECOVER_SESSION" -eq 1 && -z "$CONTINUE_RUN" ]]; then
+    echo "Error: --recover-session requires --continue-run" >&2
+    exit $EXIT_USAGE
 fi
 
 if [[ "$PERSIST_SESSION" -eq 1 && ( "$STEERABLE" -ne 1 || "$BACKEND" != "codex-cli" ) ]]; then
@@ -273,6 +315,9 @@ if [[ "$STEERABLE" -eq 1 ]]; then
     fi
     if [[ -n "$CONTINUE_RUN" ]]; then
         REG_ARGS+=(--continue-run "$CONTINUE_RUN")
+    fi
+    if [[ "$RECOVER_SESSION" -eq 1 ]]; then
+        REG_ARGS+=(--recover-session)
     fi
     if [[ -n "${PORCH_STEER_DIR:-}" ]]; then
         REG_ARGS+=(--registry-root "$PORCH_STEER_DIR")

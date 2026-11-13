@@ -46,6 +46,7 @@ import { LifecyclePanel } from "../components/LifecyclePanel.tsx";
 import { OwnershipPanel } from "../components/OwnershipPanel.tsx";
 import { ScopePanel } from "../components/ScopePanel.tsx";
 import { LabelsPanel } from "../components/LabelsPanel.tsx";
+import { SourcePanel } from "../components/SourcePanel.tsx";
 import { MetadataPanel } from "../components/MetadataPanel.tsx";
 import { PurgePanel } from "../components/PurgePanel.tsx";
 import { useMe, roleAtLeast } from "../lib/auth.tsx";
@@ -70,6 +71,7 @@ type ArtifactPermissions = {
   canManageEvals: boolean;
   canEditMetadata: boolean;
   canEditScope: boolean;
+  canManageSource: boolean;
 };
 
 type TeamMembers = NonNullable<Awaited<ReturnType<typeof getTeam>>["members"]>;
@@ -95,7 +97,7 @@ function isTeamLead(
   );
 }
 
-/** What the viewer may edit on this artifact (labels, evals, metadata, scope). */
+/** What the viewer may edit on this artifact (labels, evals, metadata, scope, tracked source). */
 function artifactPermissions({
   artifact,
   username,
@@ -119,7 +121,8 @@ function artifactPermissions({
   const canEditMetadata = canEditLabels && !artifact.purged_at;
   const isLead = isTeamLead(teamMembers, username);
   const canEditScope = isAdmin || isOwner || isLead;
-  return { canEditLabels, canManageEvals, canEditMetadata, canEditScope };
+  const canManageSource = isAdmin || isOwner || isMaintainer;
+  return { canEditLabels, canManageEvals, canEditMetadata, canEditScope, canManageSource };
 }
 
 /** Version just published (passed via router state after Publish), if any. */
@@ -356,7 +359,7 @@ function DigestChip({ version }: { version: VersionDetail | undefined }) {
   ) : null;
 }
 
-/** Visibility/labels line and the ownership, scope, labels, metadata and purge panels. */
+/** Visibility/labels line and the ownership, source, scope, labels, metadata and purge panels. */
 function GovernancePanels({
   artifact,
   type,
@@ -370,7 +373,7 @@ function GovernancePanels({
   isAdmin: boolean;
   perms: ArtifactPermissions;
 }) {
-  const { canEditScope, canEditLabels, canEditMetadata } = perms;
+  const { canEditScope, canEditLabels, canEditMetadata, canManageSource } = perms;
   const visibilityLabel =
     artifact.visibility === "team" ? `team · ${artifact.owner_team ?? "?"}` : "org";
   const labelsText = (artifact.labels ?? []).length ? (artifact.labels ?? []).join(", ") : "—";
@@ -387,6 +390,7 @@ function GovernancePanels({
         </span>
       </div>
       <OwnershipPanel artifact={artifact} />
+      <SourcePanel type={type} name={name} canManage={canManageSource} />
       <ScopePanel artifact={artifact} canEdit={canEditScope} />
       <LabelsPanel artifact={artifact} canEdit={canEditLabels} />
       {canEditMetadata ? <MetadataPanel artifact={artifact} /> : null}

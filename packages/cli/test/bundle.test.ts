@@ -16,6 +16,23 @@ test("collectPublishFiles single file uses basename", () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("collectPublishFiles keeps rules/ for one .md in a rules folder (file or folder), not for other folders", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sf-bun-"));
+  const put = (rel: string) => {
+    const file = path.join(dir, ...rel.split("/"));
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "---\nname: x\n---\n");
+    return file;
+  };
+  assert.equal(collectPublishFiles(put("a/rules/api-style.md"))[0]!.path, "rules/api-style.md");
+  put("b/team/rules/team-habits.md");
+  assert.equal(collectPublishFiles(path.join(dir, "b"))[0]!.path, "rules/team-habits.md");
+  assert.equal(collectPublishFiles(put("c/commands/review.md"))[0]!.path, "review.md");
+  put("d/commands/review.md");
+  assert.equal(collectPublishFiles(path.join(dir, "d"))[0]!.path, "review.md");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("unzipBundle rejects .. and absolute paths", () => {
   const into = fs.mkdtempSync(path.join(os.tmpdir(), "sf-into-"));
   const badDot = zipSync({ "../escape.txt": new TextEncoder().encode("x") });

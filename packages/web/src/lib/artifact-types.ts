@@ -10,6 +10,7 @@ export const FALLBACK_TYPE_IDS = [
   "plugin",
   "settings",
   "mcp-server",
+  "rule",
 ] as const;
 
 export type ArtifactType = (typeof FALLBACK_TYPE_IDS)[number];

@@ -1,6 +1,6 @@
 # Runtime contracts
 
-Use this reference when diagnosing or changing observability, normalized events, backend capability resolution, access policy, workflow fan-out, prompt composition, artifacts, or run identity.
+Use this reference when diagnosing or changing observability, normalized events, backend capability resolution, access policy, prompt composition, artifacts, or run identity.
 
 ## Contents
 
@@ -19,7 +19,7 @@ Use this reference when diagnosing or changing observability, normalized events,
 | stdout | Clean final answer only |
 | artifacts | Per-run `raw/*.jsonl`, `normalized/*.jsonl`, `final/*.txt`, and `final.txt` under `PORCH_OUTPUT_DIR` or `PORCH_RUN_DIR` |
 
-Artifact keys are per invocation: profile id for ask/delegate, `agent.role` for basic/specialist review, `<stage>.<index>.<agent>.<role>` for super/ultra discovery, and `judge.primary.<agent>` / `judge.fallback.<agent>` for judge attempts. Fan-out never relies only on inherited `PORCH_ARTIFACT_KEY`.
+Artifact keys are per invocation: the profile ID for review and delegate. Review clears any inherited artifact key.
 
 One-shot architecture remains `backend_cmd | normalize_stream.py --raw-out --progress --extract-text`. Raw lines are persisted and normalized immediately. `PIPESTATUS` preserves backend exit and Grok end/error validation independently.
 
@@ -46,7 +46,7 @@ Live stderr keeps the human vocabulary `thought`, `text`, `end`, and `error`. Fi
 The opt-in tape records bounded, sequence-numbered JSONL across RAW → PARSED → NORMALIZED → RENDERED → FINAL without leaking event bodies onto normal stderr.
 
 ```bash
-PORCH_DEBUG_EVENTS=1 "$PORCH" review ask "Q"
+PORCH_DEBUG_EVENTS=1 "$PORCH" review ask -a grok "Q"
 PORCH_DEBUG_EVENTS_PATH=/tmp/tape.jsonl
 PORCH_DEBUG_EVENTS_MAX=10000
 PORCH_DEBUG_EVENTS_MAX_BYTES=33554432
@@ -66,7 +66,7 @@ One-shot normalization records all stages; the steerable supervisor records norm
 |---|---|---|
 | Codex CLI | `--search`, `exec --sandbox read-only`, ask-for-approval never, multi-agent disabled | `--dangerously-bypass-approvals-and-sandbox` |
 | Claude Code | `dontAsk`, safe mode, no session/Chrome, Edit/Write/Agent/Task denied, Bash + web enabled | `--dangerously-skip-permissions` |
-| OpenCode | runtime `porch-review` primary agent with its own work-alone prompt: full diagnostics, edit/task denied | `--agent build --auto` |
+| OpenCode | runtime `porch-review` primary agent with its own work-alone prompt: full diagnostics, edit/subagent denied | `--agent build --auto` |
 | Grok Build | `--no-plan`, read-only sandbox, terminal enabled, subagents disabled | `--always-approve`, no sandbox |
 | Gemini CLI | `--approval-mode yolo`, extensions/MCP/subagents disabled; report-only prompt contract | unsupported |
 
@@ -89,17 +89,6 @@ by the trusted prompt plus dedicated edit/delegation-tool denials where the CLI
 supports them, not by an OS-level filesystem boundary. Use Codex or Grok when a
 mechanical read-only boundary is required for untrusted repositories.
 
-## Declarative workflow plans
-
-`scripts/lib/workflow_plans.py` describes ask, basic/specialist, super, and ultra stages as data. `workflow_runner.sh` executes reusable fan-out with optional backpressure.
-
-| Setting | Meaning |
-|---|---|
-| `PORCH_MAX_PARALLEL=0` | Unlimited jobs; default and historical behavior |
-| `PORCH_MAX_PARALLEL=N` | At most N ask/discovery/specialist jobs concurrently |
-
-Stage order, partial/all-failed exit semantics, artifact keys, live progress, and independent outputs remain deterministic.
-
 ## Layered prompts
 
 `scripts/lib/prompt_pipeline.py` composes trusted layers in this order:
@@ -108,10 +97,24 @@ Stage order, partial/all-failed exit semantics, artifact keys, live progress, an
 framework_policy → mode_contract → role → output_schema → repository_facts → user_input → framework_recap
 ```
 
-Raw delegate tasks remain raw except for optional trusted metadata. In review mode,
+A new delegate task is the executor contract from `prompts/delegate-executor.txt`
+followed by the caller's task, byte for byte; `scripts/lib/delegate.sh` composes
+it once for the steerable, detached and one-shot paths. The contract tells the
+worker that the assignment sets its scope and authority, that project-wide
+ownership or a coordinator role granted by repository instructions belongs to
+the parent, and what the final report must contain. A missing or empty contract
+file is a configuration error; there is no fallback to the raw task.
+`delegate steer` guidance and `--continue-run` follow-ups are sent as written.
+Delegate carries no review policy and no output template. In review mode,
 `--prompt-file` is only an input transport: the read-only, work-alone, and
 blast-radius policies are still layered around its contents. The shell
 `build_prompt` path remains a fallback.
+
+Prompt builders consume only their explicit user input and context files.
+The CLI pipeline reads stdin only when neither `--user-file` nor `--user-text`
+is selected; an explicitly empty source fails. Backend and delegate launchers
+likewise distinguish a missing source from empty content. File-based backend
+transports receive EOF on stdin instead of inheriting a caller pipe.
 
 Repository-backed review also carries an initial relevant-file seed. The caller
 does a short read-only triage and supplies known paths; `review code` accepts
@@ -153,11 +156,11 @@ Run ids are human-readable word pairs with a four-hex uniqueness suffix, for exa
 
 ## Resource limits
 
-Porch is unlimited by default: no wrapper timeout, step/token/response budget, or fan-out cap. Prompts use stdin or private temporary files; delegate reads file/stdin sources exactly once; raw/normalized/final outputs stream to disk without truncation. Only the opt-in debug tape is bounded, with explicit overflow reporting.
+Porch is unlimited by default: no wrapper timeout or step/token/response budget. Prompts use stdin or private temporary files; delegate reads file/stdin sources exactly once; raw/normalized/final outputs stream to disk without truncation. Only the opt-in debug tape is bounded, with explicit overflow reporting.
 
 Provider/harness limits still apply. Porch itself never imposes an execution
 deadline; observe long-running work and cancel it explicitly when needed.
 
 ## Native Grok one-shot contract
 
-The default Grok profile uses `grok-build`, model `grok-4.7`, high effort. The disabled `grok-fast` profile keeps Grok 4.5 available for fast context research. One-shot runs use `grok --prompt-file … --output-format streaming-json`. Final text concatenates `type=text` data. Success requires process exit 0, an `end` event, and no `error` event. The OpenCode xAI route remains a disabled fallback profile.
+The default Grok profile uses `grok-build`, model `grok-4.7`, high effort. The disabled `grok-fast` profile selects `grok-4.7-build-fast`; `grok-4.5` retains the older model. Fast requires an eligible Grok Build plan and has higher rates. One-shot runs use `grok --prompt-file … --output-format streaming-json`. Final text concatenates `type=text` data. Success requires process exit 0, an `end` event, and no `error` event. The OpenCode xAI route remains a disabled fallback profile.

@@ -1,5 +1,5 @@
 export type ArtifactType =
-  "skill" | "command" | "agent" | "hook" | "plugin" | "settings" | "mcp-server";
+  "skill" | "command" | "agent" | "hook" | "plugin" | "settings" | "mcp-server" | "rule";
 
 export type PluginComponentType = "skill" | "command" | "agent" | "hook" | "mcp_server";
 
@@ -72,6 +72,9 @@ export const ISSUE_CODES = {
   E_MCP_SHELL: "E_MCP_SHELL",
   E_MCP_URL_INVALID: "E_MCP_URL_INVALID",
   E_MCP_POLICY: "E_MCP_POLICY",
+  E_RULE_PATHS_INVALID: "E_RULE_PATHS_INVALID",
+  E_RULE_EXTRA_FILE: "E_RULE_EXTRA_FILE",
+  E_RULE_ALWAYS_LONG: "E_RULE_ALWAYS_LONG",
 } as const;
 
 export type IssueCode = keyof typeof ISSUE_CODES;
@@ -104,6 +107,8 @@ export const LIMITS = {
   maxBundleBytes: 32 * 1024 * 1024,
   maxFileBytes: 16 * 1024 * 1024,
   maxFiles: 1000,
+  /** rule-artifacts: tokens of a rule without `paths` (loaded on every agent turn). */
+  ruleAlwaysTokens: 1500,
 } as const;
 
 export const HOOK_EVENTS = [

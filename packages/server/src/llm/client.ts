@@ -1,5 +1,6 @@
 import type { AppConfig } from "../config.ts";
 import { authHeaderFor, type LlmSettings } from "./settings.ts";
+import { brokerFetch, brokerProvider } from "./broker.ts";
 
 /**
  * Client of an OpenAI-compatible `POST {base_url}/chat/completions`.
@@ -35,6 +36,8 @@ type StreamOpts = {
   maxTokens?: number;
   signal?: AbortSignal;
   onDelta: (text: string) => void;
+  /** Agent Space task budget grant (llm-budget-broker): sent only to the budget broker, never in the messages. */
+  budgetGrant?: string;
 };
 
 function statusCode(status: number): LlmErrorCode {
@@ -95,6 +98,35 @@ async function readStream(
   return usage;
 }
 
+/**
+ * One request to the model: through the budget broker when it is configured (no provider key, no fallback to the
+ * provider), otherwise to the provider. A budget grant without a broker is refused before any request.
+ */
+function requestModel(
+  config: AppConfig,
+  settings: LlmSettings,
+  payload: string,
+  signal: AbortSignal,
+  grant: string | undefined,
+): Promise<Response> {
+  if (config.budgetSocket) {
+    const provider = brokerProvider(settings.base_url);
+    if (!provider) throw new LlmError("llm_upstream_error");
+    return brokerFetch(config.budgetSocket, provider, payload, signal, grant);
+  }
+  if (grant !== undefined) throw new LlmError("llm_upstream_error");
+  return fetch(`${settings.base_url}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "text/event-stream",
+      ...authHeaderFor(config, settings.base_url),
+    },
+    body: payload,
+    signal,
+  });
+}
+
 /** Streams one chat completion; resolves with token usage (zeros when the provider does not report it). */
 export async function streamChat(opts: StreamOpts): Promise<Usage> {
   const { config, settings } = opts;
@@ -102,23 +134,15 @@ export async function streamChat(opts: StreamOpts): Promise<Usage> {
   const timer = setTimeout(() => timeout.abort(), settings.timeout_s * 1000);
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout.signal]) : timeout.signal;
   try {
-    const res = await fetch(`${settings.base_url}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "text/event-stream",
-        ...authHeaderFor(config, settings.base_url),
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages: opts.messages,
-        temperature: settings.temperature,
-        max_tokens: opts.maxTokens ?? settings.max_output_tokens,
-        stream: true,
-        stream_options: { include_usage: true },
-      }),
-      signal,
+    const payload = JSON.stringify({
+      model: settings.model,
+      messages: opts.messages,
+      temperature: settings.temperature,
+      max_tokens: opts.maxTokens ?? settings.max_output_tokens,
+      stream: true,
+      stream_options: { include_usage: true },
     });
+    const res = await requestModel(config, settings, payload, signal, opts.budgetGrant);
     if (!res.ok || !res.body) {
       await res.body?.cancel().catch(() => undefined);
       throw new LlmError(statusCode(res.status));

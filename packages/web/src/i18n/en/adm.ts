@@ -126,6 +126,8 @@ export const adm = {
     contextTopics: "Help topics in the context (1–12)",
     keyTitle: "API key",
     keySet: (env: string) => `The key is set in the server environment (${env}).`,
+    keyManaged:
+      "Model calls go through the Agent Space budget broker (SKILLFORGE_BUDGET_SOCKET): the provider key is held by the broker, SkillForge never sends one.",
     keyNotSet: (env: string) =>
       `No key: set ${env} in the server environment. Local servers such as Ollama work without one.`,
     keyAllowed: "The key is sent to this API address.",
@@ -170,8 +172,11 @@ export const adm = {
     days: (n: number) => `${n} days`,
     times: (count: number, sources: number) => `${count} times in ${sources} pull requests`,
     noRules: "No rule recurred often enough in this period.",
-    draftName: "skill-name",
-    draft: "Make a draft skill",
+    draftName: "draft-name",
+    draft: "Make a draft",
+    draftType: "Draft type",
+    draftAsRule: "Rule",
+    draftAsSkill: "Skill",
     draftDone: "Draft published as a candidate",
     sessionsNote:
       "Rules from your own agent sessions are collected on your machine: skillforge harvest sessions --out <dir> --name <name>.",

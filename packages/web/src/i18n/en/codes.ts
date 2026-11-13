@@ -63,6 +63,11 @@ export const codes = {
     "Unknown package type or transport: packages are npm, pypi or oci; remote endpoints are streamable-http or sse.",
   E_MCP_POLICY:
     "The MCP policy does not allow this package type or remote origin; an admin edits the policy on the lifecycle page.",
+  E_RULE_PATHS_INVALID:
+    'paths must be a list of file patterns, for example ["src/api/**/*.ts"]; leave it out for a rule that always applies.',
+  E_RULE_EXTRA_FILE: "A rule is exactly one markdown file; publish other files as a skill.",
+  E_RULE_ALWAYS_LONG:
+    "A rule without paths is loaded on every turn of the agent and is too long; shorten it or limit it with paths.",
   E_MCP_SHELL: "The MCP server runs through a shell or puts shell syntax into an argument.",
   E_MCP_URL_INVALID:
     "A remote endpoint must be https, without credentials or a key in the query, and not localhost.",

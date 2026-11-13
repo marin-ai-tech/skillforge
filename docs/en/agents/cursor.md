@@ -37,6 +37,7 @@ Support is checked against the Cursor documentation only.
 | `plugin` | not supported: "Claude Code plugins are not supported by cursor; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by cursor (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Cursor by hand as the artifact page shows |
+| `rule` | translated to `rules/<name>.mdc` with `description`, `globs` and `alwaysApply`, project scope only (Cursor keeps user rules in its settings) |
 
 ## Install and sync
 

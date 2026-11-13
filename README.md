@@ -44,7 +44,7 @@ More in [Why SkillForge](docs/en/01-why-skillforge.md).
 
 ## Features
 
-- **Seven artifact types** — skills, commands, agents, hooks, plugins, settings profiles and MCP servers, each with
+- **Eight artifact types** — skills, commands, agents, hooks, plugins, settings profiles, MCP servers and rules, each with
   its own validation ([Artifact types](docs/en/05-artifact-types.md)).
 - **Publishing and import** — the web interface, the CLI, imports from zip archives, folders and git, upstream mirrors
   and starter packs ([Publishing and import](docs/en/06-publishing-and-import.md)).

@@ -54,7 +54,8 @@ test("the mcp-server type is in the type table", async () => {
   const t = r.data.items.find((x) => x.id === "mcp-server");
   assert.ok(t, JSON.stringify(r.data.items.map((x) => x.id)));
   assert.equal(t.label, "MCP server");
-  assert.equal(r.data.items.at(-1).id, "mcp-server");
+  // rule-artifacts added `rule` after it
+  assert.equal(r.data.items.at(-2).id, "mcp-server");
 });
 
 test("good descriptions: npm, remote with a template header, image by digest — no errors", async () => {

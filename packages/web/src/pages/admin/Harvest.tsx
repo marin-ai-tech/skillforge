@@ -14,9 +14,10 @@ const input = "rounded-sf border border-line bg-bg px-2 py-1 text-sm";
 function Draft({ harvest }: { harvest: Harvest }) {
   const S = STR.adm.harvest;
   const [name, setName] = useState("");
+  const [type, setType] = useState<"rule" | "skill">("rule");
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const make = useMutation({
-    mutationFn: () => draftFromHarvest(harvest.id, name.trim()),
+    mutationFn: () => draftFromHarvest(harvest.id, name.trim(), type),
     onSuccess: () => setResult({ ok: true, text: name.trim() }),
     onError: (e) => setResult({ ok: false, text: errorText(e) }),
   });
@@ -30,6 +31,18 @@ function Draft({ harvest }: { harvest: Harvest }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
+      <HelpTip action="harvest-draft-type">
+        <select
+          data-testid="harvest-draft-type"
+          aria-label={S.draftType}
+          className={input}
+          value={type}
+          onChange={(e) => setType(e.target.value === "skill" ? "skill" : "rule")}
+        >
+          <option value="rule">{S.draftAsRule}</option>
+          <option value="skill">{S.draftAsSkill}</option>
+        </select>
+      </HelpTip>
       <HelpTip action="harvest-draft">
         <button
           type="button"
@@ -42,7 +55,11 @@ function Draft({ harvest }: { harvest: Harvest }) {
         </button>
       </HelpTip>
       {result?.ok ? (
-        <Link translate="no" to={`/artifacts/skill/${result.text}`} className="text-sm text-accent">
+        <Link
+          translate="no"
+          to={`/artifacts/${type}/${result.text}`}
+          className="text-sm text-accent"
+        >
           {S.draftDone}
         </Link>
       ) : result ? (

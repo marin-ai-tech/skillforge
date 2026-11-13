@@ -7,7 +7,7 @@ learn:
   - How to switch versions and compare digests
   - How reviewers promote, retire and restore from the lifecycle panel
   - Which roles may publish, transition, validate and add evidence
-related: pages/catalog, getting-started/versions-and-digests, getting-started/lifecycle, getting-started/quality, actions/artifact/tabs, actions/quality/tab-quality, getting-started/evidence-and-usage
+related: pages/catalog, getting-started/versions-and-digests, getting-started/lifecycle, getting-started/quality, actions/artifact/tabs, actions/quality/tab-quality, getting-started/evidence-and-usage, getting-started/tracked-sources
 ---
 
 ## What this page is for
@@ -26,6 +26,7 @@ Route `/artifacts/:type/:name` presents one artifact identity and a selected imm
 - Overview stacks its blocks at full width: the rendered main file, usage and quality metrics, then the metadata (description, tags, version, digest, author, provenance, changelog).
 - Overview also has the Agents section `artifact-agents`: one row per runtime with Installs (yes, or the reason the type does not install there) and Listed by the author (yes, from a version, or a dash); the hint above the table says whether the author listed agents ([details](getting-started/agent-support)).
 - The metadata panel, for those who may edit metadata, has an Agents field with the author's list in the form `claude-code>=2.1, codex` and a Reset agents button ([details](getting-started/metadata)).
+- The Source panel `source-panel`, for an artifact that came from git: the repository and folder, the branch or tag, the last commit and check, the state and the edit rules. The owner, a maintainer or an admin also get Check now (`source-check`), the tracking switch (`source-enabled`) and the branch or tag field (`source-ref`) ([details](getting-started/tracked-sources)).
 - Files shows the file tree and the selected file; markdown files open rendered with the frontmatter as a table, and the Rendered / Source switch shows the exact file ([details](actions/artifact/file-view-mode)).
 - Evidence tab shows the selected version's evidence records with author and time, the usage panel with uses, helped and Transfer Rate (plus usage by source), a usage report form for signed-in users, and `evidence-form` for those who may publish the version.
 - Quality tab shows selected-version grade, score, advisory checks with help links, the security scan verdict and findings (`quality-security`), the context cost (`quality-context`: tokens every turn, when used, and other files on demand), metrics, optional hook table with risk highlights, and latest-version registry duplicates. The Evals tab adds the cost per solved task by runner (`eval-cost`).
@@ -48,4 +49,4 @@ Route `/artifacts/:type/:name` presents one artifact identity and a selected imm
 
 ## Permissions
 
-Readable under public read or signed-in viewer+. New versions require contributor+. Lifecycle transitions and version validation require reviewer or admin. Bearer tokens inherit the owner role for API access. Contributors see the lifecycle panel status without transition buttons. Usage reports require any signed-in user; evidence requires the owner, a maintainer, or reviewer+ as an audited override. The metadata panel, including the Agents field, is for the owner, a maintainer, or reviewer+.
+Readable under public read or signed-in viewer+. New versions require contributor+. Lifecycle transitions and version validation require reviewer or admin. Bearer tokens inherit the owner role for API access. Contributors see the lifecycle panel status without transition buttons. Usage reports require any signed-in user; evidence requires the owner, a maintainer, or reviewer+ as an audited override. The metadata panel, including the Agents field, is for the owner, a maintainer, or reviewer+. The Source panel is shown to signed-in users who can see the artifact; its controls are for the owner, a maintainer, or an admin.

@@ -1,3 +1,4 @@
+import { ensureSourceForArtifact } from "../tracked/store.ts";
 import type { RubricResult } from "../quality/rubric.ts";
 import { signStoredVersion } from "../signing/signer.ts";
 import { randomUUID } from "node:crypto";
@@ -415,6 +416,7 @@ export function commitPublish(ctx: PublishCtx, prepared: PrepareOk): PublishResu
     bumpMarketplaceVersion();
 
     const row = getArtifactByTypeName(db, type, artifact.name)!;
+    ensureSourceForArtifact(db, row.id);
     emitPluginEvent({
       type: "artifact.published",
       at: now,

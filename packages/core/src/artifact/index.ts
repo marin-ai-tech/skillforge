@@ -19,6 +19,7 @@ import { parseHook } from "./hook.ts";
 import { parsePlugin } from "./plugin.ts";
 import { parseSettings } from "./settings.ts";
 import { parseMcpServer } from "./mcp-server.ts";
+import { parseRule } from "./rule.ts";
 import type { TypeParseOk } from "./skill.ts";
 
 export type ArtifactTypeDef = {
@@ -51,6 +52,7 @@ export const ARTIFACT_TYPES: readonly ArtifactTypeDef[] = [
     plural: "MCP servers",
     mainFile: (n) => `mcp/${n}/MCP.md`,
   },
+  { id: "rule", label: "Rule", plural: "Rules", mainFile: (n) => `rules/${n}.md` },
 ] as const;
 
 const ARTIFACT_TYPE_IDS = new Set<string>(ARTIFACT_TYPES.map((t) => t.id));
@@ -92,6 +94,8 @@ function parseByType(
       return parseSettings(files, rootDir, input);
     case "mcp-server":
       return parseMcpServer(files, rootDir, input);
+    case "rule":
+      return parseRule(files, input);
   }
 }
 
@@ -202,6 +206,10 @@ export function detectArtifactType(files: ArtifactFileInput[]): ArtifactType | n
     return "mcp-server";
   }
   const md = files.filter((_, i) => stripped[i]!.toLowerCase().endsWith(".md"));
+  // rule-artifacts: one markdown file in a rules/ directory is a rule.
+  if (md.length === 1 && /(^|\/)rules\/[^/]+\.md$/i.test(lightNormalize(md[0]!.path))) {
+    return "rule";
+  }
   if (md.length === 1) {
     return detectFromSingleMarkdown(md[0]!);
   }

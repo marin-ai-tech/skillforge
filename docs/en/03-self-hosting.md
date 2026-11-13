@@ -151,7 +151,7 @@ configuration error that names the variable, and the process does not start.
 | `SKILLFORGE_SAFE_ERRORS` | `false` | `true`/`1`: a 500 answer has no internal error text (`internal_error` + `request_id`); always on with `NODE_ENV=production` |
 | `SKILLFORGE_HOOK_TIMEOUT_S` | `10` | Hook entry timeout in seconds when the entry has no own `timeout` (integer 1–600) |
 | `SKILLFORGE_PLUGINS_DIR` | `<data_dir>/plugins` | Server plugins folder |
-| `SKILLFORGE_MIRROR_INTERVAL_HOURS` | `24` | How often to check mirrors of external catalogs, in hours; `0` turns the background check off |
+| `SKILLFORGE_MIRROR_INTERVAL_HOURS` | `24` | How often to check mirrors of external catalogs and the tracked sources of artifacts, in hours; `0` turns the background check off (Check now still works) |
 | `SKILLFORGE_BUNDLED_PLUGINS_DIR` | `packages/server/bundled-plugins` | Folder of the plugins shipped with a release (`review-assistant`); an empty value disables it |
 | `SKILLFORGE_PLUGINS_DISABLED` | `false` | Do not load server plugins |
 | `SKILLFORGE_REVIEWERS_FILE` | (empty) | Path to the JSON file of `review-assistant` reviewers (read on each run) |
@@ -165,8 +165,18 @@ configuration error that names the variable, and the process does not start.
 | `SKILLFORGE_LDAP` | (none) | JSON array of LDAP/AD providers (`id` kebab-case and unique across all sign-in providers, `label`, `url` ldap/ldaps, `bind_dn`, `bind_password`, `user_base`, `user_filter` with `{username}`, optional attributes, role map, timeout, `tls_ca_file`) |
 | `SKILLFORGE_LLM_API_KEY` | (empty) | API key of an OpenAI-compatible provider for the help assistant and skill validation by a model. Environment only: not stored in the database, not returned by the API, masked in logs. Local servers (Ollama, vLLM) need none. See [Help assistant](#help-assistant-llm) |
 | `SKILLFORGE_LLM_KEY_ORIGINS` | (empty) | Comma-separated origins the key may be sent to, for example `https://api.openai.com, http://localhost:11434`. Empty: the key is sent nowhere. A value that is not `http(s)` or holds a user or password stops the start |
-| `SKILLFORGE_GITHUB_TOKEN` | (empty) | GitHub token for rollout through pull requests (`/admin/rollout`) and rules from reviews (`/admin/harvest`). Environment only, sent only to `SKILLFORGE_GITHUB_API_URL`, never shown or stored. Needs rights to create branches, files and pull requests in the chosen repositories. Empty: both answer `503 github_not_configured` |
-| `SKILLFORGE_GITHUB_API_URL` | `https://api.github.com` | GitHub REST API; for GitHub Enterprise `https://<host>/api/v3`. `https:` only (`http:` only for `localhost`, `127.0.0.1`, `[::1]`), no user, password or query; otherwise the start stops |
+| `SKILLFORGE_BUDGET_SOCKET` | (not set) | Absolute path of the Agent Space budget broker's Unix socket: every model call goes through it, never to the provider directly. A relative path stops the start. See [Agent Space budget broker](#agent-space-budget-broker) |
+| `SKILLFORGE_GITHUB_TOKEN` | (empty) | GitHub token for rollout through pull requests (`/admin/rollout`) and rules from reviews (`/admin/harvest`), and for checks of tracked sources on GitHub when it is set. Environment only, sent only to `SKILLFORGE_GITHUB_API_URL`, never shown or stored. Needs rights to create branches, files and pull requests in the chosen repositories (read access is enough for tracked sources). Empty: rollout and harvest answer `503 github_not_configured`; tracked sources call GitHub without a token, under its anonymous limit of about 60 requests an hour |
+| `SKILLFORGE_GITHUB_API_URL` | `https://api.github.com` | GitHub REST API for rollout, harvest and the archive transport of tracked sources; for GitHub Enterprise `https://<host>/api/v3`. `https:` only (`http:` only for `localhost`, `127.0.0.1`, `[::1]`), no user, password or query; otherwise the start stops |
+
+**Outbound network.** The server goes out only for git imports, mirrors and tracked sources, and to
+`SKILLFORGE_GITHUB_API_URL`. A tracked source of `https://github.com/<owner>/<repo>` finds its commit through that
+API (`GET /repos/<owner>/<repo>/commits/<ref>`) and downloads the tarball of the commit from it when `git` is
+missing or `SKILLFORGE_IMPORT_GIT=false` (otherwise through `git`), so a container without `git` still gets
+upstream updates. Tracked sources on other hosts cannot be checked yet and fail with `transport_unavailable`. Every check runs with the background check of mirrors
+(`SKILLFORGE_MIRROR_INTERVAL_HOURS`), one source at a time, under the import source policy and its quarantine. Allow
+outbound HTTPS to that address, or set the interval to `0` and leave tracked sources to Check now. See
+[Publishing and import](06-publishing-and-import.md#tracked-sources).
 
 ## Reverse proxy and `SKILLFORGE_BASE_URL`
 
@@ -297,6 +307,31 @@ Threat model:
 - **Access and spend.** Signed-in users only (`401` otherwise), MCP tokens get `403`. The daily limit per user is checked
   before the model is called (`429 assistant_daily_limit`), and a conversation is limited to 20 messages of 4000
   characters.
+
+## Agent Space budget broker
+
+When SkillForge works for Agent Space, every model call can go through the Agent Space budget broker, which holds the
+provider key and charges the calls to task budgets.
+
+```bash
+SKILLFORGE_BUDGET_SOCKET=/run/agent-space-budget/model.sock
+```
+
+- **Routing.** With the variable set, the help assistant, the connection test and skill checks send
+  `POST /v1/chat/completions` to the broker's Unix socket, with the provider in `x-agent-space-provider`:
+  `https://api.deepseek.com` (or `/v1`) is `deepseek`, `https://api.openai.com/v1` is `openai`,
+  `https://generativelanguage.googleapis.com/v1beta/openai` is `gemini`. Any other API address is refused without a
+  request. There is no fallback to the provider: a closed socket is `llm_upstream_error`.
+- **Key.** SkillForge never sends `SKILLFORGE_LLM_API_KEY` to the broker; the admin page says that the broker holds
+  the key.
+- **Task budget grant.** Agent Space issues a grant (`as_sf_` and 43 characters) for a running task. It goes to the
+  broker in `x-agent-space-grant`: from the assistant's `budget_grant` field, and from review-assistant runs started
+  with a budget context (`budget_grant`, `request_id`, `budget_grant_id`; the model call carries
+  `<grant>.<budget_grant_id>`). The grant is a bearer secret: it is never stored, returned or logged, and the plugin
+  keeps it only in memory. After a restart, budget runs become `interrupted` and Agent Space resumes them with a new
+  grant. A grant on a server without a broker is refused with `400 budget_grant_unsupported`.
+- **Socket access.** Whoever can write to the socket can spend the budget; the operator restricts it, for example with a
+  runtime directory readable only by the server's user.
 
 ## Troubleshooting `blob_corrupt`
 

@@ -5,6 +5,7 @@ import { requireUser } from "../auth/guard.ts";
 import { LlmError, streamChat, type ChatMessage } from "../llm/client.ts";
 import { helpLangs, loadCorpus, type HelpLang } from "../llm/corpus.ts";
 import { buildMessages, type AssistantMode } from "../llm/prompt.ts";
+import { isBudgetGrant } from "../llm/broker.ts";
 import {
   addTokens,
   isConfigured,
@@ -30,6 +31,8 @@ type ChatRequest = {
   lang: HelpLang;
   pageTopic: string | null;
   messages: ChatMessage[];
+  /** Agent Space task budget grant (llm-budget-broker): a secret, only for the broker call. */
+  budgetGrant?: string;
 };
 
 class BadRequest extends Error {}
@@ -63,11 +66,15 @@ export function parseChatRequest(body: unknown): ChatRequest {
   if (page !== undefined && page !== null && (typeof page !== "string" || !TOPIC_ID.test(page))) {
     throw new BadRequest("page_topic must be a help topic id");
   }
+  if (b.budget_grant !== undefined && !isBudgetGrant(b.budget_grant)) {
+    throw new BadRequest("budget_grant must be an Agent Space task budget grant");
+  }
   return {
     mode: b.mode,
     lang: b.lang,
     pageTopic: (page as string | undefined) ?? null,
     messages: parseMessages(b.messages),
+    ...(isBudgetGrant(b.budget_grant) ? { budgetGrant: b.budget_grant } : {}),
   };
 }
 
@@ -104,7 +111,11 @@ export const assistantRoutes: FastifyPluginAsync<AssistantOpts> = async (app, op
     if (!request.user) return reply.send({ available: false, reason: "sign_in" });
     const limit = s.daily_requests_per_user;
     const remaining = limit > 0 ? Math.max(0, limit - requestsToday(db, request.user.id)) : null;
-    return reply.send({ available: true, remaining_today: remaining });
+    return reply.send({
+      available: true,
+      remaining_today: remaining,
+      ...(config.budgetSocket ? { budget_grant: true } : {}),
+    });
   });
 
   app.post("/api/v1/assistant/chat", async (request, reply) => {
@@ -116,6 +127,9 @@ export const assistantRoutes: FastifyPluginAsync<AssistantOpts> = async (app, op
       if (e instanceof BadRequest)
         return reply.code(400).send({ error: "invalid_request", message: e.message });
       throw e;
+    }
+    if (req.budgetGrant && !config.budgetSocket) {
+      return reply.code(400).send({ error: "budget_grant_unsupported" });
     }
     const langs = helpLangs(config);
     if (!langs.includes(req.lang)) {
@@ -152,6 +166,7 @@ export const assistantRoutes: FastifyPluginAsync<AssistantOpts> = async (app, op
         config,
         settings,
         messages,
+        budgetGrant: req.budgetGrant,
         signal: abort.signal,
         onDelta: (text) => out.send("delta", { text }),
       });

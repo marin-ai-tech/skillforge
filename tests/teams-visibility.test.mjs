@@ -496,6 +496,9 @@ test("route inventory: every path with /:type/:name is known to the test (a new 
     "/api/v1/artifacts/:type/:name/overlays/company",
     "/api/v1/artifacts/:type/:name/overlays/team/:team",
     "/api/v1/artifacts/:type/:name/overlays/me",
+    // tracked-sources: canView in the route (404 for an artifact the user cannot see); changes — owner, maintainer, admin.
+    "/api/v1/artifacts/:type/:name/source",
+    "/api/v1/artifacts/:type/:name/source/check",
     "/api/v1/artifacts/:type/:name/workflows/:wf/from-template",
     "/api/v1/artifacts/:type/:name/workflows/runs/:id/gates/:step",
     "/api/v1/artifacts/:type/:name/workflows/runs/:id/resume",

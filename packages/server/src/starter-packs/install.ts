@@ -1,3 +1,4 @@
+import { ensureSourceForArtifact, setEditsIfEmpty } from "../tracked/store.ts";
 import type { Database } from "../repo.ts";
 import { getArtifactByTypeName, hasDigest } from "../repo.ts";
 import { preparePublish, publishArtifact } from "../publish.ts";
@@ -37,6 +38,13 @@ export function countInstalled(db: Database, pack: StarterPack): number {
   return n;
 }
 
+/** The pack's local changes become the edit rules of the artifact's tracked source (tracked-sources). */
+function keepPackEdits(db: Database, a: PackArtifact): void {
+  const row = getArtifactByTypeName(db, "skill", a.name);
+  if (!row) return;
+  if (ensureSourceForArtifact(db, row.id) && a.edits?.length) setEditsIfEmpty(db, row.id, a.edits);
+}
+
 export function installStarterPack(
   db: Database,
   dataDir: string,
@@ -68,6 +76,7 @@ export function installStarterPack(
         provenance: { source: "import", ref: provenanceRef(a) },
       },
     );
+    keepPackEdits(db, a);
     if (published.kind === "created") {
       results.push({
         type: "skill",

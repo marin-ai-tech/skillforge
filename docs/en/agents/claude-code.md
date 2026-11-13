@@ -40,6 +40,7 @@ Support is verified against the real client: the marketplace, MCP and settings.
 | `plugin` | only through the plugin marketplace (`/plugin install`) |
 | `settings` | merged into a Claude Code settings file with `skillforge settings apply` |
 | `mcp-server` | not installed: "an MCP server is not installed by SkillForge yet (planned); configure it in claude-code by hand as the artifact page shows" |
+| `rule` | copied as is to `rules/<name>.md`, project or user scope; Claude Code reads `paths` and ignores the other keys |
 
 ## Install and sync with the CLI
 

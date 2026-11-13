@@ -18,7 +18,7 @@ import os
 import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from events import (
     AUTHORITATIVE_RESULT_TYPES,
@@ -36,6 +36,7 @@ BACKEND_IDS = (
     "grok-build",
     "gemini-cli",
     "devin-cli",
+    "antigravity-cli",
 )
 
 BACKEND_BINS = {
@@ -45,6 +46,7 @@ BACKEND_BINS = {
     "grok-build": "grok",
     "gemini-cli": "gemini",
     "devin-cli": "devin",
+    "antigravity-cli": "agy",
 }
 
 BIN_ENV = {
@@ -54,6 +56,7 @@ BIN_ENV = {
     "grok-build": "PORCH_BIN_GROK",
     "gemini-cli": "PORCH_BIN_GEMINI",
     "devin-cli": "PORCH_BIN_DEVIN",
+    "antigravity-cli": "PORCH_BIN_AGY",
 }
 
 MODEL_ENV = {
@@ -63,6 +66,7 @@ MODEL_ENV = {
     "grok-build": "GROK_MODEL",
     "gemini-cli": "GEMINI_MODEL",
     "devin-cli": "DEVIN_MODEL",
+    "antigravity-cli": "AGY_MODEL",
 }
 
 EFFORT_ENV = {
@@ -70,6 +74,7 @@ EFFORT_ENV = {
     "claude-code": "CLAUDE_EFFORT",
     "opencode": "OPENCODE_EFFORT",
     "grok-build": "GROK_EFFORT",
+    "antigravity-cli": "AGY_EFFORT",
 }
 
 
@@ -128,7 +133,7 @@ _BACKEND_CAPS: Dict[str, BackendCapabilities] = {
         steerable=True,
         steer_auto="queue_next_turn",
         steer_queue="queue_next_turn",
-        steer_interrupt="",  # rejected; no silent downgrade
+        steer_interrupt="cancel_and_send",
         live_queue=False,
         oneshot=True,
         supports_delegate=True,
@@ -136,7 +141,8 @@ _BACKEND_CAPS: Dict[str, BackendCapabilities] = {
         notes=(
             "Authoritative result preferred over streamed deltas; "
             "empty/whitespace result must not erase non-empty deltas. "
-            "Interrupt mode is rejected (no silent downgrade)."
+            "Interrupt waits for native init, control acknowledgement and turn result before new input. "
+            "Preexisting queued input and overlapping handovers are refused explicitly."
         ),
     ),
     "opencode": BackendCapabilities(
@@ -146,18 +152,16 @@ _BACKEND_CAPS: Dict[str, BackendCapabilities] = {
         steerable_transport="http-sse",
         steerable=True,
         steer_auto="step_inject",
-        steer_queue="step_inject",
+        steer_queue="queue_next_turn",
         steer_interrupt="abort_and_prompt",
-        live_queue=False,
+        live_queue=True,
         oneshot=True,
         supports_delegate=True,
-        final_text_rule="opencode_part_snapshots",
+        final_text_rule="opencode_text_parts",
         notes=(
-            "One-shot: opencode run --format json. "
-            "Steerable: loopback HTTP + SSE; message.part.updated is cumulative "
-            "per part id (not append-delta); session.idle is turn-idle, not "
-            "automatic permanent run completion while a prompt/steer is in flight. "
-            "auto/queue = step_inject (prompt_async); interrupt = abort_and_prompt."
+            "OpenCode 2: one-shot uses run --server with a private coordinated server and JSON output. "
+            "Steerable: authenticated loopback HTTP and SSE, with durable prompt "
+            "admission, step_inject or queue delivery, interrupt and history reconciliation."
         ),
     ),
     "grok-build": BackendCapabilities(
@@ -222,7 +226,67 @@ _BACKEND_CAPS: Dict[str, BackendCapabilities] = {
             "updates only."
         ),
     ),
+    "antigravity-cli": BackendCapabilities(
+        backend="antigravity-cli",
+        transport="stream-json",
+        oneshot_transport="stream-json",
+        steerable_transport="acp-stdio",
+        steerable=True,
+        steer_auto="same_turn",
+        steer_queue="same_turn",
+        steer_interrupt="cancel_and_send",
+        live_queue=False,
+        oneshot=True,
+        supports_delegate=True,
+        final_text_rule="agy_result_over_deltas",
+        notes=(
+            "One-shot: agy --input-format/--output-format stream-json with the "
+            "prompt on stdin; the terminal result.response is authoritative "
+            "and status must be SUCCESS. Review adds session-only settings "
+            "deny rules (write_file, mcp, execute_url; read_url without web), "
+            "which agy enforces over any user allow rule; the shell is trusted "
+            "to the report-only prompt contract. Steerable: agy acp with "
+            "--dangerously-skip-permissions; a concurrent session/prompt is "
+            "injected into the running turn; interrupt is session/cancel then "
+            "prompt. Model and thought_level are session config options."
+        ),
+    ),
 }
+
+
+# Media operations each backend performs headlessly, verified live
+# (2026-11-10: agy 1.5.4, codex-cli 0.167.0, Claude Code 2.1.322). Limits:
+# max_inputs = reference images per call, max_count = images per request.
+# Codex image_gen accepts up to 5 references; agy's generate_image up to 3.
+# image.animate renders a spritesheet that porch assembles into a GIF.
+# Codex cannot hear audio, Claude Code has no image generator, and agy hears
+# WAV/MP3 only (porch media converts every input to one of those).
+_MEDIA_OPERATIONS: Dict[str, Dict[str, Dict[str, int]]] = {
+    "antigravity-cli": {
+        "transcribe": {},
+        "image.describe": {"max_inputs": 10},
+        "image.generate": {"max_count": 4},
+        "image.edit": {"max_inputs": 3, "max_count": 4},
+        "image.animate": {"max_inputs": 3},
+    },
+    "codex-cli": {
+        "image.describe": {"max_inputs": 10},
+        "image.generate": {"max_count": 4},
+        "image.edit": {"max_inputs": 5, "max_count": 4},
+        "image.animate": {"max_inputs": 5},
+    },
+    "claude-code": {
+        "image.describe": {"max_inputs": 10},
+    },
+}
+
+
+def media_operations(backend: str) -> Tuple[str, ...]:
+    return tuple(_MEDIA_OPERATIONS.get(backend, {}))
+
+
+def media_operation_limits(backend: str, operation: str) -> Dict[str, int]:
+    return dict(_MEDIA_OPERATIONS.get(backend, {}).get(operation, {}))
 
 
 @dataclass
@@ -391,8 +455,8 @@ def final_text_from_normalized(
     if rule == "grok_text_events_require_end":
         # Completeness is validated separately (end present, no error).
         return assemble_final_text(events)
-    if rule in ("opencode_text_parts", "opencode_part_snapshots", "plain_stdout",
-                "devin_agent_message_chunks"):
+    if rule in ("opencode_text_parts", "plain_stdout",
+                "devin_agent_message_chunks", "agy_result_over_deltas"):
         return assemble_final_text(events)
     return assemble_final_text(events)
 

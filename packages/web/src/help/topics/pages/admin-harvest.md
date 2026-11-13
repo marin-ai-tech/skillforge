@@ -1,6 +1,6 @@
 ---
 title: Rules from past reviews
-summary: The page collects rules that reviewers keep repeating in pull request comments and turns them into a draft skill with links to the comments, published as a candidate for the usual review.
+summary: The page collects rules that reviewers keep repeating in pull request comments and turns them into a draft rule (or skill) with links to the comments, published as a candidate for the usual review.
 section: ui-admin
 learn:
   - What counts as a recurring rule
@@ -18,13 +18,13 @@ Teams repeat the same review remarks â€” "always add a timeout to HTTP calls" â€
 
 - The repository field (`harvest-repo`), the number of days back (`harvest-days`) and the button (`harvest-run`).
 - Each collection (`harvest`): its rules (`harvest-rule`) with how many times and in how many pull requests they occurred, and links to the comments as evidence.
-- A name field and a button (`harvest-draft`) that publish the rules as a candidate skill.
+- A name field, the draft type (`harvest-draft-type`: a rule by default, or a skill) and a button (`harvest-draft`) that publish the rules as a candidate.
 
 ## Common tasks
 
 1. Open the page from the user menu (`menu-admin-harvest`) or go to `/admin/harvest`.
 2. Enter `owner/name`, choose the period and collect the rules.
-3. Read the rules and their evidence; if they are worth keeping, give the skill a name and make a draft.
+3. Read the rules and their evidence; if they are worth keeping, give the draft a name, keep the type Rule (or choose Skill) and make a draft.
 4. Review the draft like any candidate: edit it, then a reviewer moves it to active.
 5. To collect rules from your own agent sessions, run `skillforge harvest sessions --out <dir> --name <name>`: it reads only what you typed in local Claude Code logs, writes a draft on disk and sends nothing.
 

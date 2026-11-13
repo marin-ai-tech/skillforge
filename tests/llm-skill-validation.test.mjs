@@ -143,13 +143,18 @@ test("the first LLM setup turns the validator on; an explicit opt-out stays off"
 });
 
 test("publishing a skill: checked in the background; quotes are matched against the file; status unchanged; no evidence", async () => {
+  // llm-budget-broker: one invented quote invalidates the whole answer — no partial findings.
+  const invented = "invented-skill";
+  fake.setReply(findingsReply([good(invented), { ...good(invented), quote: "this text is not in the file at all", summary: "Invented finding" }]));
+  await publishSkill(invented);
+  const bad = await finishedRun(invented);
+  const badLlm = bad.reviewers.find((r) => r.id === "llm");
+  assert.equal(badLlm.status, "invalid_output");
+  assert.equal(badLlm.error, "unverified_quote");
+  assert.deepEqual(bad.findings, []);
+
   const name = "checked-skill";
-  fake.setReply(findingsReply([
-    good(name),
-    { ...good(name), quote: "this text is not in the file at all", summary: "Invented finding" },
-    { ...good(name), file: "skills/other/SKILL.md", summary: "Wrong file" },
-    { ...good(name), quote: undefined, summary: "No quote" },
-  ]));
+  fake.setReply(findingsReply([good(name)]));
   const before = fake.chatRequests().length;
   await publishSkill(name);
   const run = await finishedRun(name);
@@ -160,7 +165,7 @@ test("publishing a skill: checked in the background; quotes are matched against 
   const llm = run.reviewers.find((r) => r.id === "llm");
   assert.equal(llm.status, "ok");
   assert.equal(llm.model, "m1");
-  assert.equal(llm.dropped_findings, 3);
+  assert.equal(llm.prompt_version, "2");
   assert.equal(llm.truncated, false);
   assert.ok(llm.prompt_version);
   assert.equal(run.findings.length, 1, JSON.stringify(run.findings));

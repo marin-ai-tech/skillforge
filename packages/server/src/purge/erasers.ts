@@ -424,6 +424,13 @@ const registry: PurgeEraser[] = [
     sql: { artifact: "DELETE FROM artifact_overlays WHERE artifact_id = ?" },
   },
   {
+    // tracked-sources: the source goes with the artifact; nothing of it is kept
+    table: "artifact_sources",
+    strategy: "delete",
+    scopes: ["artifact"],
+    sql: { artifact: "DELETE FROM artifact_sources WHERE artifact_id = ?" },
+  },
+  {
     table: "artifact_availability",
     strategy: "delete",
     scopes: ["artifact"],

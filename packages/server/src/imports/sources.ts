@@ -306,6 +306,8 @@ async function shallowClone(
 ): Promise<MaterializeFail | null> {
   // With an allowlist a permitted host must not be able to send the clone somewhere else.
   const args = followRedirects ? [] : ["-c", "http.followRedirects=false"];
+  // Files as in the repository, whatever the host's line-end settings (Git for Windows sets core.autocrlf=true).
+  args.push("-c", "core.autocrlf=false", "-c", "core.eol=lf");
   args.push("clone", "--depth", "1");
   if (source.ref) {
     args.push("--branch", source.ref);

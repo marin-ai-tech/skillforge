@@ -61,8 +61,8 @@ group membership; the CLI does not infer it from unrelated runs in the global
 registry or the same working directory.
 
 Launch independent tasks with separate `--detach` commands from their exact
-working roots. Parallel writers need separate user-authorized workspaces; do not
-create workspaces implicitly. Save ids and per-run event cursors across caller
+working roots. Parallel writers need separate workspaces; follow the user's
+applicable workspace instructions. Save ids and per-run event cursors across caller
 handoffs. Bounded waiting enables supervision but does not schedule it.
 
 ## Keeping the parent active
@@ -106,13 +106,30 @@ fails explicitly: reconstructing a latest-run claim could permit duplicate work.
 Conversation continuation does not restart terminated shell tools.
 
 One session admits only one continuation at a time. After a continuation claims
-the session, its predecessor cannot be reused: continue the successful successor.
+the session, its predecessor cannot be reused: continue the latest successor.
 If it failed, was cancelled, or vanished mid-delivery, inspect its result and task
-effects. The runtime rejects continuation of that uncertain outcome and never
-replays a prompt automatically. A failed native resume likewise never starts a
-fresh session. Any recovery requiring a new worker must be a deliberate parent
-decision after reconciling what happened, with an explicit remaining-work prompt.
-Other providers and ordinary ephemeral Codex runs have no completed-run resume.
+effects first. For a terminal durable run with confirmed backend cleanup, opt into
+recovery explicitly and provide a new remaining-work instruction:
+
+```bash
+NEXT_ID=$("$PORCH" delegate -a codex --continue-run "$RUN_ID" --recover-session --detach --name recover-task "Inspect the changes and results already produced, then finish the remaining work without repeating completed steps")
+"$PORCH" delegate wait "$NEXT_ID"
+```
+
+`--recover-session` permits failed/cancelled runs and completed runs with a
+nonzero exit code. It requires `cleanup_status: completed`, the latest-run claim,
+the original profile/model/effort/binary/CWD, and exclusive session access.
+Active or stale runs and missing/failed/pending cleanup are rejected: reconcile
+the old writer before recovery. The old prompt and queued steers are never
+redelivered; only the new instruction is sent to the resumed native thread.
+The successor records `recover_session: true`; the old outcome stays unchanged.
+
+A failed native resume never starts a fresh session. Its successor retains the
+existing handle so, after inspecting the failure, recovery can target that latest
+failed run. Ordinary `--continue-run` still rejects unsuccessful outcomes.
+Other providers and ordinary ephemeral Codex runs have no terminal-run resume.
+If native history is unavailable, a new worker remains a deliberate parent
+decision after reconciling prior effects, with an explicit remaining-work prompt.
 
 ## Bounded event observation
 
@@ -159,7 +176,7 @@ so `wait-any` returns control to the parent. It does not grant additional access
 Review the partial work and requested action before choosing an authorized
 recovery. A queued `auto` steer cannot resolve a permission request. Do not
 diagnose a hung test from heartbeat-only output: inspect tool events and errors.
-OpenCode tool snapshots expose the tool name, input command, state, and timings
+OpenCode tool events expose the tool name, input command, and state
 through `events`. Active calls remain in `status --json` under
 `state.active_tools` and in each wait snapshot's `active_tools`, even after later
 heartbeats; this is observed tool state, not proof that an OS command is executing
@@ -172,9 +189,39 @@ public output is bounded.
 |---|---|---|
 | `auto` | Normal clarification, added constraint, or preferred direction | Safest native behavior available on the backend |
 | `queue` | Current work may finish before guidance is applied | May affect only the next safe boundary; Grok uses a real next-turn FIFO entry |
-| `interrupt` | Current direction is wrong and partial work should be abandoned | May cancel the active turn/tool flow; Claude rejects instead of silently downgrading |
+| `interrupt` | Current direction is wrong and partial work should be abandoned | May cancel the active turn/tool flow; backend-specific handover rules apply |
 
 For Grok, `auto`/`queue` is the productive default for additive guidance. Use `interrupt` only to replace direction because each later interrupt supersedes the prompt currently running, including an earlier steer.
+
+### Claude interruption and replacement
+
+Claude uses `cancel_and_send`: Porch sends a native interrupt control request,
+waits for its matching success response and the previous turn's result (in either
+order), then sends the replacement instruction into the same process/session.
+An early request waits for that turn's native `system/init`, rather than relying
+on user-message replay as evidence the turn started. This avoids the early-ack
+race documented in [Claude Code issue 98713](https://github.com/anthropics/claude-code/issues/98713).
+The protocol follows the [official SDK implementation](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/query.py).
+
+An interrupt acknowledgement alone does not prove the turn or tool has stopped.
+If no turn result arrives, Porch retains the pending handover and sends no new
+instruction. Inspect events or cancel explicitly. An error result for the
+interrupted turn is not the final result of the replacement task. Partial answer
+text is cleared at handover; a duplicate result UUID cannot complete the new turn.
+
+Overlapping handovers and interrupting a run that already received queued input
+are explicitly refused before new input is sent. Wait for the current handover
+before another steer. Porch does not erase accepted queued instructions. If the
+native interrupt receipt unexpectedly reports queued work, the handover stays
+unresolved with an error event; inspect or explicitly cancel the native session.
+Normal `auto`/`queue` behavior is unchanged.
+
+Verified on Claude Code 2.1.302 with native subscription authentication: interrupt
+a foreground shell, send a replacement instruction, retain the native session and
+finish successfully. The shell's delayed side effect remained absent after its
+original deadline. Interruption is not rollback: completed side effects remain.
+This live-turn capability does not add completed-run or process-restart continuation
+for Claude.
 
 ### What Grok actually does with a steer
 
@@ -199,6 +246,22 @@ Verified against devin 3000.10.27 over real ACP runs:
 - `auto`/`queue` are `same_turn`: a second `session/prompt` merges into the running turn instead of entering a next-turn queue, so guidance can take effect without waiting for `end_turn`.
 - `interrupt` is `cancel_and_send`: `session/cancel` resolves in-flight prompts with stopReason `cancelled`; the session stays usable and the steer prompt takes over.
 - The ack ladder is the shared one — `request_sent` → `completed`/`cancelled`/`failed` by the request's own stopReason; it is never `applied`.
+
+### What Antigravity actually does with a steer
+
+Verified against agy 1.5.4 over real `agy acp` runs:
+
+- `auto`/`queue` are `same_turn`: a `session/prompt` sent while a turn runs is
+  injected into that turn — the agent sees the guidance without waiting for
+  `end_turn`, and every in-flight request resolves when the turn ends.
+- `interrupt` is `cancel_and_send`: `session/cancel` ends the running prompt
+  with stopReason `cancelled`; the next prompt keeps the conversation context.
+- Each prompt is echoed as a `user_message_chunk`; only `agent_message_chunk`
+  text forms the answer. The ack ladder is the shared ACP one and never claims
+  `applied`.
+- The steerable worker runs `agy acp --dangerously-skip-permissions`. Model and
+  thinking level are set per session; ACP sessions start on the account's
+  default model, so Porch re-applies them on every launch.
 
 ## Mailbox lifecycle
 
@@ -231,7 +294,7 @@ Never interpret `accepted`, `request_sent`, `queued`, or `running` as proof that
   --prompt-file steer.md
 ```
 
-Retry a stable `client_id` only with identical content, mode, and kind. Any mismatch is an idempotency conflict. For an active run, a retry with identical content returns the existing message; a new instruction needs a new client id. A closed mailbox rejects new messages. Reconcile the run outcome first: use `--continue-run` for the latest successful durable Codex run, or deliberately start a new run for remaining work when continuation is unavailable. Failed or uncertain runs require inspection before recovery; never silently replay the original task. Client ids are SHA-256-mapped for paths; the original value remains in JSON.
+Retry a stable `client_id` only with identical content, mode, and kind. Any mismatch is an idempotency conflict. For an active run, a retry with identical content returns the existing message; a new instruction needs a new client id. A closed mailbox rejects new messages. Reconcile the run outcome first: use `--continue-run` for the latest successful durable Codex run, or add `--recover-session` after inspecting a failed/cancelled durable run and confirming cleanup. Deliberately start a new run for remaining work when continuation is unavailable; never silently replay the original task. Client ids are SHA-256-mapped for paths; the original value remains in JSON.
 
 Do not put secrets in tasks or steering guidance unless persistence in private raw/audit artifacts is intentional. Large task and guidance bodies travel through files or mailbox JSON, not large argv/env values.
 
@@ -247,15 +310,26 @@ Steerable runs always retain the private service registry and protocol artifacts
 |---|---|---|
 | Claude Code | `queue_next_turn` through stream-json user replay | Rejected; no downgrade |
 | Codex CLI | `same_turn` through `turn/steer` and expected turn id | Abort active turn, wait for its completion acknowledgement, then start a prompt |
-| OpenCode | `step_inject` through loopback HTTP/SSE `prompt_async` | Abort session then prompt |
+| OpenCode 2 | `auto`: step injection; `queue`: next turn, via authenticated loopback HTTP/SSE | Interrupt, verify idle, then prompt |
 | Grok Build | `queue_next_turn` through concurrent ACP prompt FIFO | Cancel-and-send using `sendNow` and its own prompt id |
 | Devin CLI | `same_turn` through concurrent ACP `session/prompt` merge | Cancel-and-send through `session/cancel` (stopReason `cancelled`) |
+| Antigravity CLI | `same_turn` through concurrent ACP `session/prompt` injection | Cancel-and-send through `session/cancel` (stopReason `cancelled`) |
 
-OpenCode replacement requires both a successful abort and confirmation of idle
-through `/session/status`. An unsuccessful or unresolved stop fails the run and
-sends no replacement. Later idle events are checked against current runner status
-so a delayed old event cannot finish a busy replacement.
+OpenCode replacement requires both a successful interrupt and confirmation of idle
+through `/api/session/active`. An unsuccessful or unresolved stop fails the run and
+sends no replacement. Completion is reconciled against the durable inbox, active
+sessions and message history so an earlier execution cannot finish a later prompt.
 
 OpenCode's server is loopback-only with redirect revalidation and per-run Basic auth; the password is never logged or stored. Claude's authoritative `result` completes the adapter even while stdin remains open; user replay proves transport acknowledgement, not semantic compliance. Codex interrupt uses a bounded local protocol handshake, not a run deadline.
+
+Porch asks OpenCode for its database path and coordinates server startup across its
+own processes per database directory, then releases the lock as soon as the server
+is ready. Sessions execute in parallel. If another startup holds the lock for
+more than two minutes, the waiting run fails with an explicit timeout.
+Unrelated OpenCode clients do not participate in this lock; concurrent first-time
+database migration by those clients is outside this guarantee. Forced termination
+of Porch or failure to stop its server can also release the lock before the server
+exits. A disconnected
+event stream fails the run explicitly instead of claiming completion from partial output.
 
 Grok attribution uses prompt ids and queue snapshots. Combined followers move through `awaiting_queue_resolution` to `merged` or `dropped`; stop reasons map to `completed`, `incomplete`, `rejected`, `cancelled`, `superseded`, or `failed`. The adapter never claims `applied` because transport events cannot prove semantic compliance. Only agent message chunks contribute to final text; thoughts and replayed user messages do not. The final answer covers the lineage from the current final prompt to the end of the prompt order, so `auto`/`queue` steer turns are included and an `interrupt` still discards the superseded prefix.

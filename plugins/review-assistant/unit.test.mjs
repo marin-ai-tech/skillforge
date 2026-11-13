@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { escapeMarkdown } from "./tab.js";
 import { mergeBuiltin } from "./judge.js";
 import { purgeReviewData, decisionNotification } from "./index.js";
+import { verifiedFindings, runLlmReviewer, PROMPT_VERSION } from "./llm-reviewer.js";
 
 // ── escapeMarkdown ────────────────────────────────────────────────────────────
 test("escapeMarkdown neutralises image beacons", () => {
@@ -193,4 +194,79 @@ test("artifact.purged removes only matching review runs and their findings", () 
   } finally {
     db.close();
   }
+});
+
+// ── strict model output (llm-budget-broker) ──────────────────────────────────
+
+const FILES = [
+  {
+    path: "skills/demo/SKILL.md",
+    content: "line one\nAlways use the latest version of the tool.\nline three\n",
+  },
+];
+const strictFinding = (over = {}) => ({
+  severity: "high",
+  category: "unsafe_command",
+  file: "skills/demo/SKILL.md",
+  quote: "Always use the latest version",
+  summary: "Unpinned tool version",
+  suggestion: "Pin the version",
+  ...over,
+});
+const answer = (findings) => JSON.stringify({ findings });
+
+test("strict output: a valid answer gives findings with lines computed from the quote", () => {
+  const r = verifiedFindings(answer([strictFinding()]), FILES, 20);
+  assert.equal(r.error, undefined);
+  assert.equal(r.findings.length, 1);
+  assert.equal(r.findings[0].line, 2);
+  assert.deepEqual(verifiedFindings('```json\n{"findings":[]}\n```', FILES, 20), { findings: [] });
+  assert.equal(PROMPT_VERSION, "2");
+});
+
+test("strict output: any invalid finding fails the whole answer", () => {
+  const cases = [
+    ["not json", "unparseable"],
+    [JSON.stringify({ findings: [], extra: 1 }), "extra top-level key"],
+    [
+      answer([strictFinding(), strictFinding({ quote: "this text is not in the file" })]),
+      "invented quote",
+    ],
+    [answer([strictFinding({ file: "skills/other/SKILL.md" })]), "unknown file"],
+    [answer([{ ...strictFinding(), confidence: 0.9 }]), "extra finding key"],
+    [answer([strictFinding({ severity: "critical" })]), "unknown severity"],
+    [answer([strictFinding({ category: "style" })]), "unknown category"],
+    [answer([strictFinding(), strictFinding(), strictFinding()]), "more than max findings"],
+    [
+      '{"findings":[{"severity":"high","category":"unsafe_command","file":"skills/demo/SKILL.md","quote":"Always use the latest version","quote":"Always use the latest version","summary":"s","suggestion":"t"}]}',
+      "duplicate key",
+    ],
+  ];
+  for (const [text, label] of cases) {
+    const r = verifiedFindings(text, FILES, 2);
+    assert.ok(r.error, `${label}: accepted`);
+    assert.equal(r.findings, undefined, `${label}: partial findings`);
+  }
+});
+
+test("background reviewer passes its task grant only to the model transport", async () => {
+  const secret = `as_sf_${"x".repeat(43)}`;
+  let call;
+  const result = await runLlmReviewer(
+    {
+      complete: async (args) => {
+        call = args;
+        return { text: '{"findings":[]}', model: "deepseek-chat" };
+      },
+    },
+    { type: "skill", name: "demo", description: "demo" },
+    { version: "1.0.0" },
+    FILES,
+    20,
+    secret,
+  );
+  assert.equal(result.status, "ok");
+  assert.equal(call.budgetGrant, secret);
+  assert.equal(JSON.stringify(call.messages).includes(secret), false);
+  assert.equal(JSON.stringify(result).includes(secret), false);
 });

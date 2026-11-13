@@ -7,7 +7,7 @@ learn:
   - What the Ready, Warnings, Errors and Conflict statuses mean
   - How skip-conflicts and the provenance override work
   - Who may import and which server flags apply
-related: getting-started/upload-artifacts, getting-started/provenance, pages/publish, actions/import/import-run
+related: getting-started/upload-artifacts, getting-started/provenance, pages/publish, actions/import/import-run, getting-started/tracked-sources
 ---
 
 ## What this page is for
@@ -25,6 +25,8 @@ Import scans a zip archive, a local folder, or a git repository for skill, comma
 - A **Quarantine** note (`import-freshness`) when the commit is newer than the minimum release age. The age counts from when the registry first saw the commit, not from the date inside it, because the author sets that date. Running the import then gives `import_too_fresh`; an admin can import anyway with a reason that goes to the audit log.
 
 - For admins, **Upstream mirrors** (`mirrors`): git sources the registry checks every day (`SKILLFORGE_MIRROR_INTERVAL_HOURS`) or with **Check now**. New packages arrive as candidates, changed packages as a new version in the `beta` channel, so people on `stable` get nothing until a reviewer moves it. Each check follows the source policy, the quarantine, the security scan and the hook gate; a check of a commit in quarantine reports when it can go. Deleting a mirror keeps the artifacts.
+
+- Every package imported from git also gets a **tracked source** on its artifact page: the registry checks its folder for new commits and publishes a change as a version in the `beta` channel; local changes are kept as edit rules ([details](getting-started/tracked-sources)).
 
 ## Common tasks
 

@@ -1234,6 +1234,47 @@ export async function putArtifactScope(
   return (await res.json()) as import("./types.ts").ScopeResponse;
 }
 
+const sourceUrl = (type: string, name: string) =>
+  `/api/v1/artifacts/${encodeURIComponent(type)}/${encodeURIComponent(name)}/source`;
+
+/** Tracked source of an artifact, or null when it has none (404) or the viewer is not signed in (401). */
+export async function getArtifactSource(
+  type: string,
+  name: string,
+): Promise<import("./types.ts").TrackedSource | null> {
+  const res = await fetch(sourceUrl(type, name), { credentials: "include" });
+  if (res.status === 401 || res.status === 404) return null;
+  if (!res.ok) throw await parseError(res, { redirect: false });
+  return ((await res.json()) as { source: import("./types.ts").TrackedSource }).source;
+}
+
+export async function putArtifactSource(
+  type: string,
+  name: string,
+  body: { enabled?: boolean; ref?: string | null },
+): Promise<import("./types.ts").TrackedSource> {
+  const res = await fetch(sourceUrl(type, name), {
+    method: "PUT",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseError(res);
+  return ((await res.json()) as { source: import("./types.ts").TrackedSource }).source;
+}
+
+export async function checkArtifactSource(
+  type: string,
+  name: string,
+): Promise<import("./types.ts").SourceCheckResult> {
+  const res = await fetch(`${sourceUrl(type, name)}/check`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as import("./types.ts").SourceCheckResult;
+}
+
 export async function putArtifactLabels(
   type: string,
   name: string,
@@ -1919,9 +1960,9 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 export const createHarvest = (body: { source: "github"; repo: string; days: number }) =>
   postJson<{ harvest: import("./types.ts").Harvest }>("/api/v1/harvests", body);
 
-/** Publishes the rules as a candidate skill; it goes to the usual review. */
-export const draftFromHarvest = (id: number, name: string) =>
-  postJson<{ version: string }>(`/api/v1/harvests/${id}/draft`, { name });
+/** Publishes the rules as a candidate rule (default) or skill; it goes to the usual review. */
+export const draftFromHarvest = (id: number, name: string, type: "rule" | "skill" = "rule") =>
+  postJson<{ version: string }>(`/api/v1/harvests/${id}/draft`, { name, type });
 
 export async function listPacks(): Promise<{ items: import("./types.ts").PackSummary[] }> {
   const res = await fetch("/api/v1/packs");

@@ -69,6 +69,38 @@ export function harvestRules(
     .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text));
 }
 
+/** Rule list and evidence lines of a draft. */
+function draftLists(rules: readonly HarvestRule[]): { list: string; evidence: string } {
+  return {
+    list: rules.map((r) => `- ${r.text.replace(/\s+/g, " ")}. (${r.count} times)`).join("\n"),
+    evidence: rules.flatMap((r) => r.evidence.map((e) => `- ${e}`)).join("\n"),
+  };
+}
+
+/** rules/<name>.md of a draft rule (rule-artifacts): the rules and their evidence, reviewed before it is used. */
+export function draftRuleMarkdown(
+  name: string,
+  rules: readonly HarvestRule[],
+  origin: string,
+): string {
+  const { list, evidence } = draftLists(rules);
+  return [
+    "---",
+    `name: ${name}`,
+    `description: Rules that recur in ${origin}.`,
+    "---",
+    "",
+    `Rules collected from ${origin}; each one recurred in several places. Review them before relying on them.`,
+    "",
+    list,
+    "",
+    "## Evidence",
+    "",
+    evidence,
+    "",
+  ].join("\n");
+}
+
 /** SKILL.md of a draft: the rules and where they came from, for a human to review before it is used. */
 export function draftSkillMarkdown(
   name: string,

@@ -41,6 +41,7 @@ Any signed-in user, whatever the role. Visitors who are not signed in see an inv
 - Conversations are not stored on the server. The server keeps only daily counters of requests and tokens per user, without any text.
 - The conversation history lives in this browser tab. It survives a page reload, but closing the tab or choosing **New conversation** removes it, and other tabs and devices do not see it.
 - Your messages go to the model provider that the administrator connected, which may be an external service.
+- When SkillForge works for Agent Space, the chat has a field for an **Agent Space task budget grant** (`assistant-budget-grant`): the answers are then paid from that task's budget. The grant is sent with each question and kept only while the page is open — not in the conversation history, not on the server. Leave it empty to use the shared budget.
 
 > [!WARNING]
 > Do not paste passwords, API tokens, keys or other secrets into the chat. The assistant never needs them, and the text of every message is sent to the model provider.

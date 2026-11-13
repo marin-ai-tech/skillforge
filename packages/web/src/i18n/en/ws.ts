@@ -104,6 +104,7 @@ export const ws = {
       status_change: "status_change",
       ownership: "ownership",
       plugin: "plugin",
+      source: "source",
     },
     alwaysOn: " (always on)",
     saveFailed: "Failed to save prefs",

@@ -61,7 +61,9 @@ while [[ $# -gt 0 ]]; do
         --mode)        MODE="${2:-}"; shift 2 ;;
         --agent-id)    AGENT_ID="${2:-}"; shift 2 ;;
         --role)        ROLE_OVERRIDE="${2:-}"; shift 2 ;;
-        --prompt-file) PROMPT_FILE="${2:-}"; PROMPT_SOURCE="file"; shift 2 ;;
+        --prompt-file)
+            [[ $# -ge 2 && -n "$2" ]] || { echo "Error: --prompt-file requires a path" >&2; exit $EXIT_USAGE; }
+            PROMPT_FILE="$2"; PROMPT_SOURCE="file"; shift 2 ;;
         --raw|--no-wrap) RAW_MODE=1; shift ;;
         --debug-events)
             if [[ -n "${2:-}" && "${2:-}" != -* ]]; then
@@ -125,7 +127,9 @@ unset _RESOLVE_ARGS
 if [[ -n "$RESOLVED_JSON" ]]; then
     eval "$(
         RESOLVED_JSON="$RESOLVED_JSON" python3 - <<'PY'
-import json, os, shlex
+import json, os, shlex, sys
+# Native Windows Python must not add CR characters to shell assignments.
+sys.stdout.reconfigure(newline='\n')
 d = json.loads(os.environ["RESOLVED_JSON"])
 def emit(k, v):
     print(f"{k}={shlex.quote('' if v is None else str(v))}")
@@ -178,6 +182,10 @@ else
         devin-cli)
             MODEL="${DEVIN_MODEL:-$MODEL}"
             ;;
+        antigravity-cli)
+            MODEL="${AGY_MODEL:-$MODEL}"
+            EFFORT="${AGY_EFFORT:-$EFFORT}"
+            ;;
     esac
     BIN=""
 fi
@@ -195,17 +203,18 @@ if [[ "$MODE" == "delegate" ]]; then
 fi
 
 if [[ -n "$PROMPT_FILE" ]]; then
+    [[ "$PROMPT_SOURCE" != "positional" ]] || { echo "Error: cannot combine --prompt-file with a positional prompt" >&2; exit $EXIT_USAGE; }
     [[ -f "$PROMPT_FILE" ]] || { echo "Error: prompt file not found: $PROMPT_FILE" >&2; exit $EXIT_USAGE; }
-    PROMPT="$(cat "$PROMPT_FILE")"
+    PROMPT="$(cat < "$PROMPT_FILE")"
     RAW_MODE=1
     PROMPT_SOURCE="file"
 fi
 
-if [[ -z "$PROMPT" && ! -t 0 ]]; then
+if [[ -z "$PROMPT_SOURCE" && ! -t 0 ]]; then
     PROMPT="$(cat)"
     PROMPT_SOURCE="stdin"
 fi
-[[ -n "$PROMPT" ]] || { echo "Error: no prompt provided" >&2; exit $EXIT_USAGE; }
+[[ "$PROMPT" =~ [^[:space:]] ]] || { echo "Error: no prompt provided" >&2; exit $EXIT_USAGE; }
 
 # Only warn for unsafe positional-prompt usage. File/stdin content often
 # legitimately contains backticks / $(...) from code samples.
@@ -282,6 +291,7 @@ bin_for() {
         gemini-cli)  echo "${PORCH_BIN_GEMINI:-gemini}" ;;
         grok-build)  echo "${PORCH_BIN_GROK:-grok}" ;;
         devin-cli)   echo "${PORCH_BIN_DEVIN:-devin}" ;;
+        antigravity-cli) echo "${PORCH_BIN_AGY:-agy}" ;;
         *)           echo "" ;;
     esac
 }
@@ -293,9 +303,28 @@ if [[ -z "$BIN" ]]; then
     echo "Error: unknown backend '$BACKEND' for agent $AGENT_ID" >&2
     exit $EXIT_CONFIG_ERROR
 fi
-if ! command -v "$BIN" &>/dev/null && [[ ! -x "$BIN" ]]; then
-    echo "Error: backend CLI not found: $BIN (backend=$BACKEND)" >&2
-    exit $EXIT_CONFIG_ERROR
+bin_usable() {
+    command -v "$1" &>/dev/null || [[ -x "$1" ]]
+}
+if ! bin_usable "$BIN"; then
+    # Native Windows Python can resolve an npm .CMD shim that MSYS bash cannot
+    # execute. Use its extensionless sibling, keeping the resolved directory
+    # (and any explicit binary override) authoritative.
+    _bin_fallback=""
+    if [[ "$BIN" == *[/\\]* && "$BIN" == *.[cC][mM][dD] ]]; then
+        _bin_fallback="${BIN%.*}"
+        _bin_fallback="${_bin_fallback//\\//}"
+        if command -v cygpath &>/dev/null; then
+            _bin_fallback="$(cygpath -u "$_bin_fallback" 2>/dev/null)" || _bin_fallback=""
+        fi
+    fi
+    if [[ -n "$_bin_fallback" && -x "$_bin_fallback" ]]; then
+        BIN="$_bin_fallback"
+    else
+        echo "Error: backend CLI not found: $BIN (backend=$BACKEND)" >&2
+        exit $EXIT_CONFIG_ERROR
+    fi
+    unset _bin_fallback
 fi
 
 # Codex model alias + default efforts are already applied by backend_contract
@@ -364,6 +393,15 @@ build_cmd_codex() {
         if [[ -n "${PORCH_CODEX_NO_MCP:-}" ]]; then
             CMD+=(--ignore-user-config)
         fi
+        # Media mode attaches staged images to the initial prompt. The
+        # --image=PATH form matters: a bare -i/--image is variadic and would
+        # swallow the following stdin marker.
+        if [[ "$MODE" == "media" && -n "${PORCH_MEDIA_IMAGES:-}" ]]; then
+            local image
+            while IFS= read -r image; do
+                [[ -n "$image" ]] && CMD+=("--image=$image")
+            done <<< "$PORCH_MEDIA_IMAGES"
+        fi
         # Structured events for observability; final text via -o
         CMD+=(--json)
     else
@@ -393,11 +431,17 @@ build_cmd_claude() {
         # on-disk session history. Unlike --bare, safe-mode does not force an
         # API-key-only authentication path.
         CMD+=(--safe-mode --no-session-persistence --no-chrome)
-        CMD+=(--disallowedTools "Edit,Write,NotebookEdit,Agent,Task")
-        if [[ "${MODE_CAP_WEB:-true}" == "true" || "${MODE_CAP_WEB:-1}" == "1" ]]; then
-            CMD+=(--allowedTools "Bash,WebSearch,WebFetch")
+        if [[ "${MODE_CAP_SHELL:-true}" != "true" ]]; then
+            # Media mode: the Read tool sees staged files; no shell at all.
+            CMD+=(--disallowedTools "Edit,Write,NotebookEdit,Agent,Task,Bash")
+            CMD+=(--allowedTools "Read")
         else
-            CMD+=(--allowedTools "Bash")
+            CMD+=(--disallowedTools "Edit,Write,NotebookEdit,Agent,Task")
+            if [[ "${MODE_CAP_WEB:-true}" == "true" || "${MODE_CAP_WEB:-1}" == "1" ]]; then
+                CMD+=(--allowedTools "Bash,WebSearch,WebFetch")
+            else
+                CMD+=(--allowedTools "Bash")
+            fi
         fi
     else
         CMD+=(--dangerously-skip-permissions)
@@ -416,22 +460,41 @@ build_cmd_claude() {
 }
 
 build_cmd_opencode() {
-    CMD=("$BIN" run --pure)
+    CMD=("$BIN" run --standalone)
     if [[ "$ACCESS_POLICY" == "readonly" ]]; then
         # The built-in plan agent is a planning workflow with its own plan-file
         # permissions. Review needs the full analysis/tool loop instead. Define
         # a primary review agent at runtime: full shell/search, no edits or task
         # delegation. The trusted prompt carries the report-only contract.
-        export OPENCODE_CONFIG_CONTENT='{"agent":{"porch-review":{"description":"Independent read-only review performed without delegation","prompt":"Review independently and read-only. Work alone: never use task delegation, subagents, other models, or external workers. Use Bash, search, and read tools to inspect any repository files needed for the real blast radius. Return only the report; never modify files or external state.","mode":"primary","permission":{"edit":"deny","task":"deny","bash":"allow","read":"allow","glob":"allow","grep":"allow","list":"allow","lsp":"allow","webfetch":"allow","websearch":"allow"}}}}'
+        OPENCODE_CONFIG_CONTENT="$(python3 -c '
+import json, os, sys
+try:
+    config = json.loads(os.environ.get("OPENCODE_CONFIG_CONTENT") or "{}")
+    if not isinstance(config, dict) or not isinstance(config.get("agents", {}), dict):
+        raise ValueError("configuration and agents must be objects")
+    config.setdefault("agents", {})["porch-review"] = {
+        "description": "Independent read-only review performed without delegation",
+        "system": "Review independently and read-only. Work alone: never use task delegation, subagents, other models, or external workers. Use shell, search, and read tools to inspect any repository files needed for the real blast radius. Return only the report; never modify files or external state.",
+        "mode": "primary",
+        "permissions": [{"action": "edit", "resource": "*", "effect": "deny"},
+                        {"action": "subagent", "resource": "*", "effect": "deny"}],
+    }
+    print(json.dumps(config))
+except (ValueError, TypeError):
+    print("Invalid OPENCODE_CONFIG_CONTENT: expected a JSON object with an agents object", file=sys.stderr)
+    sys.exit(1)
+')" || return 1
+        export OPENCODE_CONFIG_CONTENT
         CMD+=(--agent porch-review --auto)
     else
         # --auto is current (opencode run --help): auto-approve non-denied permissions
         CMD+=(--agent build --auto)
     fi
-    CMD+=(-m "$MODEL")
+    local selected_model="$MODEL"
     if [[ -n "$EFFORT" ]]; then
-        CMD+=(--variant "$EFFORT")
+        selected_model="${selected_model}#${EFFORT}"
     fi
+    CMD+=(-m "$selected_model")
     if [[ -z "${PORCH_DUMP_ARGV:-}" ]]; then
         CMD+=(--format json)
     else
@@ -512,6 +575,43 @@ build_cmd_devin() {
     PROMPT_VIA_FILE=1
 }
 
+build_cmd_agy() {
+    # Headless stream-json in both directions: the prompt travels as one
+    # stdin message (never argv) and the terminal result event carries the
+    # authoritative answer. --dangerously-skip-permissions keeps tool calls
+    # from being soft-denied without a prompt; explicit deny rules still win
+    # over it and over any allow rule in the user's settings (Deny > Ask >
+    # Allow). Review passes session-only deny rules, so agy's own file-write
+    # tools fail with "permission check failed"; MCP tools and the browser
+    # subagent are denied, and web reading only when the mode forbids web.
+    # The shell stays available and is trusted to the report-only prompt
+    # contract, as for the other backends. Plan mode is a planning workflow,
+    # not a permission boundary, so it is not used.
+    CMD=("$BIN" --input-format stream-json --output-format stream-json
+         --dangerously-skip-permissions --disable-slash-commands)
+    if [[ "$ACCESS_POLICY" == "readonly" ]]; then
+        local deny='"write_file(*)","mcp(*)","execute_url(*)"'
+        if [[ "${MODE_CAP_WEB:-true}" != "true" ]]; then
+            deny+=',"read_url(*)"'
+        fi
+        if [[ "${MODE_CAP_SHELL:-true}" != "true" ]]; then
+            # Media mode: without a shell the agent cannot "infer" a
+            # transcript from file metadata or convert generated images.
+            deny+=',"command(*)"'
+        fi
+        CMD+=(--settings "{\"permissions\":{\"deny\":[$deny]}}")
+    fi
+    if [[ "$MODE" == "media" && -n "${PORCH_OUTPUT_SCHEMA:-}" ]]; then
+        CMD+=(--json-schema "$PORCH_OUTPUT_SCHEMA")
+    fi
+    if [[ -n "$MODEL" ]]; then
+        CMD+=(--model "$MODEL")
+    fi
+    if [[ -n "$EFFORT" ]]; then
+        CMD+=(--effort "$EFFORT")
+    fi
+}
+
 case "$BACKEND" in
     codex-cli)   build_cmd_codex ;;
     claude-code) build_cmd_claude ;;
@@ -519,6 +619,7 @@ case "$BACKEND" in
     gemini-cli)  build_cmd_gemini ;;
     grok-build)  build_cmd_grok ;;
     devin-cli)   build_cmd_devin ;;
+    antigravity-cli) build_cmd_agy ;;
 esac
 
 # Argv dump mode for tests — exact safety properties without executing
@@ -600,12 +701,7 @@ run_streamed() {
     shift 2
     local -a run_argv=("$@")
     if [[ "$backend" == "opencode" ]]; then
-        run_argv=(
-            python3 "$LIB_DIR/terminal_guard.py"
-            --backend opencode
-            --terminal-grace "${PORCH_TERMINAL_GRACE:-2}"
-            -- "${run_argv[@]}"
-        )
+        run_argv=(python3 "$LIB_DIR/opencode_run.py" "$TMP_DIR" "$ARTIFACT_KEY" "${run_argv[@]}")
     fi
     local -a norm_argv=(
         python3 "$LIB_DIR/normalize_stream.py"
@@ -634,7 +730,7 @@ run_streamed() {
             norm_argv+=(--debug-events)
         fi
     fi
-    if [[ "$backend" != "grok-build" ]]; then
+    if [[ "$backend" != "grok-build" && "$backend" != "antigravity-cli" ]]; then
         norm_argv+=(--no-validate)
     fi
 
@@ -650,7 +746,9 @@ run_streamed() {
             | "${norm_argv[@]}" >"$NORM_STREAM"
         _ps=("${PIPESTATUS[@]}")
     else
-        "${run_argv[@]}" 2>"$BACKEND_ERR" \
+        # File-based transports have no stdin payload. Do not pass a live
+        # caller pipe to a backend that already received its prompt file.
+        "${run_argv[@]}" </dev/null 2>"$BACKEND_ERR" \
             | "${norm_argv[@]}" >"$NORM_STREAM"
         _ps=("${PIPESTATUS[@]}")
     fi
@@ -664,7 +762,7 @@ run_streamed() {
     # callers see the true process outcome. Grok contract additionally requires
     # end present / no error: if backend exited 0 but normalizer failed, surface 1.
     if [[ "${NORM_RC:-0}" -ne 0 && "${BACKEND_RC:-0}" -eq 0 ]]; then
-        if [[ "$backend" == "grok-build" ]]; then
+        if [[ "$backend" == "grok-build" || "$backend" == "antigravity-cli" ]]; then
             BACKEND_RC=1
         fi
         # Other backends: normalizer failure alone does not rewrite a clean
@@ -782,76 +880,6 @@ if is_err:
         opencode)
             run_streamed "opencode" "$PROMPT_PATH" "${CMD[@]}"
             exit_code=$BACKEND_RC
-            # Always reassemble with part-id last-write-wins when raw JSON is
-            # present. Live extract-text may already be correct; never leave a
-            # concatenated H+He+Hello FINAL just because the file is non-empty.
-            if [[ -s "$RAW_STREAM" ]] && grep -q '^{' "$RAW_STREAM" 2>/dev/null; then
-                python3 -c '
-import json,sys
-from collections import OrderedDict
-snaps=OrderedDict()
-deltas=[]
-def unwrap(o):
-    if not isinstance(o, dict):
-        return o
-    if isinstance(o.get("payload"), dict) and (o.get("type") is None or o.get("type")=="sync") and o["payload"].get("type"):
-        o=o["payload"]
-    if o.get("type")=="sync" and isinstance(o.get("syncEvent"), dict):
-        se=o["syncEvent"]
-        se_type=str(se.get("type") or "")
-        if se_type.endswith(".1") or se_type.endswith(".0"):
-            se_type=se_type.rsplit(".",1)[0]
-        if se_type:
-            data=se.get("data") if isinstance(se.get("data"), dict) else {}
-            o={"type": se_type, "properties": data if data else se}
-    return o
-for line in open(sys.argv[1]):
-    line=line.strip()
-    if not line: continue
-    try: o=json.loads(line)
-    except Exception: continue
-    o=unwrap(o)
-    typ=o.get("type") or ""
-    props=o.get("properties") if isinstance(o.get("properties"), dict) else o
-    if not isinstance(props, dict):
-        props=o if isinstance(o, dict) else {}
-    part=props.get("part") if isinstance(props.get("part"), dict) else (o.get("part") if isinstance(o.get("part"), dict) else props)
-    if typ=="message.part.updated" and isinstance(part, dict):
-        pid=str(part.get("id") or part.get("partID") or part.get("partId") or "_")
-        t=part.get("text")
-        if isinstance(t,str) and t:
-            snaps[pid]=t
-    elif typ in ("message.part.delta","text"):
-        d=""
-        if isinstance(props, dict) and isinstance(props.get("delta"), str):
-            d=props["delta"]
-        if not d and isinstance(part, dict) and isinstance(part.get("delta"), str):
-            d=part["delta"]
-        if not d:
-            d=o.get("text") or o.get("delta") or ""
-        if d: deltas.append(str(d))
-text="".join(snaps.values()) if snaps else "".join(deltas)
-if text:
-    open(sys.argv[2],"w").write(text)
-' "$RAW_STREAM" "$FINAL_TEXT" 2>/dev/null || true
-            elif [[ ! -s "$FINAL_TEXT" && -s "$NORM_STREAM" ]]; then
-                python3 -c '
-import sys,json
-sys.path.insert(0, sys.argv[3])
-from events import assemble_final_text, PorchEvent
-evts=[]
-for line in open(sys.argv[1], encoding="utf-8"):
-    line=line.strip()
-    if not line: continue
-    try: evts.append(PorchEvent.from_dict(json.loads(line)))
-    except Exception: continue
-text=assemble_final_text(evts)
-if text: open(sys.argv[2],"w",encoding="utf-8").write(text)
-' "$NORM_STREAM" "$FINAL_TEXT" "$LIB_DIR" 2>/dev/null || true
-            elif [[ ! -s "$FINAL_TEXT" && -s "$RAW_STREAM" ]]; then
-                # Plain-text fallback when the stream is not JSON.
-                cat "$RAW_STREAM" > "$FINAL_TEXT"
-            fi
             ;;
         gemini-cli)
             # Backend identity is gemini-cli (not plain); plain-text behaviour retained.
@@ -888,6 +916,24 @@ if text: open(sys.argv[2],"w",encoding="utf-8").write(text)
                     --backend devin-cli --agent-id "$AGENT_ID" \
                     --input "$RAW_STREAM" --extract-text --text-out "$FINAL_TEXT" \
                     --no-validate >/dev/null 2>/dev/null || true
+            fi
+            ;;
+        antigravity-cli)
+            if command -v "$BIN" &>/dev/null || [[ -x "$BIN" ]]; then
+                # One stream-json user message on stdin; EOF ends the session
+                # after this turn. JSON encoding keeps any prompt text intact.
+                AGY_INPUT="$TMP_DIR/agy-input.jsonl"
+                python3 -c '
+import json, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+with open(sys.argv[2], "w", encoding="utf-8") as f:
+    f.write(json.dumps({"event": "user", "message": {"content": text}}) + "\n")
+' "$PROMPT_PATH" "$AGY_INPUT"
+                run_streamed "antigravity-cli" "$AGY_INPUT" "${CMD[@]}"
+                exit_code=$BACKEND_RC
+            else
+                echo "agy CLI missing" >"$BACKEND_ERR"
+                exit_code=4
             fi
             ;;
     esac

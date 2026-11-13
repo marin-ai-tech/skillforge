@@ -142,7 +142,12 @@ export type PluginContext = {
   /** Model access by purpose, with the "llm" capability; the key stays in the server. */
   llm: {
     status: (purpose: string) => LlmTaskStatus;
-    complete: (args: { purpose: string; messages: ChatMessage[] }) => Promise<TaskResult>;
+    /** `budgetGrant` (llm-budget-broker) goes only to the budget broker; it is never stored or logged. */
+    complete: (args: {
+      purpose: string;
+      messages: ChatMessage[];
+      budgetGrant?: string;
+    }) => Promise<TaskResult>;
     registerConsumer: (purpose: string) => void;
   };
 };
@@ -211,9 +216,13 @@ export function createLlmApi(
       requireCapability();
       return taskStatus(db, parsePurpose(purpose));
     },
-    complete: async ({ purpose, messages }) => {
+    complete: async ({ purpose, messages, budgetGrant }) => {
       requireCapability();
-      return completeTask(db, appConfig, { purpose: parsePurpose(purpose), messages });
+      return completeTask(db, appConfig, {
+        purpose: parsePurpose(purpose),
+        messages,
+        ...(typeof budgetGrant === "string" ? { budgetGrant } : {}),
+      });
     },
     registerConsumer: (purpose) => {
       requireCapability();

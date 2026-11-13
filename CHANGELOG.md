@@ -3,6 +3,60 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.4 — 2026-11-13
+
+Rules as an artifact type, model calls paid from Agent Space task budgets, and updates of skills that came from the
+internet: a new upstream commit becomes a beta version for review.
+
+### Added
+- The `rule` artifact type: one `rules/<name>.md` with optional `paths`. It installs into Claude Code
+  (`.claude/rules/`) and Cursor (`.cursor/rules/*.mdc`); a rule without `paths` is limited to 1500 tokens, since the
+  agent loads it on every turn. An aging artifact whose latest version is confirmed again (`validate` or a `gate`
+  evidence) returns to active.
+- The Agent Space budget broker (`SKILLFORGE_BUDGET_SOCKET`): every model call goes through the broker's Unix socket,
+  which holds the provider key and charges task budgets, with no fallback to the provider. A task budget grant can be
+  given to the help assistant and to review-assistant checks; it is never stored, returned or logged.
+- review-assistant runs paid from a task budget: idempotent by request id, resumable after a restart, bound to a
+  coming publication, or queued as a list.
+- Tracked sources: an artifact that came from git (an import, a starter pack, or a publish with provenance
+  `import:<url>@<commit>:<path>`) keeps a link to its upstream folder, and existing artifacts get one from their
+  provenance. With the mirrors (`SKILLFORGE_MIRROR_INTERVAL_HOURS`) or on **Check now**, the registry takes a new
+  upstream commit through the source policy, the quarantine, the edit rules and the import checks, and publishes a
+  changed folder as a new version in the `beta` channel; stable and the status stay. Edit rules (delete files by a
+  glob, replace an exact string) keep local changes across updates; a rule that finds nothing stops the check as
+  `edits_outdated`. GitHub sources work without `git` on the server, through `SKILLFORGE_GITHUB_API_URL` (with
+  `SKILLFORGE_GITHUB_TOKEN` when set). The artifact page has a Source panel; the API is
+  `GET`/`PUT /api/v1/artifacts/:type/:name/source` and `POST …/source/check`.
+
+### Changed
+- `skillforge harvest sessions` and harvest drafts write a rule by default (`rules/<name>.md`); `--type skill` and
+  `type: "skill"` keep the skill draft.
+- Skill checks by a model parse the answer strictly: one invalid finding (an invented quote, an extra key, a wrong
+  category) rejects the whole answer as `invalid_output` instead of dropping that finding. The prompt version is now
+  2, so earlier checks no longer count as up to date; run **Check published skills** to check them again.
+- The CodeAlive starter pack has twelve skills:
+  - `pragmatic-orchestration` follows its upstream release 5.0.1, and `coordinator-mode` from the same release is new;
+  - `ux-best-practices` (UX audits and design against WCAG 2.2 AA) and `ubiquitous-language` (a project thesaurus for
+    naming) are new.
+
+  Installing the pack again adds the new skills and a new version of `pragmatic-orchestration`; versions already
+  installed stay as they are. `pack.json` carries the local changes listed in `NOTICE.md` as edit rules, and the
+  install puts them on each skill's tracked source.
+
+### Fixed
+- Git imports, mirrors and source checks take files exactly as they are in the repository. On Windows, Git's
+  `core.autocrlf=true` (the Git for Windows default) used to turn line ends into CRLF in every imported text file.
+  Versions imported that way stay as they are; a mirror on such a host publishes the same files with their original
+  line ends once.
+
+### Compatibility
+- One database migration (`0051_artifact_sources`) and three migrations of the review-assistant plugin run on start;
+  back up the data folder first, as for any upgrade. Existing artifacts with git provenance get a tracked source,
+  turned on; the first background check runs one mirror interval after start (24 hours by default).
+- Model checks of skills made before this release count as out of date (prompt version 2).
+- No change to the CLI commands you already use, except the `harvest sessions` default above. A `skillforge publish`
+  of one `.md` in a `rules/` folder publishes a rule.
+
 ## 0.5.3 — 2026-11-09
 
 The Windows installer works again: the installers of 0.5.1 and 0.5.2 could stop while unpacking on Windows. The

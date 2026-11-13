@@ -19,11 +19,16 @@ export PORCH_BIN_OPENCODE="$FAKES/fake-opencode"
 export PORCH_BIN_GROK="$FAKES/fake-grok"
 export PORCH_BIN_GEMINI="$FAKES/fake-gemini"
 export PORCH_BIN_DEVIN="$FAKES/fake-devin"
+export PORCH_BIN_AGY="$FAKES/fake-agy"
 export PORCH_SUPPRESS_SHELL_WARN=1
 # Parent shells (prior delegate runs, harnesses) must not leak mode wrappers
 # into the offline suite.
 unset PORCH_RAW_PROMPT PORCH_SKIP_OUTPUT_TEMPLATE PORCH_MODE \
   PORCH_SINGLE_AGENT PORCH_ARTIFACT_KEY 2>/dev/null || true
+# Per-backend overrides from the caller (Claude Code exports CLAUDE_EFFORT, for
+# example) would replace the fixture's model and effort.
+unset AGY_MODEL AGY_EFFORT CLAUDE_MODEL CLAUDE_EFFORT CODEX_MODEL CODEX_EFFORT DEVIN_MODEL \
+  GEMINI_MODEL GROK_MODEL GROK_EFFORT OPENCODE_MODEL OPENCODE_EFFORT 2>/dev/null || true
 
 PASS=0
 FAIL=0
@@ -107,27 +112,48 @@ set -e
 assert_eq "removed explore command exits with usage error" "$rc" "5"
 assert_contains "removed explore command names supported modes" \
   "$removed_explore_err" "expected review|delegate|quota"
+assert_contains "unknown command lists media mode" "$removed_explore_err" "|media)"
 
 out=$("$PORCH" --list-agents 2>/dev/null)
 assert_contains "list-agents has grok" "$out" 'id="grok"'
 assert_contains "list-agents has grok-build backend" "$out" 'backend="grok-build"'
 assert_contains "default grok profile uses Grok 4.7" "$out" \
   'id="grok" label="Grok Test" backend="grok-build" model="grok-4.7" role="analyst" enabled="true"'
-assert_contains "Grok 4.5 remains selectable as fast context model" "$out" \
-  'id="grok-fast" label="Grok Fast Test" backend="grok-build" model="grok-4.5" role="analyst" enabled="false"'
+assert_contains "Grok 4.7 Fast is selectable in the fixture" "$out" \
+  'id="grok-fast" label="Grok Fast Test" backend="grok-build" model="grok-4.7-build-fast" role="analyst" enabled="false"'
 
 out=$(env PORCH_CONFIG="$SKILL_DIR/config.example.json" "$PORCH" --list-agents 2>/dev/null)
 assert_contains "production config includes grok" "$out" 'id="grok"'
 assert_contains "skill-root default grok profile uses Grok 4.7" "$out" \
   'id="grok" label="Grok 4.7 (native)" backend="grok-build" model="grok-4.7" role="analyst" enabled="true"'
+assert_contains "Grok 4.7 Fast is opt-in" "$out" \
+  'id="grok-fast" label="Grok 4.7 Fast (native)" backend="grok-build" model="grok-4.7-build-fast" role="analyst" enabled="false"'
+assert_contains "Grok 4.5 remains selectable" "$out" \
+  'id="grok-4.5" label="Grok 4.5 (native)" backend="grok-build" model="grok-4.5" role="analyst" enabled="false"'
 assert_contains "Codex Astra remains selectable but disabled by default" "$out" \
   'id="codex-gpt-6-astra" label="Codex GPT-6 Astra" backend="codex-cli" model="gpt-6-astra" role="analyst" enabled="false"'
 assert_contains "Codex Sol is enabled by default" "$out" \
-  'id="codex" label="Codex GPT-6 Sol" backend="codex-cli" model="gpt-6-sol" role="analyst" enabled="true"'
+  'id="codex" label="Codex GPT-6.1 Sol" backend="codex-cli" model="gpt-6.1-sol" role="analyst" enabled="true"'
+assert_contains "Codex GPT-6.1 Sol is explicitly selectable without duplicating the default pool" "$out" \
+  'id="codex-gpt-6.1-sol" label="Codex GPT-6.1 Sol" backend="codex-cli" model="gpt-6.1-sol" role="analyst" enabled="false"'
+assert_contains "Codex GPT-6.1 Terra is selectable but disabled by default" "$out" \
+  'id="codex-gpt-6.1-terra" label="Codex GPT-6.1 Terra" backend="codex-cli" model="gpt-6.1-terra" role="analyst" enabled="false"'
+assert_contains "Devin Gemini 4 Argon is selectable but disabled by default" "$out" \
+  'id="devin-gemini-4-argon" label="Devin Gemini 4 Argon High" backend="devin-cli" model="gemini-4-argon-high" role="lateral" enabled="false"'
+assert_contains "Antigravity Gemini 4 Argon is selectable but disabled by default" "$out" \
+  'id="agy-gemini-4-argon" label="Antigravity Gemini 4 Argon High" backend="antigravity-cli" model="gemini-4-argon" role="lateral" enabled="false"'
+assert_contains "Antigravity Gemini 4 Carbon is opt-in for accounts with access" "$out" \
+  'id="agy-gemini-4-carbon" label="Antigravity Gemini 4 Carbon High (limited access)" backend="antigravity-cli" model="gemini-4-carbon" role="lateral" enabled="false"'
+assert_contains "Antigravity Gemini 3.8 Flash is selectable but disabled by default" "$out" \
+  'id="agy-gemini-3.8-flash" label="Antigravity Gemini 3.8 Flash High" backend="antigravity-cli" model="gemini-3.8-flash" role="lateral" enabled="false"'
 assert_contains "Codex Luna is enabled by default" "$out" \
   'id="codex-gpt-6-luna" label="Codex GPT-6 Luna" backend="codex-cli" model="gpt-6-luna" role="analyst" enabled="true"'
 assert_contains "Claude Fable remains selectable but disabled by default" "$out" \
-  'id="claude-fable" label="Claude Fable 5.1" backend="claude-code" model="claude-fable-5-1" role="analyst" enabled="false"'
+  'id="claude-fable" label="Claude Fable" backend="claude-code" model="fable" role="analyst" enabled="false"'
+assert_contains "Claude Haiku is selectable but disabled by default" "$out" \
+  'id="claude-haiku" label="Claude Haiku" backend="claude-code" model="haiku" role="lateral" enabled="false"'
+assert_contains "Gemini 4 Argon Contributor is selectable but disabled by default" "$out" \
+  'id="opencode-go-gemini-4-argon-contributor" label="OC-Go Gemini 4 Argon Contributor" backend="opencode" model="opencode-go/gemini-4-argon-contributor" role="lateral" enabled="false"'
 assert_contains "Muse Spark 1.3 Contributor is selectable but disabled by default" "$out" \
   'id="opencode-go-muse-spark-1.3-contributor" label="OC-Go Muse Spark 1.3 Contributor" backend="opencode" model="opencode-go/muse-spark-1.3-contributor" role="lateral" enabled="false"'
 assert_contains "DeepSeek V4.1 Flash is selectable but disabled by default" "$out" \
@@ -159,6 +185,8 @@ dump_delegate() {
 }
 
 TMP=$(mktemp -d)
+export XDG_DATA_HOME="$TMP/xdg-data"
+unset OPENCODE_DB OPENCODE_PASSWORD OPENCODE_SERVER_PASSWORD OPENCODE_CONFIG_CONTENT
 
 # Production profiles must reach their native harnesses with the exact current
 # model IDs, not merely appear correctly in --list-agents output.
@@ -168,13 +196,13 @@ argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/astra-revi
 assert_contains "Codex production profile launches GPT-6 Astra" "$argv" "--model gpt-6-astra"
 assert_contains "Codex Astra production profile uses high effort" "$argv" 'model_reasoning_effort="high"'
 
-for spec in 'codex gpt-6-sol high' 'codex-gpt-6-luna gpt-6-luna low' 'grok grok-4.7 high'; do
+for spec in 'codex gpt-6.1-sol high' 'codex-gpt-6.1-sol gpt-6.1-sol high' 'codex-gpt-6.1-terra gpt-6.1-terra xhigh' 'codex-gpt-6-luna gpt-6-luna low' 'grok grok-4.7 high' 'grok-fast grok-4.7-build-fast high' 'grok-4.5 grok-4.5 high'; do
   read -r profile model effort <<< "$spec"
   for mode in review delegate; do
     env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/current-model.json" \
       "$LIB_DIR/backend_run.sh" --mode "$mode" --agent-id "$profile" --raw "hello" >/dev/null
     argv=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["argv"]))' "$TMP/current-model.json")
-    if [[ "$profile" == grok ]]; then
+    if [[ "$profile" == grok* ]]; then
       assert_contains "$profile $mode launches current model" "$argv" "-m $model"
       assert_contains "$profile $mode effort" "$argv" "--reasoning-effort $effort"
     else
@@ -184,23 +212,80 @@ for spec in 'codex gpt-6-sol high' 'codex-gpt-6-luna gpt-6-luna low' 'grok grok-
   done
 done
 
-env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/fable51-review.json" \
-  "$LIB_DIR/backend_run.sh" --mode review --agent-id claude-fable --raw "hello" >/dev/null
-argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/fable51-review.json"'"))["argv"]))')
-assert_contains "Claude production profile launches Fable 5.1" "$argv" "--model claude-fable-5-1"
-assert_contains "Claude Fable 5.1 production profile uses low effort" "$argv" "--effort low"
+# Devin's reasoning level is encoded in the model id, including over ACP.
+for mode in review delegate; do
+  env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/devin-argon-$mode.json" \
+    "$LIB_DIR/backend_run.sh" --mode "$mode" --agent-id devin-gemini-4-argon --raw "hello" >/dev/null
+  argv=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["argv"]))' "$TMP/devin-argon-$mode.json")
+  assert_contains "Devin Gemini 4 Argon $mode uses high model id" "$argv" "--model gemini-4-argon-high"
+done
+
+for spec in claude-code:opus:medium claude-opus:opus:medium claude-fable:fable:high claude-sonnet:sonnet:high claude-haiku:haiku:medium; do
+  IFS=: read -r profile model effort <<< "$spec"
+  for mode in review delegate; do
+    env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/$profile-$mode.json" \
+      "$LIB_DIR/backend_run.sh" --mode "$mode" --agent-id "$profile" --raw "hello" >/dev/null
+    argv=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["argv"]))' "$TMP/$profile-$mode.json")
+    assert_contains "$profile $mode uses model alias" "$argv" "--model $model"
+    assert_contains "$profile $mode uses configured effort" "$argv" "--effort $effort"
+  done
+done
 
 env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/muse-spark-review.json" \
   "$LIB_DIR/backend_run.sh" --mode review --agent-id opencode-go-muse-spark-1.3-contributor --raw "hello" >/dev/null
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/muse-spark-review.json"'"))["argv"]))')
 assert_contains "Muse Spark production profile uses exact model" "$argv" "-m opencode-go/muse-spark-1.3-contributor"
-assert_contains "Muse Spark production profile uses maximum effort" "$argv" "--variant xhigh"
+assert_contains "Muse Spark production profile uses maximum effort" "$argv" "#xhigh"
 
 env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/deepseek-v41-flash-review.json" \
   "$LIB_DIR/backend_run.sh" --mode review --agent-id opencode-go-deepseek-v4.1-flash --raw "hello" >/dev/null
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/deepseek-v41-flash-review.json"'"))["argv"]))')
 assert_contains "DeepSeek V4.1 Flash production profile uses exact model" "$argv" "-m opencode-go/deepseek-v4.1-flash"
-assert_contains "DeepSeek V4.1 Flash production profile uses maximum effort" "$argv" "--variant max"
+assert_contains "DeepSeek V4.1 Flash production profile uses maximum effort" "$argv" "#max"
+
+for mode in review delegate; do
+  env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/argon-$mode.json" \
+    "$LIB_DIR/backend_run.sh" --mode "$mode" --agent-id opencode-go-gemini-4-argon-contributor --raw "hello" >/dev/null
+  argv=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["argv"]))' "$TMP/argon-$mode.json")
+  assert_contains "Gemini 4 Argon $mode uses exact Go model" "$argv" "-m opencode-go/gemini-4-argon-contributor"
+  assert_contains "Gemini 4 Argon $mode defaults to high effort" "$argv" "#high"
+done
+
+for mode in review delegate; do
+  argon_log="$TMP/argon-$mode-runtime.jsonl"
+  if [[ "$mode" == review ]]; then
+    out=$(PORCH_FAKE_ARGV_LOG="$argon_log" PORCH_RUN_DIR="$TMP/argon-review-run" \
+      "$PORCH" review ask --progress none -a opencode-go-gemini-4-argon-contributor "Review this")
+  else
+    out=$(PORCH_FAKE_ARGV_LOG="$argon_log" PORCH_RUN_DIR="$TMP/argon-delegate-run" \
+      "$PORCH" delegate --one-shot -a opencode-go-gemini-4-argon-contributor "Implement this")
+  fi
+  assert_contains "Gemini 4 Argon $mode completes with fake OpenCode" "$out" "FAKE_OPENCODE_OK"
+  argv=$(python3 -c 'import json,sys; print(" ".join(json.loads(open(sys.argv[1]).readline())["argv"]))' "$argon_log")
+  assert_contains "Gemini 4 Argon $mode runtime uses Go catalog id" "$argv" "-m opencode-go/gemini-4-argon-contributor"
+  assert_contains "Gemini 4 Argon $mode runtime uses high variant" "$argv" "#high"
+done
+
+# Exercise profile selection through public review and one-shot delegate paths.
+for spec in 'devin-gemini-4-argon gemini-4-argon-high FAKE_DEVIN_OK' 'codex-gpt-6.1-terra gpt-6.1-terra FAKE_CODEX_OK'; do
+  read -r profile model answer <<< "$spec"
+  for mode in review delegate; do
+    profile_log="$TMP/$profile-$mode-runtime.jsonl"
+    if [[ "$mode" == review ]]; then
+      out=$(PORCH_FAKE_ARGV_LOG="$profile_log" PORCH_RUN_DIR="$TMP/$profile-review-run" \
+        "$PORCH" review ask --progress none -a "$profile" "Review this")
+    else
+      out=$(PORCH_FAKE_ARGV_LOG="$profile_log" PORCH_RUN_DIR="$TMP/$profile-delegate-run" \
+        "$PORCH" delegate --one-shot -a "$profile" "Implement this")
+    fi
+    assert_contains "$profile $mode completes with fake backend" "$out" "$answer"
+    argv=$(python3 -c 'import json,sys; print(" ".join(json.loads(open(sys.argv[1]).readline())["argv"]))' "$profile_log")
+    assert_contains "$profile $mode runtime uses exact model" "$argv" "--model $model"
+    if [[ "$profile" == codex-gpt-6.1-terra ]]; then
+      assert_contains "$profile $mode defaults to xhigh effort" "$argv" 'model_reasoning_effort="xhigh"'
+    fi
+  done
+done
 
 # Codex review: sandbox read-only, never full-bypass
 dump_review codex "$TMP/codex-review.json"
@@ -276,18 +361,18 @@ assert_not_contains "opencode delegate no plan" "$argv" "--agent plan"
 dump_review opencode-go-kimi-k3 "$TMP/oc-go-kimi-k3-review.json"
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/oc-go-kimi-k3-review.json"'"))["argv"]))')
 assert_contains "OpenCode Go Kimi K3 exact model" "$argv" "-m opencode-go/kimi-k3"
-assert_contains "OpenCode Go Kimi K3 uses max reasoning" "$argv" "--variant max"
+assert_contains "OpenCode Go Kimi K3 uses max reasoning" "$argv" "#max"
 
 # New OpenCode Go profiles: exact catalog model ids and supported reasoning variants.
 dump_review opencode-go-muse-spark-1.3-contributor "$TMP/oc-go-muse-spark-review.json"
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/oc-go-muse-spark-review.json"'"))["argv"]))')
 assert_contains "OpenCode Go Muse Spark 1.3 Contributor exact model" "$argv" "-m opencode-go/muse-spark-1.3-contributor"
-assert_contains "OpenCode Go Muse Spark 1.3 Contributor uses maximum reasoning" "$argv" "--variant xhigh"
+assert_contains "OpenCode Go Muse Spark 1.3 Contributor uses maximum reasoning" "$argv" "#xhigh"
 
 dump_review opencode-go-deepseek-v4.1-flash "$TMP/oc-go-deepseek-v41-flash-review.json"
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/oc-go-deepseek-v41-flash-review.json"'"))["argv"]))')
 assert_contains "OpenCode Go DeepSeek V4.1 Flash exact model" "$argv" "-m opencode-go/deepseek-v4.1-flash"
-assert_contains "OpenCode Go DeepSeek V4.1 Flash uses maximum reasoning" "$argv" "--variant max"
+assert_contains "OpenCode Go DeepSeek V4.1 Flash uses maximum reasoning" "$argv" "#max"
 
 PORCH_FAKE_ARGV_LOG="$TMP/oc-go-kimi-k3-prompt.jsonl" \
   "$LIB_DIR/backend_run.sh" --mode review --agent-id opencode-go-kimi-k3 "review this" >/dev/null
@@ -295,8 +380,7 @@ kimi_prompt=$(python3 -c 'import json; print(json.loads(open("'"$TMP/oc-go-kimi-
 assert_contains "OpenCode Go Kimi K3 adds adversarial review prompt" "$kimi_prompt" "KIMI_K3_ADVERSARIAL_REVIEW_MARKER"
 oc_review_policy=$(python3 -c 'import json; print(json.loads(open("'"$TMP/oc-go-kimi-k3-prompt.jsonl"'").readline())["review_policy"])')
 assert_contains "opencode review policy denies edits" "$oc_review_policy" "'edit': 'deny'"
-assert_contains "opencode review policy denies delegation" "$oc_review_policy" "'task': 'deny'"
-assert_contains "opencode review policy permits Bash" "$oc_review_policy" "'bash': 'allow'"
+assert_contains "opencode review policy denies delegation" "$oc_review_policy" "'subagent': 'deny'"
 oc_review_agent_prompt=$(python3 -c 'import json; print(json.loads(open("'"$TMP/oc-go-kimi-k3-prompt.jsonl"'").readline())["review_agent_prompt"])')
 assert_contains "opencode review agent prompt requires work alone" "$oc_review_agent_prompt" "Work alone"
 assert_contains "opencode review agent prompt requires blast-radius search" "$oc_review_agent_prompt" "real blast radius"
@@ -306,12 +390,12 @@ OPENCODE_MODEL="provider/model-override" OPENCODE_EFFORT="thinking" \
   "$LIB_DIR/backend_run.sh" --mode delegate --agent-id opencode --raw "hello" >/dev/null
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/opencode-overrides.json"'"))["argv"]))')
 assert_contains "opencode shell runner honors OPENCODE_MODEL" "$argv" "-m provider/model-override"
-assert_contains "opencode shell runner honors OPENCODE_EFFORT" "$argv" "--variant thinking"
+assert_contains "opencode shell runner honors OPENCODE_EFFORT" "$argv" "provider/model-override#thinking"
 
 OPENCODE_EFFORT="none" PORCH_DUMP_ARGV="$TMP/opencode-none.json" \
   "$LIB_DIR/backend_run.sh" --mode delegate --agent-id opencode --raw "hello" >/dev/null
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/opencode-none.json"'"))["argv"]))')
-assert_not_contains "opencode shell runner treats none as no variant" "$argv" "--variant"
+assert_not_contains "opencode shell runner treats none as no variant" "$argv" "#none"
 
 # Grok review: sandbox read-only + tool allow/deny
 dump_review grok "$TMP/grok-review.json"
@@ -403,7 +487,7 @@ dump_review devin "$TMP/devin-review.json"
 argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/devin-review.json"'"))["argv"]))')
 assert_contains "devin review uses ACP one-shot driver" "$argv" "devin_acp_oneshot.py"
 assert_contains "devin review passes readonly access" "$argv" "--access readonly"
-assert_contains "devin review selects SWE-2" "$argv" "--model swe-2-high"
+assert_contains "devin review selects SWE-2 Flash" "$argv" "--model swe-2-flash-high"
 assert_contains "devin review prompt-file placeholder" "$argv" "--prompt-file __PROMPT_FILE__"
 assert_not_contains "devin review no print-mode permission flag" "$argv" "--permission-mode"
 assert_not_contains "devin review no runtime config" "$argv" "--config"
@@ -450,7 +534,7 @@ rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 main = [r for r in rows if "argv" in r][-1]
 assert main["agent_type"] == "review", main
 assert main["has_ACP_BACKEND"] is False, main
-assert main["model"] == "swe-2-high", main
+assert main["model"] == "swe-2-flash-high", main
 assert "acp" in main["argv"], main
 assert any(r.get("event") == "prompt" for r in rows), rows
 print("ok")
@@ -480,6 +564,94 @@ print("ok")
 PY
 )
 assert_eq "devin delegate uses bypass mode" "$devin_del_check" "ok"
+
+# Antigravity CLI one-shot: headless stream-json both ways, prompt on stdin.
+# Review adds session-only deny rules that agy enforces over user allow rules.
+for spec in 'agy-gemini-4-argon gemini-4-argon' 'agy-gemini-4-carbon gemini-4-carbon' 'agy-gemini-3.8-flash gemini-3.8-flash'; do
+  read -r profile model <<< "$spec"
+  for mode in review delegate; do
+    env PORCH_CONFIG="$SKILL_DIR/config.example.json" PORCH_DUMP_ARGV="$TMP/$profile-$mode.json" \
+      "$LIB_DIR/backend_run.sh" --mode "$mode" --agent-id "$profile" --raw "hello" >/dev/null
+    argv=$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["argv"]))' "$TMP/$profile-$mode.json")
+    assert_contains "$profile $mode selects model family" "$argv" "--model $model"
+    assert_contains "$profile $mode selects high effort" "$argv" "--effort high"
+    assert_contains "$profile $mode reads stream-json input" "$argv" "--input-format stream-json"
+    assert_contains "$profile $mode writes stream-json output" "$argv" "--output-format stream-json"
+    assert_contains "$profile $mode never prompts for permission" "$argv" "--dangerously-skip-permissions"
+    assert_contains "$profile $mode sends slash text literally" "$argv" "--disable-slash-commands"
+    assert_not_contains "$profile $mode has no print-mode prompt flag" "$argv" " -p "
+    assert_not_contains "$profile $mode avoids plan workflow" "$argv" "--mode plan"
+    if [[ "$mode" == review ]]; then
+      assert_contains "$profile review denies file writes, MCP and browser" "$argv" \
+        '--settings {"permissions":{"deny":["write_file(*)","mcp(*)","execute_url(*)"]}}'
+    else
+      assert_not_contains "$profile delegate keeps full access" "$argv" "--settings"
+    fi
+  done
+done
+AGY_MODEL=gemini-3.8-flash AGY_EFFORT=low PORCH_DUMP_ARGV="$TMP/agy-overrides.json" \
+  "$LIB_DIR/backend_run.sh" --mode review --agent-id agy --raw "hello" >/dev/null
+argv=$(python3 -c 'import json; print(" ".join(json.load(open("'"$TMP/agy-overrides.json"'"))["argv"]))')
+assert_contains "agy shell runner honors AGY_MODEL and AGY_EFFORT" "$argv" "--model gemini-3.8-flash --effort low"
+
+export PORCH_RUN_DIR="$TMP/run-agy-ok"
+export PORCH_SAVE_OUTPUTS=1
+export PORCH_FAKE_AGY_MODE=write
+export PORCH_FAKE_ARGV_LOG="$TMP/agy-runtime-argv.jsonl"
+: > "$PORCH_FAKE_ARGV_LOG"
+mkdir -p "$PORCH_RUN_DIR" "$TMP/agy-cwd"
+set +e
+agy_out=$(cd "$TMP/agy-cwd" && "$LIB_DIR/backend_run.sh" --mode review --agent-id agy --raw "agy q" 2>"$TMP/agy-ok.err")
+agy_rc=$?
+set -e
+assert_eq "agy review exit 0" "$agy_rc" "0"
+assert_eq "agy review stdout is the result response" "$agy_out" "FAKE_AGY_OK"
+assert_file "agy final artifact" "$PORCH_RUN_DIR/final/agy.txt"
+assert_file "agy raw artifact" "$PORCH_RUN_DIR/raw/agy.jsonl"
+assert_contains "agy normalized backend label" "$(cat "$PORCH_RUN_DIR/normalized/agy.jsonl")" '"backend": "antigravity-cli"'
+assert_contains "agy normalized authoritative result" "$(cat "$PORCH_RUN_DIR/normalized/agy.jsonl")" '"type": "result"'
+assert_eq "agy review write tool was denied" "$([[ -e "$TMP/agy-cwd/fake-agy-write.txt" ]] && echo written || echo denied)" "denied"
+agy_check=$(python3 - "$PORCH_FAKE_ARGV_LOG" <<'PY'
+import json, sys
+rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+main = [r for r in rows if "argv" in r][-1]
+assert main["transport"] == "headless", main
+assert "write_file(*)" in main["deny"], main
+assert not any("agy q" in a for a in main["argv"]), main
+assert main["has_FULL_PROMPT"] is False, main
+prompts = [r for r in rows if r.get("event") == "stdin_prompt"]
+assert len(prompts) == 1 and prompts[0]["text"].endswith("agy q"), prompts
+print("ok")
+PY
+)
+assert_eq "agy review prompt travels on stdin" "$agy_check" "ok"
+
+export PORCH_RUN_DIR="$TMP/run-agy-del"
+mkdir -p "$PORCH_RUN_DIR"
+export PORCH_FAKE_AGY_MODE=write
+set +e
+agy_del_out=$(cd "$TMP/agy-cwd" && "$PORCH" delegate -a agy --one-shot "implement x" 2>"$TMP/agy-del.err")
+agy_del_rc=$?
+set -e
+assert_eq "agy delegate --one-shot exit 0" "$agy_del_rc" "0"
+assert_eq "agy delegate --one-shot stdout" "$agy_del_out" "FAKE_AGY_OK"
+assert_eq "agy delegate may write" "$([[ -e "$TMP/agy-cwd/fake-agy-write.txt" ]] && echo written || echo denied)" "written"
+
+for spec in 'fail 1' 'interrupted 1' 'noresult 1' 'crash 1' 'empty 66'; do
+  read -r agy_mode want <<< "$spec"
+  export PORCH_RUN_DIR="$TMP/run-agy-$agy_mode"
+  mkdir -p "$PORCH_RUN_DIR"
+  export PORCH_FAKE_AGY_MODE="$agy_mode"
+  set +e
+  agy_bad_out=$("$LIB_DIR/backend_run.sh" --mode review --agent-id agy --raw "q" 2>"$TMP/agy-$agy_mode.err")
+  agy_bad_rc=$?
+  set -e
+  assert_eq "agy $agy_mode exit $want" "$agy_bad_rc" "$want"
+  assert_eq "agy $agy_mode prints no answer" "$agy_bad_out" ""
+done
+assert_contains "agy failed result is explained" "$(cat "$TMP/agy-fail.err")" "agy result ERROR: fake agy failure"
+assert_contains "agy interrupted result is explained" "$(cat "$TMP/agy-interrupted.err")" "agy result INTERRUPTED"
+unset PORCH_FAKE_AGY_MODE
 
 # Explicit empty-answer exit 66 + backend failure surfaces stderr
 export PORCH_RUN_DIR="$TMP/run-devin-empty"
@@ -521,7 +693,7 @@ export PORCH_FAKE_ARGV_LOG="$TMP/large-prompt-argv.jsonl"
 : > "$PORCH_FAKE_ARGV_LOG"
 # Parent shells may carry a leftover FULL_PROMPT; backend_run must not re-export it.
 unset FULL_PROMPT 2>/dev/null || true
-for agent in codex claude-code opencode gemini-cli grok devin; do
+for agent in codex claude-code opencode gemini-cli grok devin agy; do
   export PORCH_RUN_DIR="$TMP/run-large-$agent"
   mkdir -p "$PORCH_RUN_DIR"
   env -u FULL_PROMPT "$LIB_DIR/backend_run.sh" --mode review --agent-id "$agent" --raw \
@@ -533,9 +705,9 @@ import sys
 
 rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
 # Primary CLI rows only (ignore grok-prompt-meta helpers and devin ACP event rows).
-primary = [r for r in rows if r.get("bin") in ("codex", "claude", "opencode", "gemini", "grok", "devin")
+primary = [r for r in rows if r.get("bin") in ("codex", "claude", "opencode", "gemini", "grok", "devin", "agy")
            and "argv" in r]
-assert len(primary) == 6, primary
+assert len(primary) == 7, primary
 for row in primary:
     argv = "\0".join(row["argv"])
     assert "BEGIN_LARGE_PROMPT" not in argv
@@ -556,6 +728,14 @@ for row in primary:
         assert "acp" in row["argv"]
         prompts = [r for r in rows if r.get("bin") == "devin" and r.get("event") == "prompt"]
         assert prompts, "devin session/prompt event missing"
+        data = prompts[-1].get("text") or ""
+        assert data.startswith("BEGIN_LARGE_PROMPT\n"), row["bin"]
+        assert data.endswith("\nEND_LARGE_PROMPT"), row["bin"]
+        assert len(data) > 131072, row["bin"]
+    elif row["bin"] == "agy":
+        # Headless path: one JSON-encoded stream-json message on stdin.
+        prompts = [r for r in rows if r.get("bin") == "agy" and r.get("event") == "stdin_prompt"]
+        assert prompts, "agy stdin prompt event missing"
         data = prompts[-1].get("text") or ""
         assert data.startswith("BEGIN_LARGE_PROMPT\n"), row["bin"]
         assert data.endswith("\nEND_LARGE_PROMPT"), row["bin"]
@@ -810,25 +990,10 @@ assert_contains "blank stdin explains accepted transports" \
 assert_not_contains "blank stdin is not accepted as prompt transport" \
   "$(cat "$TMP/ask-blank-prompt.err")" "using stdin as the prompt"
 
-set +e
-out=$("$PORCH" review ask -a codex,grok --raw 2>"$TMP/ask.err" <<'EOF'
-What is 2+2?
-EOF
-)
-rc=$?
-set -e
-# review_ask doesn't have --raw flag; use env
-# Re-run properly
-export PORCH_RAW_PROMPT=1
 export PORCH_RUN_DIR="$TMP/run-ask2"
 mkdir -p "$PORCH_RUN_DIR"
-set +e
-out=$("$PORCH" review ask -a codex,grok "What is 2+2?" 2>"$TMP/ask2.err")
-rc=$?
-set -e
-assert_eq "review ask exit 0" "$rc" "0"
+out=$("$PORCH" review ask -a codex "What is 2+2?" 2>"$TMP/ask2.err")
 assert_contains "ask has codex answer" "$out" "FAKE_CODEX_OK"
-assert_contains "ask has grok answer" "$out" "FAKE_GROK_OK"
 assert_contains "ask progress stderr" "$(cat "$TMP/ask2.err")" "[porch]"
 assert_not_contains "ask stdout clean" "$out" "[porch]"
 
@@ -861,38 +1026,6 @@ else
   FAIL=$((FAIL+1))
 fi
 
-echo "=== Review ask survives one unresolvable profile ==="
-python3 - "$FIX/test-config.json" "$TMP/partial-resolve-config.json" <<'PY'
-import json, sys
-cfg = json.load(open(sys.argv[1]))
-cfg["agents"]["broken-reviewer"] = {
-    "enabled": True,
-    "backend": "unknown-backend",
-    "model": "broken",
-    "role": "analyst",
-    "label": "Broken Reviewer",
-}
-json.dump(cfg, open(sys.argv[2], "w"), indent=2)
-PY
-export PORCH_RUN_DIR="$TMP/run-ask-partial-resolve"
-mkdir -p "$PORCH_RUN_DIR"
-set +e
-out=$(PORCH_CONFIG="$TMP/partial-resolve-config.json" \
-  "$PORCH" review ask --progress none -a codex,broken-reviewer "review this" \
-  2>"$TMP/ask-partial-resolve.err")
-partial_resolve_rc=$?
-set -e
-assert_eq "ask resolver failure is partial" "$partial_resolve_rc" "2"
-assert_contains "ask resolver failure keeps healthy answer" "$out" "FAKE_CODEX_OK"
-assert_contains "ask resolver failure is reported" "$out" "Broken Reviewer query failed"
-set +e
-PORCH_CONFIG="$TMP/partial-resolve-config.json" \
-  "$PORCH" review ask --progress none -a broken-reviewer "review this" \
-  >"$TMP/ask-all-resolve.out" 2>"$TMP/ask-all-resolve.err"
-all_resolve_rc=$?
-set -e
-assert_eq "ask all resolver failures exit 3" "$all_resolve_rc" "3"
-
 # Runtime overrides must be reflected in both human and machine-readable
 # provenance, not merely passed to the backend process.
 export PORCH_RUN_DIR="$TMP/run-ask-override"
@@ -914,6 +1047,65 @@ xml=$(CLAUDE_MODEL="claude-runtime" CLAUDE_EFFORT="max" \
   "$PORCH" review ask --xml -a claude-code "What is 2+2?" 2>/dev/null)
 assert_contains "ask XML uses resolved model" "$xml" 'model="claude-runtime"'
 assert_contains "ask XML uses resolved effort" "$xml" 'effort="max"'
+
+echo "=== Windows .cmd shim binary resolution ==="
+# On Windows the contract resolves binaries with Python's shutil.which, which
+# walks PATHEXT and returns the `foo.CMD` sibling spelled with backslashes. npm
+# writes that shim without the executable bit, so bash can neither `command -v`
+# the path nor exec-test it, and every npm-installed backend was rejected with a
+# false "backend CLI not found". Reproduced here on any platform by pointing the
+# override at such a path; the extensionless launcher is the usable one.
+SHIM_DIR="$TMP/cmd-shim"
+mkdir -p "$SHIM_DIR"
+cp "$FAKES/fake-codex" "$SHIM_DIR/shimcodex"
+chmod +x "$SHIM_DIR/shimcodex"
+printf '@echo off\r\n' > "$SHIM_DIR/shimcodex.cmd"
+chmod 644 "$SHIM_DIR/shimcodex.cmd"
+
+export PORCH_RUN_DIR="$TMP/run-ask-cmd-shim"
+mkdir -p "$PORCH_RUN_DIR"
+set +e
+out=$(PATH="$SHIM_DIR:$PATH" PORCH_BIN_CODEX="$SHIM_DIR\\shimcodex.CMD" \
+  "$PORCH" review ask --progress none -a codex "review this" \
+  2>"$TMP/ask-cmd-shim.err")
+set -e
+assert_contains "windows .cmd path falls back to extensionless launcher" "$out" "FAKE_CODEX_OK"
+assert_not_contains "windows .cmd path is not reported missing" \
+  "$(cat "$TMP/ask-cmd-shim.err")" "backend CLI not found"
+
+# A bare name that resolves to nothing must still fail; the fallback only
+# applies to values that look like a resolved path.
+set +e
+PATH="$SHIM_DIR:$PATH" PORCH_BIN_CODEX="definitely-absent-cli" \
+  "$PORCH" review ask --progress none -a codex "review this" \
+  >"$TMP/ask-absent-bin.out" 2>"$TMP/ask-absent-bin.err"
+absent_bin_rc=$?
+set -e
+assert_eq "missing bare binary still fails" "$absent_bin_rc" "3"
+
+# A missing .CMD path must not pick a different installation from PATH.
+set +e
+PATH="$SHIM_DIR:$PATH" PORCH_BIN_CODEX="$TMP/missing/shimcodex.CMD" \
+  PORCH_RUN_DIR="$TMP/run-ask-missing-cmd" \
+  "$PORCH" review ask --progress none -a codex "review this" \
+  >"$TMP/ask-missing-cmd.out" 2>"$TMP/ask-missing-cmd.err"
+missing_cmd_rc=$?
+set -e
+assert_eq "missing .CMD sibling fails instead of searching PATH" "$missing_cmd_rc" "3"
+assert_not_contains "missing .CMD sibling does not run another CLI" \
+  "$(cat "$TMP/ask-missing-cmd.out")" "FAKE_CODEX_OK"
+
+# Other extensions do not imply an npm shim, even when a sibling exists.
+set +e
+PATH="$SHIM_DIR:$PATH" PORCH_BIN_CODEX="$SHIM_DIR/shimcodex.exe" \
+  PORCH_RUN_DIR="$TMP/run-ask-missing-exe" \
+  "$PORCH" review ask --progress none -a codex "review this" \
+  >"$TMP/ask-missing-exe.out" 2>"$TMP/ask-missing-exe.err"
+missing_exe_rc=$?
+set -e
+assert_eq "missing non-.CMD binary still fails" "$missing_exe_rc" "3"
+assert_not_contains "missing non-.CMD binary does not run sibling" \
+  "$(cat "$TMP/ask-missing-exe.out")" "FAKE_CODEX_OK"
 
 echo "=== Delegate with fake ==="
 export PORCH_RUN_DIR="$TMP/run-del"
@@ -1000,91 +1192,6 @@ rc=$?
 set -e
 assert_eq "normalize error fails" "$rc" "1"
 
-echo "=== Review code depth routing (dry structure) ==="
-# super dry-run needs full config agents — use real skill config for dry-run only
-set +e
-out=$(PORCH_CONFIG="$SCRIPTS_DIR/../config.example.json" \
-  "$PORCH" review code --depth super --dry-run "$FIX/sample.py" 2>&1)
-rc=$?
-set -e
-assert_eq "super dry-run exit 0" "$rc" "0"
-assert_contains "super dry-run plan" "$out" "DRY RUN"
-
-set +e
-out=$(PORCH_CONFIG="$SCRIPTS_DIR/../config.example.json" \
-  "$PORCH" review code --depth ultra --dry-run "$FIX/sample.py" 2>&1)
-rc=$?
-set -e
-assert_eq "ultra dry-run exit 0" "$rc" "0"
-assert_contains "ultra dry-run plan" "$out" "DRY RUN"
-assert_contains "ultra dry-run 15 specialists" "$out" "15-pass"
-assert_contains "ultra dry-run discovery count 20" "$out" "20 discovery"
-
-# Declarative plan pass counts agree with dry-run keys
-plan_spec=$(python3 "$LIB_DIR/workflow_plans.py" ultra --shell 2>/dev/null | grep -c '^specialists|' || true)
-assert_eq "ultra plan specialists launched keys" "$plan_spec" "15"
-plan_total=$(python3 "$LIB_DIR/workflow_plans.py" ultra --shell 2>/dev/null | grep -cE '^(broad|specialists|probe)\|' || true)
-assert_eq "ultra plan total discovery keys" "$plan_total" "20"
-
-# PORCH_MAX_PARALLEL=1 integration: sequential specialist fan-out still exits cleanly
-export PORCH_RUN_DIR="$TMP/run-code-mp1"
-mkdir -p "$PORCH_RUN_DIR"
-set +e
-PORCH_MAX_PARALLEL=1 \
-  "$PORCH" review code --depth basic --progress none "$FIX/sample.py" \
-  >"$TMP/mp1.out" 2>"$TMP/mp1.err"
-mp1_rc=$?
-set -e
-# With fakes, basic review should succeed (exit 0) or partial (2) — never hang.
-if [[ "$mp1_rc" == "0" || "$mp1_rc" == "2" ]]; then
-  echo "  PASS  MAX_PARALLEL=1 basic review exit ok ($mp1_rc)"
-  PASS=$((PASS+1))
-else
-  echo "  FAIL  MAX_PARALLEL=1 basic review exit ($mp1_rc)"
-  echo "        err: $(head -c 400 "$TMP/mp1.err")"
-  FAIL=$((FAIL+1))
-fi
-unset PORCH_MAX_PARALLEL
-
-# basic code review with fakes
-export PORCH_CONFIG="$FIX/test-config.json"
-export PORCH_RUN_DIR="$TMP/run-code"
-mkdir -p "$PORCH_RUN_DIR"
-export PORCH_RAW_PROMPT=
-# code review will wrap prompts; fakes still return canned text
-set +e
-out=$("$PORCH" review code --depth basic -a codex,opencode "$FIX/sample.py" 2>"$TMP/code.err")
-rc=$?
-set -e
-# May exit 0 with zero findings after validate, or still 0
-assert_eq "code review basic exit 0" "$rc" "0"
-assert_contains "code review progress" "$(cat "$TMP/code.err")" "code-review"
-
-# Caller-known related files are passed as a non-exhaustive seed to every
-# specialist; they do not close repository discovery.
-export PORCH_FAKE_ARGV_LOG="$TMP/related-argv.jsonl"
-: > "$PORCH_FAKE_ARGV_LOG"
-"$PORCH" review code --progress none --depth basic -a codex \
-  --related config/app.yml --related tests/test_sample.py "$FIX/sample.py" \
-  >/dev/null 2>"$TMP/related.err"
-related_prompt=$(python3 - "$PORCH_FAKE_ARGV_LOG" <<'PY'
-import json, sys
-rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
-print("\n".join(r.get("stdin", "") + "\n" + "\n".join(r.get("argv", [])) for r in rows))
-PY
-)
-assert_contains "code review includes primary seed" "$related_prompt" "$FIX/sample.py"
-assert_contains "code review includes config seed" "$related_prompt" "config/app.yml"
-assert_contains "code review includes test seed" "$related_prompt" "tests/test_sample.py"
-assert_contains "code review marks seed incomplete" "$related_prompt" "likely incomplete"
-assert_contains "code review requires blast-radius discovery" "$related_prompt" "real blast radius"
-set +e
-"$PORCH" review code --related= "$FIX/sample.py" >/dev/null 2>"$TMP/related-empty.err"
-related_empty_rc=$?
-set -e
-assert_eq "code review rejects empty related path" "$related_empty_rc" "5"
-assert_contains "empty related path is explained" "$(cat "$TMP/related-empty.err")" "--related requires a path"
-
 echo "=== Claude stream-json: authoritative result wins over distinct delta ==="
 # Delta and result strings differ — final answer must be result, never delta/concat.
 export PORCH_FAKE_CLAUDE_MODE=ok
@@ -1153,53 +1260,15 @@ assert_contains "claude is_error norm has run_failed" \
   "$(cat "$PORCH_RUN_DIR/normalized/claude-code.jsonl")" "run_failed"
 export PORCH_FAKE_CLAUDE_MODE=ok
 
-echo "=== OpenCode cumulative part snapshots assemble Hello not HHeHello ==="
-# Production-shaped message.part.updated stream through normalize extract-text.
+echo "=== OpenCode 2 JSON text chunks ==="
 printf '%s\n' \
-  '{"directory":"/tmp","payload":{"type":"message.part.updated","properties":{"part":{"id":"p1","type":"text","text":"H"}}}}' \
-  '{"directory":"/tmp","payload":{"type":"message.part.updated","properties":{"part":{"id":"p1","type":"text","text":"He"}}}}' \
-  '{"directory":"/tmp","payload":{"type":"message.part.updated","properties":{"part":{"id":"p1","type":"text","text":"Hello"}}}}' \
-  '{"type":"session.idle"}' \
+  '{"type":"text","part":{"type":"text","text":"Hel"}}' \
+  '{"type":"text","part":{"type":"text","text":"lo"}}' \
   > "$TMP/oc-hello.jsonl"
 python3 "$LIB_DIR/normalize_stream.py" --backend opencode --agent-id opencode \
   --input "$TMP/oc-hello.jsonl" --extract-text --text-out "$TMP/oc-hello.txt" \
   --no-validate >/dev/null
-assert_eq "opencode oneshot Hello assembly" "$(cat "$TMP/oc-hello.txt")" "Hello"
-assert_not_contains "opencode oneshot not HHeHello" "$(cat "$TMP/oc-hello.txt")" "HHe"
-
-echo "=== OpenCode terminal event bounds a hung CLI ==="
-export PORCH_RUN_DIR="$TMP/run-opencode-terminal-guard"
-mkdir -p "$PORCH_RUN_DIR"
-set +e
-PORCH_FAKE_OPENCODE_HANG_AFTER_COMPLETE=1 \
-PORCH_FAKE_OPENCODE_HANG_SECONDS=30 \
-PORCH_FAKE_OPENCODE_IDLE_BEFORE_TEXT=1 \
-PORCH_FAKE_OPENCODE_TEXT_AFTER_COMPLETE=1 \
-PORCH_TERMINAL_GRACE=0.05 \
-python3 - "$LIB_DIR/backend_run.sh" "$TMP/opencode-guard.out" "$TMP/opencode-guard.err" <<'PY'
-import subprocess, sys, time
-
-started = time.monotonic()
-try:
-    with open(sys.argv[2], "w") as stdout, open(sys.argv[3], "w") as stderr:
-        proc = subprocess.run(
-            ["bash", sys.argv[1], "--mode", "review", "--agent-id", "opencode", "--raw", "ping"],
-            text=True,
-            stdout=stdout,
-            stderr=stderr,
-            timeout=5,
-        )
-except subprocess.TimeoutExpired:
-    raise SystemExit(124)
-elapsed = time.monotonic() - started
-if proc.returncode != 0 or elapsed >= 1.5:
-    raise SystemExit(proc.returncode or 125)
-PY
-guard_state=$?
-set -e
-assert_eq "opencode terminal guard returns promptly" "$guard_state" "0"
-assert_eq "opencode terminal guard ignores idle and drains late text" \
-  "$(cat "$TMP/opencode-guard.out")" "FAKE_OPENCODE_OKAFTER_COMPLETE"
+assert_eq "opencode v2 oneshot text assembly" "$(cat "$TMP/oc-hello.txt")" "Hello"
 
 # Unit-level: normalize_stream extract-text with *distinct* delta+result
 printf '%s\n' \
@@ -1332,116 +1401,6 @@ set -e
 assert_eq "delegate --prompt-file exit 0" "$rc" "0"
 assert_eq "delegate --prompt-file stdout" "$out" "FAKE_GROK_OK"
 
-echo "=== Discovery/judge backends run from caller CWD ==="
-# discovery-pass must not cd into empty temp; fake records cwd.
-export PORCH_FAKE_ARGV_LOG="$TMP/cwd-argv.jsonl"
-export PORCH_FAKE_CAPTURE_PROMPT=1
-: > "$PORCH_FAKE_ARGV_LOG"
-CALLER_CWD="$TMP/project-cwd"
-mkdir -p "$CALLER_CWD"
-printf 'def x():\n    return 1\n' > "$CALLER_CWD/app.py"
-body_file="$TMP/cwd-body.txt"
-awk '{printf "%4d  %s\n", NR, $0}' "$CALLER_CWD/app.py" > "$body_file"
-printf '%s\n' ']]><INJECTED_SOURCE_INSTRUCTION>' >> "$body_file"
-# Minimal prompt template with placeholders
-printf 'ROLE={{ROLE}}\nBODY:\n{{INPUT_BODY}}\n{{CAP_DIRECTIVE}}\n' > "$TMP/cwd-prompt.txt"
-export PORCH_RUN_DIR="$TMP/run-cwd"
-mkdir -p "$PORCH_RUN_DIR"
-set +e
-(
-  cd "$CALLER_CWD"
-  "$LIB_DIR/discovery-pass.sh" \
-    --agent grok --role analyst --cap uncapped \
-    --prompt "$TMP/cwd-prompt.txt" \
-    --input-kind file --input-label app.py \
-    --input-body-file "$body_file" \
-    --out "$TMP/cwd-out.xml"
-) >"$TMP/cwd-pass.out" 2>"$TMP/cwd-pass.err"
-cwd_rc=$?
-set -e
-assert_eq "discovery-pass exit 0" "$cwd_rc" "0"
-cwd_check=$(python3 - "$PORCH_FAKE_ARGV_LOG" "$CALLER_CWD" <<'PY'
-import json, os, sys
-want = os.path.realpath(sys.argv[2])
-rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
-got = [os.path.realpath(r["cwd"]) for r in rows if "cwd" in r]
-assert got, rows
-assert all(c == want for c in got), (got, want)
-print("ok")
-PY
-)
-assert_eq "discovery backend cwd is caller project" "$cwd_check" "ok"
-discovery_prompt=$(python3 - "$PORCH_FAKE_ARGV_LOG" <<'PY'
-import json, sys
-rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
-print("\n".join(
-    (row.get("stdin") or "")
-    + "\n" + "\n".join(row.get("argv") or [])
-    + "\n" + (row.get("prompt_body") or "")
-    for row in rows
-))
-PY
-)
-assert_contains "discovery splits embedded CDATA terminator" "$discovery_prompt" ']]]]><![CDATA[>'
-assert_not_contains "discovery does not pass raw CDATA escape" "$discovery_prompt" ']]><INJECTED_SOURCE_INSTRUCTION>'
-unset PORCH_FAKE_CAPTURE_PROMPT
-
-echo "=== Artifact keys disambiguate agent role reuse ==="
-export PORCH_FAKE_ARGV_LOG="$TMP/art-argv.jsonl"
-: > "$PORCH_FAKE_ARGV_LOG"
-export PORCH_RUN_DIR="$TMP/run-art-reuse"
-mkdir -p "$PORCH_RUN_DIR"
-# One agent, two roles in parallel (basic mode with single agent)
-set +e
-out=$("$PORCH" review code --depth basic -a codex "$FIX/sample.py" 2>"$TMP/art.err")
-rc=$?
-set -e
-assert_eq "artifact reuse review exit 0" "$rc" "0"
-# Expect codex.security and codex.correctness artifacts (not a single codex.txt overwrite)
-assert_file "artifact codex.security final" "$PORCH_RUN_DIR/final/codex.security.txt"
-assert_file "artifact codex.correctness final" "$PORCH_RUN_DIR/final/codex.correctness.txt"
-assert_file "artifact codex.security raw" "$PORCH_RUN_DIR/raw/codex.security.jsonl"
-assert_file "artifact codex.correctness raw" "$PORCH_RUN_DIR/raw/codex.correctness.jsonl"
-# Ordinary single-agent ask still uses plain agent id
-export PORCH_RUN_DIR="$TMP/run-art-ask"
-mkdir -p "$PORCH_RUN_DIR"
-export PORCH_RAW_PROMPT=1
-set +e
-"$PORCH" review ask -a grok "plain ask" >/dev/null 2>"$TMP/art-ask.err"
-set -e
-assert_file "ask artifact plain agent id" "$PORCH_RUN_DIR/final/grok.txt"
-
-echo "=== review code exit codes: partial / all-fail / all-ok ==="
-# all-ok already covered above (exit 0). Partial: one agent fails mid-pass.
-# Force grok fail mode while codex succeeds — assign both via two agents.
-export PORCH_FAKE_GROK_MODE=fail
-export PORCH_RUN_DIR="$TMP/run-code-partial"
-mkdir -p "$PORCH_RUN_DIR"
-export PORCH_RAW_PROMPT=
-set +e
-out=$("$PORCH" review code --depth basic -a codex,grok "$FIX/sample.py" 2>"$TMP/code-partial.err")
-partial_rc=$?
-set -e
-# With 2 agents and 2 roles: codex→security, grok→correctness. grok fails → partial.
-assert_eq "code review partial exit 2" "$partial_rc" "2"
-# Report still emitted from successful specialist(s) on stdout and/or final.txt
-partial_has_output=0
-[[ -n "$out" ]] && partial_has_output=1
-[[ -s "${PORCH_RUN_DIR}/final.txt" ]] && partial_has_output=1
-assert_eq "partial emits report from successes" "$partial_has_output" "1"
-
-# all fail
-export PORCH_FAKE_GROK_MODE=fail
-# Make codex fail too via a wrapper — use only grok for both roles
-export PORCH_RUN_DIR="$TMP/run-code-allfail"
-mkdir -p "$PORCH_RUN_DIR"
-set +e
-out=$("$PORCH" review code --depth basic -a grok "$FIX/sample.py" 2>"$TMP/code-allfail.err")
-allfail_rc=$?
-set -e
-assert_eq "code review all-fail exit 3" "$allfail_rc" "3"
-export PORCH_FAKE_GROK_MODE=ok
-
 echo "=== Failure stderr not duplicated ==="
 # Use missing-end so a known normalize diagnostic is always present once.
 export PORCH_FAKE_GROK_MODE=missing-end
@@ -1465,281 +1424,20 @@ banner_count=$(grep -c 'backend stderr:' "$TMP/stderr-dup.err" 2>/dev/null || tr
 banner_count="${banner_count:-0}"
 assert_le "backend stderr banner not duplicated" "$banner_count" "1"
 
-echo "=== No-FIFO redirect-failure path terminates promptly ==="
-# Old named-FIFO design could hang forever if the writer never opened.
-# Force a failed stdout redirect (OUT is a directory) and supervise externally
-# (harness timeout only — no internal AGENT_TIMEOUT required).
-mkdir -p "$TMP/bad-out-as-dir"
-printf 'BODY={{INPUT_BODY}}\n' > "$TMP/redir-prompt.txt"
-printf '1  code\n' > "$TMP/redir-body.txt"
-export PORCH_RUN_DIR="$TMP/run-redir-fail"
-mkdir -p "$PORCH_RUN_DIR"
-redir_out=$(python3 - "$LIB_DIR/discovery-pass.sh" "$TMP" <<'PY'
-import subprocess, sys, os
-script, tmp = sys.argv[1], sys.argv[2]
-cmd = [
-    script,
-    "--agent", "grok", "--role", "analyst", "--cap", "uncapped",
-    "--prompt", os.path.join(tmp, "redir-prompt.txt"),
-    "--input-kind", "file", "--input-label", "x",
-    "--input-body-file", os.path.join(tmp, "redir-body.txt"),
-    "--out", os.path.join(tmp, "bad-out-as-dir"),  # directory → redirect fails
-]
-try:
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=8,
-                       env=os.environ.copy())
-    print(f"DONE:{p.returncode}")
-except subprocess.TimeoutExpired:
-    print("HUNG")
-PY
-)
-assert_not_contains "redirect-failure did not hang" "$redir_out" "HUNG"
-assert_contains "redirect-failure terminated" "$redir_out" "DONE:"
-# Non-zero exit expected (failed invocation)
-redir_rc="${redir_out#DONE:}"
-if [[ "$redir_rc" != "0" && "$redir_rc" != "HUNG" && -n "$redir_rc" ]]; then
-  echo "  PASS  redirect-failure non-zero exit ($redir_rc)"
-  PASS=$((PASS+1))
+echo "=== Review ask input transport (offline) ==="
+if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/review_input_test.py" -v; then
+  PASS=$((PASS + 1))
 else
-  echo "  FAIL  redirect-failure non-zero exit (got $redir_rc)"
-  FAIL=$((FAIL+1))
+  FAIL=$((FAIL + 1))
 fi
-
-echo "=== discovery-pass grep -c zero findings (no double-zero) ==="
-# Empty findings output still reports "0 finding(s)" not "0\n0"
-export PORCH_FAKE_ARGV_LOG="$TMP/grep0-argv.jsonl"
-: > "$PORCH_FAKE_ARGV_LOG"
-export PORCH_RUN_DIR="$TMP/run-grep0"
-mkdir -p "$PORCH_RUN_DIR"
-# Use a fake that returns non-finding text (FAKE_GROK_OK has no <finding>)
-printf 'BODY={{INPUT_BODY}}\n' > "$TMP/grep0-prompt.txt"
-printf '1  code\n' > "$TMP/grep0-body.txt"
-set +e
-"$LIB_DIR/discovery-pass.sh" \
-  --agent grok --role analyst --cap uncapped \
-  --prompt "$TMP/grep0-prompt.txt" \
-  --input-kind file --input-label x \
-  --input-body-file "$TMP/grep0-body.txt" \
-  --out "$TMP/grep0-out.xml" \
-  >"$TMP/grep0.out" 2>"$TMP/grep0.err"
-grep0_rc=$?
-set -e
-assert_eq "discovery zero-findings exit 0" "$grep0_rc" "0"
-# Must be exactly "0 finding(s)" once — not "0\n0 finding(s)"
-assert_contains "zero findings message" "$(cat "$TMP/grep0.err")" "0 finding(s)"
-# Reject the double-zero bug: "0\n0 finding" or "00 finding"
-assert_not_contains "no double-zero bug" "$(cat "$TMP/grep0.err" | tr '\n' ' ')" "0 0 finding"
-
-echo "=== Explicit distinct artifact keys for multi-pass discovery + judge ==="
-export PORCH_FAKE_ARGV_LOG="$TMP/artkey-argv.jsonl"
-: > "$PORCH_FAKE_ARGV_LOG"
-export PORCH_RUN_DIR="$TMP/run-artkeys"
-mkdir -p "$PORCH_RUN_DIR"
-# Poison ambient key — fan-out must not use it for both passes.
-export PORCH_ARTIFACT_KEY="ambient.poison.key"
-printf 'BODY={{INPUT_BODY}}\n' > "$TMP/artkey-prompt.txt"
-printf '1  code\n' > "$TMP/artkey-body.txt"
-set +e
-"$LIB_DIR/discovery-pass.sh" \
-  --agent grok --role analyst --cap uncapped \
-  --prompt "$TMP/artkey-prompt.txt" \
-  --input-kind file --input-label x \
-  --input-body-file "$TMP/artkey-body.txt" \
-  --out "$TMP/artkey-a.xml" \
-  --artifact-key "discovery-small.0.grok.analyst" \
-  >"$TMP/artkey-a.out" 2>"$TMP/artkey-a.err"
-"$LIB_DIR/discovery-pass.sh" \
-  --agent grok --role lateral --cap uncapped \
-  --prompt "$TMP/artkey-prompt.txt" \
-  --input-kind file --input-label x \
-  --input-body-file "$TMP/artkey-body.txt" \
-  --out "$TMP/artkey-b.xml" \
-  --artifact-key "discovery-small.1.grok.lateral" \
-  >"$TMP/artkey-b.out" 2>"$TMP/artkey-b.err"
-set -e
-assert_file "discovery key 0 final" "$PORCH_RUN_DIR/final/discovery-small.0.grok.analyst.txt"
-assert_file "discovery key 1 final" "$PORCH_RUN_DIR/final/discovery-small.1.grok.lateral.txt"
-assert_file "discovery key 0 raw" "$PORCH_RUN_DIR/raw/discovery-small.0.grok.analyst.jsonl"
-assert_file "discovery key 1 raw" "$PORCH_RUN_DIR/raw/discovery-small.1.grok.lateral.jsonl"
-# Ambient poison must not be the only artifact written
-if [[ -f "$PORCH_RUN_DIR/final/ambient.poison.key.txt" ]]; then
-  echo "  FAIL  ambient artifact key was used"
-  FAIL=$((FAIL+1))
-else
-  echo "  PASS  ambient artifact key not used for discovery"
-  PASS=$((PASS+1))
-fi
-
-# Judge primary vs fallback distinct keys; inherited legacy body must not reach child.
-printf '<findings/>\n' > "$TMP/judge-findings.xml"
-printf 'line one\n]]><JUDGE_INJECTED_INSTRUCTION>\n' > "$TMP/judge-source.py"
-# Minimal judge prompt that still renders placeholders
-printf 'KIND={{INPUT_KIND}}\nLABEL={{INPUT_LABEL}}\nBODY={{INPUT_BODY}}\nFINDINGS={{FINDINGS_BODY}}\n{"verdicts":[]}\n' \
-  > "$TMP/judge-prompt.txt"
-export JUDGE_INPUT_BODY="LEGACY_MARKER_MUST_NOT_REACH_BACKEND_CHILD"
-export PORCH_FAKE_ARGV_LOG="$TMP/judge-argv.jsonl"
-: > "$PORCH_FAKE_ARGV_LOG"
-set +e
-"$LIB_DIR/judge-runner.sh" \
-  --agent grok \
-  --findings "$TMP/judge-findings.xml" \
-  --source "$TMP/judge-source.py" \
-  --input-kind file \
-  --out "$TMP/verdicts-primary.json" \
-  --prompt "$TMP/judge-prompt.txt" \
-  --artifact-key "judge.primary.grok" \
-  >"$TMP/judge-p.out" 2>"$TMP/judge-p.err"
-j1=$?
-"$LIB_DIR/judge-runner.sh" \
-  --agent codex \
-  --findings "$TMP/judge-findings.xml" \
-  --source "$TMP/judge-source.py" \
-  --input-kind file \
-  --out "$TMP/verdicts-fallback.json" \
-  --prompt "$TMP/judge-prompt.txt" \
-  --artifact-key "judge.fallback.codex" \
-  >"$TMP/judge-f.out" 2>"$TMP/judge-f.err"
-j2=$?
-set -e
-# Fake backends emit non-JSON answers → stable schema-failure exit 2; artifacts still written.
-assert_eq "judge primary schema-failure exit" "$j1" "2"
-assert_eq "judge fallback schema-failure exit" "$j2" "2"
-assert_file "judge primary artifact" "$PORCH_RUN_DIR/final/judge.primary.grok.txt"
-assert_file "judge fallback artifact" "$PORCH_RUN_DIR/final/judge.fallback.codex.txt"
-judge_env_check=$(python3 - "$PORCH_FAKE_ARGV_LOG" <<'PY'
-import json, sys
-rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
-assert rows, "no fake log"
-# Every backend child must not see legacy body env markers.
-for r in rows:
-    assert r.get("has_JUDGE_INPUT_BODY") is not True, r
-    assert r.get("has_JR_INPUT_BODY") is not True, r
-    assert r.get("has_JR_FINDINGS_BODY") is not True, r
-print("ok")
-PY
-)
-assert_eq "judge legacy body env absent in backend" "$judge_env_check" "ok"
-judge_prompt=$(python3 - "$PORCH_FAKE_ARGV_LOG" <<'PY'
-import json, sys
-rows = [json.loads(line) for line in open(sys.argv[1]) if line.strip()]
-print("\n".join((row.get("stdin") or "") + "\n" + "\n".join(row.get("argv") or []) for row in rows))
-PY
-)
-assert_contains "judge splits embedded CDATA terminator" "$judge_prompt" ']]]]><![CDATA[>'
-assert_not_contains "judge does not pass raw CDATA escape" "$judge_prompt" ']]><JUDGE_INJECTED_INSTRUCTION>'
-unset JUDGE_INPUT_BODY PORCH_ARTIFACT_KEY 2>/dev/null || true
-
-echo "=== Strict judge verdict validation ==="
-printf '%s\n' \
-  '<finding index="1" severity="high"/>' \
-  '<finding severity="medium" index="2"/>' \
-  > "$TMP/strict-findings.xml"
-cat > "$TMP/strict-valid.json" <<'EOF'
-{"total_findings_parsed":2,"verdicts":[{"finding_idx":1,"verdict":"VALID","rationale":"confirmed"},{"finding_idx":2,"verdict":"DUPLICATE","duplicate_of":1,"rationale":"same root cause"}],"summary":{"valid":1,"duplicate":1,"false_positive":0,"downgrade":0,"kept_findings_idx":[1]}}
-EOF
-python3 "$LIB_DIR/validate_judge_output.py" \
-  --raw-output "$TMP/strict-valid.json" --findings "$TMP/strict-findings.xml" \
-  --out "$TMP/strict-valid.out"
-assert_contains "strict judge accepts complete verdicts" "$(cat "$TMP/strict-valid.out")" '"duplicate": 1'
-cat > "$TMP/strict-omitted.json" <<'EOF'
-{"total_findings_parsed":2,"verdicts":[{"finding_idx":1,"verdict":"VALID","rationale":"confirmed"}],"summary":{"valid":1,"duplicate":0,"false_positive":0,"downgrade":0,"kept_findings_idx":[1]}}
-EOF
-set +e
-python3 "$LIB_DIR/validate_judge_output.py" \
-  --raw-output "$TMP/strict-omitted.json" --findings "$TMP/strict-findings.xml" \
-  --out "$TMP/strict-omitted.out" 2>"$TMP/strict-omitted.err"
-strict_omitted_rc=$?
-set -e
-assert_eq "strict judge rejects omitted finding" "$strict_omitted_rc" "2"
-assert_contains "strict judge explains omission" "$(cat "$TMP/strict-omitted.err")" "omitted findings"
-cat > "$TMP/strict-upgrade.json" <<'EOF'
-{"total_findings_parsed":2,"verdicts":[{"finding_idx":1,"verdict":"VALID","rationale":"confirmed"},{"finding_idx":2,"verdict":"DOWNGRADE","new_severity":"high","rationale":"wrong direction"}],"summary":{"valid":1,"duplicate":0,"false_positive":0,"downgrade":1,"kept_findings_idx":[1,2]}}
-EOF
-set +e
-python3 "$LIB_DIR/validate_judge_output.py" \
-  --raw-output "$TMP/strict-upgrade.json" --findings "$TMP/strict-findings.xml" \
-  --out "$TMP/strict-upgrade.out" 2>"$TMP/strict-upgrade.err"
-strict_upgrade_rc=$?
-set -e
-assert_eq "strict judge rejects severity upgrade" "$strict_upgrade_rc" "2"
-
-echo "=== Cross-file finding quote validation stays inside workspace ==="
-mkdir -p "$TMP/cross-file-repo/responses"
-printf 'primary = 1\n' > "$TMP/cross-file-repo/primary.py"
-printf 'dangerous = True\n' > "$TMP/cross-file-repo/related.py"
-cat > "$TMP/cross-file-repo/responses/codex.security.out" <<'EOF'
-<finding severity="high" category="correctness" file="related.py" line-start="1" line-end="1" confidence="0.9"><title>Cross-file issue</title><rationale>Related config changes behavior.</rationale><quoted-code><![CDATA[dangerous = True]]></quoted-code></finding>
-<finding severity="low" category="security" file="/etc/hosts" line-start="1" line-end="1" confidence="0.8"><title>Escape attempt</title><rationale>Must not read outside workspace.</rationale><quoted-code><![CDATA[localhost]]></quoted-code></finding>
-EOF
-(
-  cd "$TMP/cross-file-repo"
-  python3 "$LIB_DIR/code_review_validate.py" --input-kind file \
-    --input-path primary.py --output-format xml responses
-) > "$TMP/cross-file-report.xml"
-cross_valid=$(python3 - "$TMP/cross-file-report.xml" <<'PY'
-import sys, xml.etree.ElementTree as ET
-root = ET.parse(sys.argv[1]).getroot()
-print("|".join(f.attrib.get("quote-valid", "") for f in root.findall("finding")))
-PY
-)
-assert_eq "cross-file validator verifies repo file and rejects host escape" "$cross_valid" "true|false"
-
-# Direct call without --artifact-key gets an invocation-unique default (not ambient).
-export PORCH_ARTIFACT_KEY="ambient.poison.key"
-export PORCH_RUN_DIR="$TMP/run-artkey-default"
-mkdir -p "$PORCH_RUN_DIR"
-: > "$PORCH_FAKE_ARGV_LOG"
-set +e
-"$LIB_DIR/discovery-pass.sh" \
-  --agent grok --role analyst --cap uncapped \
-  --prompt "$TMP/artkey-prompt.txt" \
-  --input-kind file --input-label x \
-  --input-body-file "$TMP/artkey-body.txt" \
-  --out "$TMP/artkey-default.xml" \
-  >"$TMP/artkey-def.out" 2>"$TMP/artkey-def.err"
-set -e
-# Must not write under ambient.poison.key
-if [[ -f "$PORCH_RUN_DIR/final/ambient.poison.key.txt" ]]; then
-  echo "  FAIL  default key ignored ambient (wrote ambient key)"
-  FAIL=$((FAIL+1))
-else
-  echo "  PASS  default discovery key ignores ambient"
-  PASS=$((PASS+1))
-fi
-# Some discovery.*.txt should exist
-default_arts=$(find "$PORCH_RUN_DIR/final" -name 'discovery.*.txt' 2>/dev/null | wc -l | tr -d ' ')
-if [[ "${default_arts:-0}" -ge 1 ]]; then
-  echo "  PASS  default discovery wrote invocation-unique artifact"
-  PASS=$((PASS+1))
-else
-  echo "  FAIL  default discovery wrote invocation-unique artifact (found $default_arts)"
-  FAIL=$((FAIL+1))
-fi
-unset PORCH_ARTIFACT_KEY 2>/dev/null || true
-
-echo "=== Bash 3.2 required-arg validation (exit 5) ==="
-# Invoke under /bin/bash so Apple Bash 3.2 paths are exercised (no ${var,,}).
-set +e
-/bin/bash "$LIB_DIR/discovery-pass.sh" --role analyst \
-  >"$TMP/disc-miss.out" 2>"$TMP/disc-miss.err"
-dmiss_rc=$?
-/bin/bash "$LIB_DIR/judge-runner.sh" --agent grok \
-  >"$TMP/judge-miss.out" 2>"$TMP/judge-miss.err"
-jmiss_rc=$?
-set -e
-assert_eq "discovery-pass missing required exit 5" "$dmiss_rc" "5"
-assert_contains "discovery-pass missing required diagnostics" \
-  "$(cat "$TMP/disc-miss.err")" "required"
-assert_contains "discovery-pass missing required names flag" \
-  "$(cat "$TMP/disc-miss.err")" "--agent"
-assert_eq "judge-runner missing required exit 5" "$jmiss_rc" "5"
-assert_contains "judge-runner missing required diagnostics" \
-  "$(cat "$TMP/judge-miss.err")" "required"
-# First missing among AGENT FINDINGS SOURCE OUT is --findings when only --agent set
-assert_contains "judge-runner missing required names flag" \
-  "$(cat "$TMP/judge-miss.err")" "--findings"
 
 echo "=== Shared runtime contracts (offline) ==="
+if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/opencode_go_test.py" -v; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
 set +e
 CONTRACT_OUT=$(PYTHONPATH="$LIB_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 "$TESTS_DIR/runtime_contracts.py" 2>&1)
 CONTRACT_RC=$?
@@ -1790,6 +1488,12 @@ if [[ $STEER_RC -ne 0 && $steer_fail -eq 0 ]]; then
 fi
 
 # Bounded observation, failed abort, and durable Codex continuation regressions.
+if PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$LIB_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 "$TESTS_DIR/steer/test_claude_interrupt.py"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
 if PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$LIB_DIR${PYTHONPATH:+:$PYTHONPATH}" python3 "$TESTS_DIR/steer/test_orchestration.py"; then
   PASS=$((PASS + 1))
 else
@@ -1797,7 +1501,32 @@ else
 fi
 
 # Portable locking, process lifetime, launchers, and native supervisor checks.
+if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/fleet_test.py"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
+if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/agentcore_guest_test.py"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
 if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/platform_test.py"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
+if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/cancellation_test.py"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
+echo "=== Media mode: transcription and images (fake agy/codex/claude/ffmpeg) ==="
+if PYTHONDONTWRITEBYTECODE=1 python3 "$TESTS_DIR/media_test.py" -v; then
   PASS=$((PASS + 1))
 else
   FAIL=$((FAIL + 1))

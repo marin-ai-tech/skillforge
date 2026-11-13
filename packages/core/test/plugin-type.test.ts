@@ -5,7 +5,7 @@ import { ARTIFACT_TYPES, isArtifactType, detectArtifactType, mainFilePath } from
 test("ARTIFACT_TYPES order and plugin labels", () => {
   assert.deepEqual(
     ARTIFACT_TYPES.map((t) => t.id),
-    ["skill", "command", "agent", "hook", "plugin", "settings", "mcp-server"],
+    ["skill", "command", "agent", "hook", "plugin", "settings", "mcp-server", "rule"],
   );
   const plugin = ARTIFACT_TYPES.find((t) => t.id === "plugin")!;
   assert.equal(plugin.label, "Plugin");

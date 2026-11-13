@@ -44,7 +44,7 @@ company layer of edits over an artifact.
 
 1. Sign in as the seeded user `admin` with the initial password, then change it from the user menu. The
    `initial-admin-password.txt` file is deleted on the first successful change.
-2. Open the **First-run guide** (`/start`). Install one or both starter packs: CodeAlive (nine skills) and ECC
+2. Open the **First-run guide** (`/start`). Install one or both starter packs: CodeAlive (twelve skills) and ECC
    essentials (three skills), all MIT. Their skills arrive as `candidate` with provenance `import`; installing again
    creates nothing new.
 3. Review the candidates and choose **Promote all candidates**, with an optional reason, or promote them one by one.

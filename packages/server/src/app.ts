@@ -1,3 +1,6 @@
+import { sourceRoutes } from "./routes/sources.ts";
+import { checkAllSources } from "./tracked/check.ts";
+import { backfillSources } from "./tracked/store.ts";
 import { backfillSignatures, loadSigner, setSigner } from "./signing/signer.ts";
 import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
@@ -145,6 +148,7 @@ const CONFIG_DEFAULTS: ConfigDefaults = {
   runOutputMaxBytes: () => 1024 * 1024,
   llmApiKey: () => null,
   llmKeyOrigins: () => [],
+  budgetSocket: () => null,
   downloadsDir: (config) => path.join(config.dataDir, "downloads"),
 };
 
@@ -309,9 +313,11 @@ export async function buildApp(config: AppConfig) {
   await app.register(harvestRoutes, { db, config });
   await app.register(packRoutes, { db });
   await app.register(overlayRoutes, { db });
+  await app.register(sourceRoutes, { db, config });
+  backfillSources(db);
   if (config.mirrorIntervalHours > 0) {
     const timer = setInterval(
-      () => void syncAllMirrors(db, config),
+      () => void syncAllMirrors(db, config).then(() => checkAllSources(db, config)),
       config.mirrorIntervalHours * 3_600_000,
     );
     timer.unref();

@@ -364,19 +364,23 @@ addGlobals(pack.command("list").description("List team method packs")).action(
 
 const harvest = program
   .command("harvest")
-  .description("Collect recurring rules from past work into skill drafts");
+  .description("Collect recurring rules from past work into rule (or skill) drafts");
 addGlobals(
   harvest
     .command("sessions")
     .description(
-      "Draft a skill from rules you keep asking your agent for (local session logs, no network)",
+      "Draft a rule from rules you keep asking your agent for (local session logs, no network)",
     )
     .option("--dir <path>", "Session logs (default: ~/.claude/projects)")
-    .option("--out <dir>", "Where to write skills/<name>/SKILL.md")
-    .option("--name <name>", "Skill name, kebab-case")
-    .option("--min <n>", "How many times a rule must recur (default 3)"),
+    .option("--out <dir>", "Where to write rules/<name>.md (or skills/<name>/SKILL.md)")
+    .option("--name <name>", "Draft name, kebab-case")
+    .option("--min <n>", "How many times a rule must recur (default 3)")
+    .option("--type <type>", "rule (default) or skill"),
 ).action(
-  async (opts: { dir?: string; out?: string; name?: string; min?: string }, cmd: Command) => {
+  async (
+    opts: { dir?: string; out?: string; name?: string; min?: string; type?: string },
+    cmd: Command,
+  ) => {
     const ctx = createContext(globalsFrom(cmd));
     try {
       await runHarvestSessions(ctx, opts);

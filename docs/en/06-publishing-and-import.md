@@ -144,13 +144,73 @@ optional ref and folder, and an optional list of `type/name` ids to take.
 - Mirrored versions have provenance `import` with the address, commit and folder as `ref`.
 - Deleting a mirror keeps the artifacts it created.
 
+## Tracked sources
+
+A mirror follows a whole repository. A **tracked source** follows one artifact: the folder it came from. Every
+artifact whose latest version came from git has one, created automatically:
+
+- by an import from git and by a starter pack install;
+- by a publish with provenance `import:<url>@<commit>:<path>`, where the commit is the full 40-character hash
+  (`skillforge publish --provenance import:https://github.com/acme/skills@<sha>:skills/pdf`);
+- for artifacts that were already in the registry, from their provenance when the server starts.
+
+Hand-made artifacts have no source. The artifact page shows the **Source** panel: the repository and folder, the
+branch or tag (the default branch when none is set), the last commit, the last check and its result, and the edit
+rules. The owner, a co-author or an admin can click **Check now**, turn tracking off and pin a branch or tag; the
+address and the folder never change.
+
+**How a new commit becomes a beta.** The server checks every enabled source after the mirrors, every
+`SKILLFORGE_MIRROR_INTERVAL_HOURS`, one source at a time. A check finds the commit of the branch or tag; if it is
+the commit already taken, the state is `unchanged`. A new commit waits in the quarantine of the import source
+policy. Then the server downloads the folder: with git (any git host; a shallow clone of the branch or tag gives the
+commit), or, when git is off or missing, as a GitHub archive with the commit from the GitHub API (GitHub only),
+applies the edit rules, and runs the import checks: the source policy, parsing, the security scan and the hook
+gate. If the content of the folder changed, it publishes a new version in the `beta` channel as `system`, with
+provenance `import:<url>@<commit>:<path>`. The version is the `version` (or `metadata.version`) from the
+frontmatter when it is above the latest version, otherwise the next patch version. Stable and the artifact status
+do not change; a reviewer moves the version to `stable` after comparing it. Watchers get the new version
+notification; a failed check notifies the owner, the co-authors and the watchers.
+
+**Edit rules** are the local changes kept over upstream content, applied to every download before the checks:
+
+| Rule | Effect |
+|---|---|
+| `{"op": "delete", "glob": "assets/*.png"}` | delete the files that match; `*` stays inside one folder level, `**` crosses folders |
+| `{"op": "replace", "file": "references/ui.md", "find": "…", "with": ""}` | replace the exact string in the file; an empty `with` removes it |
+
+A rule that finds nothing stops the check (`edits_outdated`) instead of publishing something else. Starter packs
+carry their rules in `pack.json` (`edits`, the same changes `NOTICE.md` lists), and the install puts them on the
+source. Paths in rules are relative, without `..`; at most 50 rules.
+
+**States** of the last check:
+
+| State | Meaning |
+|---|---|
+| `ok` | a new version was published in `beta` (the check answer has `version`) |
+| `unchanged` | no new commit, or the commit did not change the folder |
+| `quarantined` | the commit is younger than the minimum release age; the check answer has `ready_at` |
+| `failed` | the check stopped; `state_detail` holds the code, such as `github_unreachable`, `ref_not_found`, `import_source_not_allowed`, `transport_unavailable`, `archive_unsafe_path` or `publish_blocked` |
+| `edits_outdated` | an edit rule found nothing; `state_detail` holds the rule as JSON |
+| `path_missing` | the commit has no files in the folder |
+
+**API.**
+
+| Route | Who | What |
+|---|---|---|
+| `GET /api/v1/artifacts/:type/:name/source` | signed in, can see the artifact | `{source: {url, path, ref, last_commit, last_checked_at, state, state_detail, enabled, edits, created_at}}`; `404 no_source` without a source |
+| `PUT /api/v1/artifacts/:type/:name/source` | owner, co-author, admin | body with `enabled`, `ref` (branch or tag, `null` for the default branch) and `edits`; other keys or bad values give `400 bad_request`; audited as `source_change` |
+| `POST /api/v1/artifacts/:type/:name/source/check` | owner, co-author, admin | `{state, detail?, commit?, ready_at?, version?}`; `409 source_disabled` when tracking is off |
+
+The GitHub archive transport works without `git` on the server and calls `SKILLFORGE_GITHUB_API_URL`; set
+`SKILLFORGE_GITHUB_TOKEN` to avoid the anonymous GitHub limit ([Self-hosting](03-self-hosting.md)).
+
 ## Starter packs
 
 A fresh registry is empty. SkillForge ships vendored starter packs that install without network access:
 
 | Pack id | Contents |
 |---|---|
-| `codealive` | nine MIT-licensed skills, copied byte for byte from their upstream repositories |
+| `codealive` | twelve MIT-licensed skills from their upstream repositories, text-only and English-only; every change is listed in `NOTICE.md` |
 | `ecc-essentials` | three MIT-licensed skills (`change-impact`, `architecture-decision-records`, `codebase-onboarding`), edited for SkillForge; every change is listed in `NOTICE.md` |
 
 Only an admin installs packs: from the first-run page `/start`, or with
@@ -180,6 +240,8 @@ reference to the upstream repository and commit. A second install is idempotent.
 | `mcp_token_forbidden` | the token has the MCP option; create one without it |
 | `import_url_not_allowed` | use `https://`, `ssh://` or `git@host:path` |
 | `import_too_large` | over 5000 files or 64 MB; narrow the folder |
+| `source_disabled` | tracking of the source is off; turn it on in the Source panel before Check now |
+| `no_source` | the artifact did not come from git and has no tracked source |
 
 ## See also
 

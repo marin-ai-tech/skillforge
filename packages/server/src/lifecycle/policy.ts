@@ -433,7 +433,39 @@ export function evaluateAging(
   return null;
 }
 
-/** What automation would do now (ignores hold). Priority: revive > zombie > aging. */
+/**
+ * rule-artifacts: an `aging` artifact whose latest version was confirmed (`validate` by a reviewer or a `gate`
+ * evidence by the owner) after it went to `aging` returns to `active`. Works for every type; a rule has no usage, so
+ * confirmation is how it stays alive.
+ */
+export function evaluateConfirmed(
+  status: string,
+  db: Database,
+  artifact: { id: string; latest_version: string | null },
+): TransitionDecision | null {
+  if (status !== "aging" || !artifact.latest_version) return null;
+  const aged = db
+    .prepare(
+      "SELECT MAX(ts) AS ts FROM audit_events WHERE artifact_id = ? AND action = 'transition' AND to_status = 'aging'",
+    )
+    .get(artifact.id) as { ts: string | null } | undefined;
+  const ver = db
+    .prepare(
+      "SELECT validated_at FROM artifact_versions WHERE artifact_id = ? AND version = ? AND purged_at IS NULL",
+    )
+    .get(artifact.id, artifact.latest_version) as { validated_at: string | null } | undefined;
+  const validatedAt = ver?.validated_at ?? null;
+  if (!aged?.ts || !validatedAt || validatedAt <= aged.ts) return null;
+  return {
+    to: "active",
+    rule: "confirmed",
+    metrics: { validated_at: validatedAt },
+    reason: "confirmed",
+    meta: { rule: "confirmed", validated_at: validatedAt },
+  };
+}
+
+/** What automation would do now (ignores hold). Priority: revive > confirmed > zombie > aging. */
 export function wouldTransition(
   db: Database,
   artifact: { id: string; status: string; latest_version: string | null; purged_at: string | null },
@@ -451,6 +483,8 @@ export function wouldTransition(
   const signals = collectSignals(db, artifact.id, artifact.latest_version, policy, nowMs);
   const revive = evaluateRevive(artifact.status, db, artifact.id, policy, nowMs);
   if (revive) return revive;
+  const confirmed = evaluateConfirmed(artifact.status, db, artifact);
+  if (confirmed) return confirmed;
   const zombie = evaluateZombieRule(artifact.status, signals, policy, nowMs);
   if (zombie) return zombie;
   const activity = policy.dataLifecycleEnabled

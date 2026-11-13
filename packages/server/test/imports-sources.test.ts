@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   materialize,
   isGitUrlAllowed,
@@ -13,6 +14,7 @@ import {
   isSafeImportRef,
   resolveUnderRoot,
 } from "../src/imports/sources.ts";
+import { DEFAULT_IMPORT_POLICY } from "../src/imports/policy.ts";
 import type { AppConfig } from "../src/config.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +59,54 @@ test("zip: plugin-sample ok and strips root", async () => {
   if (!r.ok) return;
   assert.ok(r.files.some((f) => f.path === "skills/csv-tools/SKILL.md"));
   assert.ok(!r.files.some((f) => f.path.startsWith("plugin-sample/")));
+});
+
+// fix-git-clone-line-endings: Git for Windows sets core.autocrlf=true system-wide, and the clone took CRLF.
+test("git: files come as in the repository whatever the host's core.autocrlf", async () => {
+  const work = mkdtempSync(join(tmpdir(), "sf-crlf-"));
+  const repo = join(work, "repo");
+  const md = "---\nname: x\ndescription: Line ends test.\n---\n\nLine one.\nLine two.\n";
+  mkdirSync(join(repo, "skills", "x"), { recursive: true });
+  writeFileSync(join(repo, "skills", "x", "SKILL.md"), md);
+  const clean = join(work, "clean.gitconfig");
+  writeFileSync(clean, "[user]\n\tname = t\n\temail = t@example.com\n[core]\n\tautocrlf = false\n");
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: clean, GIT_CONFIG_NOSYSTEM: "1" };
+  for (const args of [
+    ["init", "-q"],
+    ["add", "."],
+    ["commit", "-q", "-m", "x"],
+  ])
+    execFileSync("git", args, { cwd: repo, env, stdio: "pipe" });
+  const host = join(work, "host.gitconfig");
+  writeFileSync(host, "[core]\n\tautocrlf = true\n");
+  const saved = {
+    global: process.env.GIT_CONFIG_GLOBAL,
+    nosystem: process.env.GIT_CONFIG_NOSYSTEM,
+  };
+  process.env.GIT_CONFIG_GLOBAL = host;
+  process.env.GIT_CONFIG_NOSYSTEM = "1";
+  try {
+    const r = await materialize(
+      { kind: "git", url: pathToFileURL(repo).href, path: "skills/x" },
+      { ...baseConfig, importAllowFileUrls: true },
+      join(work, "clone"),
+      DEFAULT_IMPORT_POLICY,
+    );
+    assert.equal(r.ok, true, JSON.stringify(r));
+    if (!r.ok) return;
+    const file = r.files.find((f) => f.path === "SKILL.md");
+    assert.equal(Buffer.from(file!.content).toString("utf8"), md);
+    r.cleanup();
+  } finally {
+    for (const [k, v] of [
+      ["GIT_CONFIG_GLOBAL", saved.global],
+      ["GIT_CONFIG_NOSYSTEM", saved.nosystem],
+    ] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    rmSync(work, { recursive: true, force: true });
+  }
 });
 
 test("URL allowlist", () => {

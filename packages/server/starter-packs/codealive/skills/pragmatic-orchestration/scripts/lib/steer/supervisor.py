@@ -110,10 +110,12 @@ class Supervisor:
         run_id_file: str = "",
         persist_session: bool = False,
         continue_run: str = "",
+        recover_session: bool = False,
         run_name: str = "",
     ):
         self.persist_session = persist_session or bool(continue_run)
         self.continue_run = continue_run
+        self.recover_session = recover_session
         self._session_lease = None
         self.run_id_file = run_id_file
         self.agent_id = agent_id
@@ -141,6 +143,8 @@ class Supervisor:
         self._registry_recoveries = 0
 
     def run(self) -> int:
+        if self.recover_session and not self.continue_run:
+            raise RegistryError("--recover-session requires --continue-run")
         agent, backend, model, binary = agent_settings(self.agent_id)
         effort = agent.get("effort") or ""
         if self.persist_session and backend != "codex-cli":
@@ -151,6 +155,13 @@ class Supervisor:
         self.artifacts_dir = self._resolve_artifacts_dir(self.artifacts_dir)
 
         # Early run id before any long work
+        # Fleet correlation is consumed here, never inherited by nested workers.
+        fleet_request_id = os.environ.pop("PORCH_FLEET_REQUEST_ID", "")
+        fleet_fingerprint = os.environ.pop("PORCH_FLEET_FINGERPRINT", "")
+        fleet_workspace = os.environ.pop("PORCH_FLEET_WORKSPACE", "")
+        fleet_metadata = ({"fleet_request": {"id": fleet_request_id, "fingerprint": fleet_fingerprint,
+                                              "workspace_path": fleet_workspace}}
+                          if fleet_request_id and fleet_fingerprint else {})
         self.run_id = self.registry.create_run(
             agent_id=self.agent_id,
             backend=backend,
@@ -160,7 +171,9 @@ class Supervisor:
             extra={"task_hash_prefix": _prefix_hash(self.task), "effort": effort,
                    "created_at_ns": str(time.time_ns()),
                    **launcher_metadata(os.environ),
-                   "persist_session": self.persist_session, "continued_from": self.continue_run or None},
+                   **fleet_metadata,
+                   "persist_session": self.persist_session, "continued_from": self.continue_run or None,
+                   "recover_session": self.recover_session},
             run_name=self.run_name,
         )
         self._registry_meta = self.registry.load_meta(self.run_id)
@@ -215,6 +228,7 @@ class Supervisor:
 
         self._update_registry_meta(
             status="running",
+            cleanup_status="pending",
             pid=os.getpid(),
             backend_binary=binary,
             artifacts_dir=self.artifacts_dir,
@@ -239,8 +253,10 @@ class Supervisor:
                 agent_id=self.agent_id,
             )
             if self.persist_session:
-                self._session_lease = SessionLease(self.registry, self.run_id, self.continue_run)
+                self._session_lease = SessionLease(self.registry, self.run_id, self.continue_run,
+                                                   recover_session=self.recover_session)
                 self._session_lease.acquire()
+                self._registry_meta = self.registry.load_meta(self.run_id)
                 self.adapter.persist_session = True
                 self.adapter.resume_thread_id = self._session_lease.handle.get("thread_id", "")
 
@@ -280,27 +296,7 @@ class Supervisor:
             self._finalize(status="failed", exit_code=1, error=str(e))
             return 1
         finally:
-            self._cleanup_adapter()
-            if self._session_lease:
-                self._session_lease.close()
-            try:
-                from debug_tape import close_global_tape
-
-                stats = close_global_tape()
-                if stats and (
-                    stats.get("dropped")
-                    or stats.get("overflow")
-                    or stats.get("sequence_gaps")
-                ):
-                    # Counters only — never event content on normal stderr.
-                    progress(
-                        "steer",
-                        f"run_id={self.run_id}",
-                        f"debug-events dropped={stats.get('dropped', 0)} "
-                        f"overflow={stats.get('overflow')} gaps={stats.get('sequence_gaps', 0)}",
-                    )
-            except Exception:
-                pass
+            self._finish_cleanup()
 
     def _loop(self) -> int:
         assert self.adapter and self.mailbox and self.run_id
@@ -1046,16 +1042,45 @@ class Supervisor:
         if changed:
             self._update_registry_state(steers=steers, recover=False)
 
-    def _cleanup_adapter(self) -> None:
+    def _cleanup_adapter(self) -> Optional[Exception]:
+        if getattr(self, "_adapter_cleanup_done", False):
+            return None
         if not self.adapter:
-            return
+            return None
         try:
             child = self.adapter.child_pid()
             self.adapter.close()
             if child:
                 kill_process_group(child, timeout=2.0)
+            self._adapter_cleanup_done = True
+            return None
+        except Exception as error:
+            return error
+
+    def _finish_cleanup(self) -> None:
+        error = self._cleanup_adapter()
+        try:
+            if self._session_lease:
+                self._session_lease.close()
+        except Exception as lease_error:
+            error = error or lease_error
+        try:
+            from debug_tape import close_global_tape
+
+            stats = close_global_tape()
+            if stats and (stats.get("dropped") or stats.get("overflow") or stats.get("sequence_gaps")):
+                progress("steer", f"run_id={self.run_id}",
+                         f"debug-events dropped={stats.get('dropped', 0)} "
+                         f"overflow={stats.get('overflow')} gaps={stats.get('sequence_gaps', 0)}")
         except Exception:
             pass
+        # Recovery treats this as permission to acquire the old session. Publish
+        # it only after its writer and lease have both stopped.
+        if error:
+            self._registry_notice("adapter_cleanup_failed", str(error))
+            self._update_registry_meta(cleanup_status="failed", cleanup_error=str(error))
+        else:
+            self._update_registry_meta(cleanup_status="completed", cleanup_error=None)
 
     def _artifacts_need_private_home(self, path: str) -> bool:
         """True when protocol artifacts must not land in project cwd."""
@@ -1124,6 +1149,7 @@ def main(argv: Optional[list] = None) -> int:
     p.add_argument("--agent-id", required=True)
     p.add_argument("--persist-session", action="store_true")
     p.add_argument("--continue-run", default="")
+    p.add_argument("--recover-session", action="store_true")
     p.add_argument("--task-file", required=True)
     p.add_argument("--cwd", default=os.getcwd())
     # Empty string is allowed: supervisor relocates protocol artifacts under the
@@ -1175,6 +1201,7 @@ def main(argv: Optional[list] = None) -> int:
         run_id_file=args.run_id_file,
         persist_session=args.persist_session,
         continue_run=args.continue_run,
+        recover_session=args.recover_session,
         run_name=args.run_name,
     )
     return sup.run()

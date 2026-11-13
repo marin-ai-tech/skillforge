@@ -1,4 +1,5 @@
 import { scanSecurity } from "./security.ts";
+import { tokensEst } from "./tokens.ts";
 import { NO_CONTEXT, contextCostOf, sumContextCosts, type ContextCost } from "./context-cost.ts";
 import type { ArtifactType, ParsedArtifact } from "../artifact/types.ts";
 import { artifactTypeDef } from "../artifact/index.ts";
@@ -75,6 +76,8 @@ const APPLICABLE: Record<ArtifactType, ReadonlySet<QualityCode>> = {
     "Q_TIME_SENSITIVE",
     "Q_WINDOWS_PATH",
   ]),
+  // rule-artifacts: a rule is read as instructions, but skill trigger heuristics do not apply to it.
+  rule: new Set<QualityCode>(["Q_DESC_SHORT", "Q_BODY_LONG", "Q_TIME_SENSITIVE", "Q_WINDOWS_PATH"]),
 };
 
 const TRIGGER_PHRASES = [
@@ -250,15 +253,6 @@ function checkDescPerson(ctx: Context): QualityHit[] | null {
 function checkBodyLong(ctx: Context): QualityHit[] | null {
   if (tokensEst(ctx.body) <= BODY_TOKENS_LIMIT || !ctx.main) return null;
   return [{ path: ctx.main.path }];
-}
-
-const CJK_RE = /[぀-ヿ㐀-䶿一-鿿가-힯]/gu;
-const CYRILLIC_RE = /[\u0400-\u04FF]/gu;
-
-function tokensEst(body: string): number {
-  const cjk = body.match(CJK_RE)?.length ?? 0;
-  const cyr = body.match(CYRILLIC_RE)?.length ?? 0;
-  return cjk + Math.ceil(cyr / 2) + Math.ceil((body.length - cjk - cyr) / 4);
 }
 
 type RefGraph = { depth: number; deepFiles: string[] };
@@ -720,7 +714,17 @@ function isText(content: ParsedArtifact["canonical"][number]["content"]): boolea
   return !contentToString(content).includes("\u0000");
 }
 
+/** A rule's body is its whole cost: every turn without `paths`, on use with them (rule-artifacts). */
+function ruleContextCost(artifact: ParsedArtifact): ContextCost {
+  const main = artifact.canonical[0];
+  const md = main ? parseMarkdown(main.path, contentToString(main.content)) : null;
+  const tokens = md ? tokensEst(bodyOf(md)) : 0;
+  const scoped = Array.isArray(artifact.frontmatter?.paths);
+  return contextCostOf(scoped ? 0 : tokens, scoped ? tokens : 0, 0);
+}
+
 function contextCost(artifact: ParsedArtifact): ContextCost {
+  if (artifact.type === "rule") return ruleContextCost(artifact);
   if (artifact.type === "plugin") {
     return sumContextCosts(componentArtifacts(artifact).map((s) => contextCost(s.artifact)));
   }

@@ -27,7 +27,14 @@ export type TaskUsageTotals = { requests: number; input_tokens: number; output_t
 
 export type AdminLlmView = {
   settings: LlmSettings;
-  key: { set: boolean; env: string; origins_env: string; allowed_for_base_url: boolean };
+  key: {
+    set: boolean;
+    /** llm-budget-broker: the key lives in the Agent Space budget broker. */
+    managed?: boolean;
+    env: string;
+    origins_env: string;
+    allowed_for_base_url: boolean;
+  };
   validation: {
     active: boolean;
     reason: "undecided" | "disabled" | "not_configured" | null;
@@ -47,6 +54,8 @@ export type AssistantStatus = {
   available: boolean;
   reason?: "disabled" | "not_configured" | "sign_in";
   remaining_today?: number | null;
+  /** llm-budget-broker: the server has a budget broker, so the chat accepts a task budget grant. */
+  budget_grant?: boolean;
 };
 
 export type AssistantMode = "onboarding" | "consult";
@@ -103,6 +112,8 @@ type ChatArgs = {
   lang: string;
   pageTopic?: string | null;
   messages: AssistantTurn[];
+  /** Agent Space task budget grant; sent with this request only, never stored in the browser. */
+  budgetGrant?: string;
   signal?: AbortSignal;
   onDelta: (text: string) => void;
 };
@@ -128,6 +139,7 @@ export async function streamAssistantChat(args: ChatArgs): Promise<void> {
       lang: args.lang,
       page_topic: args.pageTopic ?? undefined,
       messages: args.messages,
+      budget_grant: args.budgetGrant || undefined,
     }),
     signal: args.signal,
   });

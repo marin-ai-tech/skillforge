@@ -1,6 +1,6 @@
 ---
 title: Artifact types
-summary: The seven package types SkillForge stores and the rules each one follows. Picking the right type on Publish avoids the most common Blocking errors.
+summary: The eight package types SkillForge stores and the rules each one follows. Picking the right type on Publish avoids the most common Blocking errors.
 section: start
 learn:
   - Which files and frontmatter each type requires
@@ -9,7 +9,7 @@ learn:
 related: getting-started/overview, getting-started/lifecycle
 ---
 
-SkillForge stores seven package types. Choosing the correct type on Publish selects the parser rules, canonical paths, and Overview primary file.
+SkillForge stores eight package types. Choosing the correct type on Publish selects the parser rules, canonical paths, and Overview primary file.
 
 > [!WARNING]
 > Wrong type selection is a common source of Blocking errors such as `E_SKILL_MD_MISSING` or `E_HOOKS_JSON_MISSING`.
@@ -44,6 +44,10 @@ An approved Claude Code settings profile: `SETTINGS.md` (name, description, `run
 ## mcp-server
 
 A described MCP server: `MCP.md` (name, description, tags, documentation) plus `server.json` (how to run or reach it, with the field names of the official MCP registry: `packages` with `registryType` `npm`, `pypi` or `oci`, `identifier`, `version`, `transport`, `environmentVariables`; `remotes` with `type`, `url`, `headers`; optional `tools`). Canonical paths live under `mcp/<name>/`. Publishing refuses an unpinned package (`E_MCP_UNPINNED`), a literal secret (`E_MCP_SECRET_LITERAL`), an unknown type or transport (`E_MCP_TRANSPORT_UNKNOWN`), a shell (`E_MCP_SHELL`), a remote address that is not plain `https` (`E_MCP_URL_INVALID`) and a missing or empty `server.json` (`E_MCP_JSON_INVALID`). An admin sets the MCP policy on the lifecycle page (`mcp-policy`): which package types may be published and which remote origins (`https://host` or `https://*.domain`) are allowed; without any origin, remote servers are not published, and a version outside the policy is refused with `E_MCP_POLICY`. On the Overview, the section `mcp-card` shows what the server runs, its variables marked secret or required, remote addresses, tools, whether the version matches the current policy and how many people already use it according to the inventory (counts only). An MCP server is not a marketplace plugin, and SkillForge does not install it into agents yet: configure it in the agent by hand.
+
+## rule
+
+A project rule: one markdown file `rules/<name>.md` with frontmatter `name`, `description`, optional `paths` (a list of file patterns, for example `["src/api/**/*.ts"]`) and `tags`. A rule without `paths` applies always and is loaded on every turn of the agent, so its length is limited (`E_RULE_ALWAYS_LONG`); a rule with `paths` is loaded when the agent works with those files. Publishing refuses `paths` that are not a list of patterns (`E_RULE_PATHS_INVALID`) and more than one file (`E_RULE_EXTRA_FILE`). `skillforge install rule/<name>` writes `.claude/rules/<name>.md` for Claude Code (project or user scope) and `.cursor/rules/<name>.mdc` for Cursor (project scope); Codex, Gemini CLI and Qwen Code read their rules from `AGENTS.md`, `GEMINI.md` and `QWEN.md`, where SkillForge does not write yet. A rule has no uses to count, so it ages by confirmation: a fresh `validate` by a reviewer or a `gate` evidence by the owner brings an aging rule back to active.
 
 ## Choosing
 

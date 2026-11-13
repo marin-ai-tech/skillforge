@@ -17,6 +17,16 @@ function isUnsafeRelative(rel: string): boolean {
   return false;
 }
 
+/**
+ * The bundle path of a single file: its base name, or rules/<name>.md when it lies in a rules folder — the server
+ * detects a rule by that folder (rule-artifacts), so dropping it would publish the rule as a command.
+ */
+function singleFilePath(filePath: string): string {
+  const parent = path.basename(path.dirname(filePath));
+  const base = path.basename(filePath);
+  return parent === "rules" && base.toLowerCase().endsWith(".md") ? `rules/${base}` : base;
+}
+
 export function collectPublishFiles(inputPath: string): BundleFile[] {
   const resolved = path.resolve(inputPath);
   const st = fs.statSync(resolved);
@@ -25,7 +35,7 @@ export function collectPublishFiles(inputPath: string): BundleFile[] {
     const content = fs.readFileSync(resolved);
     return [
       {
-        path: path.basename(resolved),
+        path: singleFilePath(resolved),
         content_base64: content.toString("base64"),
       },
     ];
@@ -55,16 +65,13 @@ export function collectPublishFiles(inputPath: string): BundleFile[] {
   };
   walk(resolved);
 
-  // command/agent: single .md directory → send as [{path: basename}]
+  // command/agent/rule: a folder with one .md → send it like that single file
   if (files.length === 1) {
     const only = files[0]!;
-    if (only.path.toLowerCase().endsWith(".md") && !only.path.includes("/")) {
-      return files;
-    }
-    if (only.path.toLowerCase().endsWith(".md") && only.path.includes("/")) {
+    if (only.path.toLowerCase().endsWith(".md")) {
       return [
         {
-          path: path.posix.basename(only.path),
+          path: singleFilePath(path.join(resolved, only.path)),
           content_base64: only.content_base64,
         },
       ];

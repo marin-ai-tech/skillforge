@@ -51,10 +51,10 @@ function untar(buf) {
   return out;
 }
 
-test("type table in the API: types in order (the seventh is mcp-server), with labels", async () => {
+test("type table in the API: types in order (mcp-server, then rule), with labels", async () => {
   const r = await api(base, "GET", "/api/v1/artifact-types");
   assert.equal(r.status, 200);
-  assert.deepEqual(r.data.items.map((t) => t.id), ["skill", "command", "agent", "hook", "plugin", "settings", "mcp-server"]);
+  assert.deepEqual(r.data.items.map((t) => t.id), ["skill", "command", "agent", "hook", "plugin", "settings", "mcp-server", "rule"]);
   const plugin = r.data.items.find((t) => t.id === "plugin");
   assert.equal(plugin.label, "Plugin");
   assert.equal(plugin.plural, "Plugins");

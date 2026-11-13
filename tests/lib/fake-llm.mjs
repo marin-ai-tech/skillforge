@@ -5,6 +5,8 @@
 //   "toolcalls" — a stream with `delta.tool_calls` (the server must not execute anything);
 //   "hang"      — headers are sent, the response never ends (timeout check).
 // A scenario is set for the single next request (`next`) or as the default (`scenario`).
+// With `socket` the stub listens on that Unix socket path instead of TCP: it then plays the Agent Space budget broker
+// (llm-budget-broker), which takes `POST /v1/chat/completions` there.
 import http from "node:http";
 
 export const UPSTREAM_SECRET_DETAIL = "upstream-internal-detail-7f3a";
@@ -34,8 +36,8 @@ function streamReply(res, text) {
   res.end();
 }
 
-/** Starts the fake on 127.0.0.1; returns { url (…/v1), origin, requests, next(scenario), stop() }. */
-export async function startFakeLlm({ reply = DEFAULT_REPLY, scenario = "stream" } = {}) {
+/** Starts the fake on 127.0.0.1 (or on `socket`); returns { url (…/v1), origin, requests, next(scenario), stop() }. */
+export async function startFakeLlm({ reply = DEFAULT_REPLY, scenario = "stream", socket } = {}) {
   const requests = [];
   const queue = [];
   let currentReply = reply;
@@ -79,9 +81,9 @@ export async function startFakeLlm({ reply = DEFAULT_REPLY, scenario = "stream" 
       streamReply(res, currentReply);
     });
   });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  const { port } = server.address();
-  const origin = `http://127.0.0.1:${port}`;
+  if (socket) await new Promise((r) => server.listen(socket, r));
+  else await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const origin = socket ? `unix:${socket}` : `http://127.0.0.1:${server.address().port}`;
   return {
     url: `${origin}/v1`,
     origin,
@@ -100,7 +102,7 @@ export async function startFakeLlm({ reply = DEFAULT_REPLY, scenario = "stream" 
     async stop() {
       for (const res of hanging) res.destroy();
       server.closeAllConnections?.();
-      await new Promise((r) => server.close(() => r()));
+      if (server.listening) await new Promise((r) => server.close(() => r()));
     },
   };
 }

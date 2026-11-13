@@ -21,6 +21,7 @@ import re
 import sqlite3
 import sys
 import urllib.parse
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
@@ -257,13 +258,26 @@ def iter_jsonl(path: Path, stats: dict[str, int], max_lines: int | None = None) 
     lines via stats['malformed'].
     """
     try:
-        size = path.stat().st_size
-        fh = path.open("r", encoding="utf-8", errors="replace")
-    except OSError:
+        if path.name.endswith(".jsonl.zst"):
+            # Python 3.14 includes Zstandard; do not silently skip archives on
+            # older runtimes or treat a corrupt stream as a complete scan.
+            from compression import zstd
+            try:
+                with zstd.open(path, "rt", encoding="utf-8", errors="replace") as fh:
+                    data = fh.read() if max_lines is None else _read_head(fh, max_lines)
+            except zstd.ZstdError as exc:
+                raise ValueError(str(exc)) from exc
+        else:
+            size = path.stat().st_size
+            with path.open("r", encoding="utf-8", errors="replace") as fh:
+                data = fh.read(size + 1) if max_lines is None else _read_head(fh, max_lines)
+    except (OSError, ImportError, EOFError, ValueError) as exc:
         stats["unreadable"] = stats.get("unreadable", 0) + 1
+        if path.name.endswith(".jsonl.zst"):
+            stats["compressed_errors"] = stats.get("compressed_errors", 0) + 1
+            detail = "Zstandard requires Python 3.14+" if isinstance(exc, ImportError) else str(exc)
+            print(f"cannot read compressed session {path}: {detail}", file=sys.stderr)
         return
-    with fh:
-        data = fh.read(size + 1) if max_lines is None else _read_head(fh, max_lines)
     if not data.endswith("\n") and data.strip() and max_lines is None:
         stats["truncated_tail"] = stats.get("truncated_tail", 0) + 1
     # split('\n'), not splitlines(): JSON strings may legally contain raw
@@ -358,6 +372,7 @@ HARNESS_EVIDENCE = {
     "qwen-code": "spec",
     "kimi-code": "spec",
     "omp": "spec",
+    "hermes": "spec",
 }
 
 ENV_ROOT = "PORCH_HISTORY_ROOT_"
@@ -404,6 +419,9 @@ class Store:
 
 def stores_for(harness: str) -> list[Store]:
     ov = _root_override(harness)
+    if harness == "hermes":
+        base = ov or (HOME / ".hermes")
+        return [Store(harness, "state.db", base if base.suffix == ".db" else base / "state.db", "sqlite")]
     if harness == "claude-code":
         roots = [ov] if ov else [HOME / ".claude" / "projects", HOME / ".claude.back" / "projects"]
         return [Store(harness, f"{r.parent.name}/{r.name}", r, "jsonl_dir") for r in roots]
@@ -424,12 +442,18 @@ def stores_for(harness: str) -> list[Store]:
         return out
     if harness == "opencode":
         if ov:
-            return [Store(harness, "custom", ov, "json_dir")]
-        base = (_win_localapp() / "opencode") if IS_WINDOWS else (HOME / ".local" / "share" / "opencode")
-        return [
-            Store(harness, "db", base / "opencode.db", "sqlite"),
-            Store(harness, "storage", base / "storage", "json_dir"),
-        ]
+            db = ov if ov.is_file() or ov.suffix in (".db", ".sqlite", ".sqlite3") else ov / "opencode.db"
+            return [Store(harness, "db", db, "sqlite")]
+        base = Path(os.environ.get("XDG_DATA_HOME") or (HOME / ".local" / "share")) / "opencode"
+        configured = os.environ.get("OPENCODE_DB")
+        if configured == ":memory:":
+            return []
+        if configured is not None:
+            return [Store(harness, "db", Path(os.path.abspath(base / configured)), "sqlite")]
+        # Stable and non-stable OpenCode channels can use different files.
+        paths = [base / "opencode.db", *sorted(base.glob("opencode-*.db"))]
+        return [Store(harness, "db" if i == 0 else f"db:{path.name}", path, "sqlite")
+                for i, path in enumerate(paths)]
     if harness == "grok":
         return [Store(harness, "sessions", ov or (HOME / ".grok" / "sessions"), "session_dirs")]
     if harness == "devin":
@@ -469,11 +493,13 @@ def stores_for(harness: str) -> list[Store]:
         ]
     if harness == "cursor":
         if ov:
-            return [Store(harness, "custom", ov, "sqlite")]
+            return [Store(harness, "acp" if ov.is_dir() else "custom", ov,
+                          "session_dirs" if ov.is_dir() else "sqlite")]
         base = (_win_appdata() / "Cursor" / "User" if IS_WINDOWS
                 else HOME / ".config" / "Cursor" / "User" if not IS_MACOS
                 else HOME / "Library" / "Application Support" / "Cursor" / "User")
         out = [Store(harness, "globalStorage", base / "globalStorage" / "state.vscdb", "sqlite")]
+        out.append(Store(harness, "acp", HOME / ".cursor" / "acp-sessions", "session_dirs"))
         ws = base / "workspaceStorage"
         if ws.is_dir():
             for sub in sorted(ws.iterdir()):
@@ -495,7 +521,7 @@ def stores_for(harness: str) -> list[Store]:
 
 ALL_HARNESSES = [
     "claude-code", "codex", "opencode", "grok", "devin", "gemini",
-    "claude-desktop", "cursor", "qwen-code", "kimi-code", "omp", "porch",
+    "claude-desktop", "cursor", "qwen-code", "kimi-code", "omp", "porch", "hermes",
 ]
 
 
@@ -698,12 +724,15 @@ def codex_iter_sessions(store: Store) -> Iterator[SessionRef]:
     if store.name == "history":
         yield from _codex_history_sessions(store)
         return
-    for path in sorted(store.path.rglob("rollout-*.jsonl")):
+    paths = sorted(store.path.rglob("rollout-*.jsonl")) + sorted(store.path.rglob("rollout-*.jsonl.zst"))
+    for path in paths:
+        if path.name.endswith(".zst") and path.with_suffix("").exists():
+            continue  # the uncompressed rollout is the canonical copy
         # Cheap listing: session identity + dates come from the filename
         # (rollout-YYYY-MM-DDTHH-MM-SS-<id>.jsonl) and mtime; session_meta is
         # the first record, so a bounded head read suffices for cwd/lineage.
         # --since/--until filtering then skips full parses entirely.
-        name_m = re.match(r"rollout-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(.+)\.jsonl$", path.name)
+        name_m = re.match(r"rollout-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(.+)\.jsonl(?:\.zst)?$", path.name)
         created_name = f"{name_m.group(1)}T{name_m.group(2)}:{name_m.group(3)}:{name_m.group(4)}Z" if name_m else None
         try:
             updated = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat().replace("+00:00", "Z")
@@ -725,11 +754,14 @@ def codex_iter_sessions(store: Store) -> Iterator[SessionRef]:
                     models.append(payload["model"])
             if meta is not None and first_ts is not None and models:
                 break
+        if stats.get("unreadable"):
+            store.status, store.error = "unavailable", f"cannot read session: {path}"
+            continue
         meta = meta or {}
         lineage = meta.get("source", {}).get("subagent", {}).get("thread_spawn") if isinstance(meta.get("source"), dict) else None
         parent = meta.get("parent_thread_id") or meta.get("forked_from_id") or (lineage or {}).get("parent_thread_id")
         yield SessionRef(
-            "codex", store.name, str(meta.get("id") or meta.get("session_id") or path.stem),
+            "codex", store.name, str(meta.get("id") or meta.get("session_id") or (name_m.group(5) if name_m else path.stem)),
             locator={"file": str(path)},
             cwd=meta.get("cwd"), created=first_ts or created_name or meta.get("timestamp"),
             updated=updated,
@@ -868,7 +900,7 @@ def _find_codex_rollout(thread_id: str) -> Path | None:
     for base in (codex_home / "sessions", codex_home / "archived_sessions"):
         if not base.is_dir():
             continue
-        hits = list(base.rglob(f"rollout-*-{thread_id}.jsonl"))
+        hits = list(base.rglob(f"rollout-*-{thread_id}.jsonl")) + list(base.rglob(f"rollout-*-{thread_id}.jsonl.zst"))
         if hits:
             return hits[0]
     return None
@@ -929,7 +961,9 @@ def codex_iter_fragments(store: Store, ref: SessionRef, max_chars: int, stats: d
         return
     file = ref.locator.get("file")
     if not file:
-        rollout = ref.extra.get("rollout_path") or _find_codex_rollout(ref.session_id)
+        rollout = ref.extra.get("rollout_path")
+        if not rollout or not Path(rollout).exists():
+            rollout = _find_codex_rollout(ref.session_id)
         if rollout and Path(rollout).exists():
             file = str(rollout)
         else:
@@ -1072,216 +1106,106 @@ def _codex_message_text(payload: dict[str, Any]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# opencode — storage JSON tree + opencode.db sqlite
+# OpenCode 2 — SQLite session projection
 # ---------------------------------------------------------------------------
 
-def _opencode_part_kind(part: dict[str, Any]) -> str:
-    t = part.get("type")
-    return {
-        "text": "assistant", "reasoning": "reasoning", "tool": "tool_call",
-        "step-start": "boundary", "step-finish": "boundary", "patch": "metadata",
-        "subtask": "metadata", "file": "context", "agent": "metadata",
-    }.get(str(t), "unknown")
-
-
 def opencode_iter_sessions(store: Store) -> Iterator[SessionRef]:
-    if store.name == "db":
-        try:
-            conn = open_sqlite_ro(store.path)
-        except sqlite3.Error as e:
-            store.status, store.error = "unavailable", str(e)
+    try:
+        conn = open_sqlite_ro(store.path)
+    except sqlite3.Error as exc:
+        store.status, store.error = "unavailable", str(exc)
+        return
+    try:
+        if not table_exists(conn, "session_v2") or not table_exists(conn, "session_message"):
+            store.status, store.error = "unavailable", "OpenCode 2 session tables not found"
             return
+        rows = conn.execute("SELECT id, directory, title, time_created, time_updated, parent_id, agent, model, version FROM session_v2")
+        for row in rows:
+            try:
+                model = json.loads(row[7]).get("id") if row[7] else None
+            except (json.JSONDecodeError, AttributeError):
+                model = row[7]
+            yield SessionRef("opencode", store.name, row[0],
+                locator={"table": "session_v2", "key": row[0], "db": str(store.path)},
+                title=row[2], cwd=row[1], created=row[3], updated=row[4],
+                parent=row[5], models=[model] if model else [],
+                extra={"agent": row[6], "version": row[8]})
+    except sqlite3.Error as exc:
+        store.status, store.error = "unavailable", str(exc)
+    finally:
+        conn.close()
+
+
+def _opencode_v2_fragments(store: Store, ref: SessionRef, max_chars: int, stats: dict[str, int]) -> Iterator[dict[str, Any]]:
+    conn = open_sqlite_ro(store.path)
+    try:
+        rows = conn.execute("SELECT id, type, time_created, data FROM session_message WHERE session_id=? ORDER BY seq", (ref.session_id,)).fetchall()
+        part_rows = conn.execute(
+            "SELECT message_id, type, data FROM session_part WHERE session_id=? ORDER BY message_id, ordinal",
+            (ref.session_id,),
+        ).fetchall() if table_exists(conn, "session_part") else []
+    finally:
+        conn.close()
+    parts_by_message: dict[str, list[dict[str, Any]]] = {}
+    for message_id, part_type, raw_part in part_rows:
         try:
-            if not table_exists(conn, "session"):
-                store.status, store.error = "unsupported", "no session table"
-                return
-            for row in conn.execute(
-                "SELECT s.id, s.directory, s.title, s.time_created, s.time_updated, s.parent_id, s.agent, s.model, s.version, p.worktree "
-                "FROM session s LEFT JOIN project p ON p.id = s.project_id"
-            ):
-                model = None
-                try:
-                    model = json.loads(row[7]).get("id") if row[7] else None
-                except (json.JSONDecodeError, AttributeError):
-                    model = row[7]
-                yield SessionRef(
-                    "opencode", "db", row[0],
-                    locator={"table": "session", "key": row[0], "db": str(store.path)},
-                    title=row[2], cwd=row[1] or row[9], created=row[3], updated=row[4],
-                    parent=row[5], models=[m for m in (model,) if m],
-                    extra={"agent": row[6], "version": row[8]},
-                )
-        except sqlite3.Error as e:
-            store.status, store.error = "unavailable", str(e)
-        finally:
-            conn.close()
-        return
-    sess_root = store.path / "session"
-    if not sess_root.is_dir():
-        store.status = "missing"
-        return
-    for path in sorted(sess_root.rglob("ses_*.json")):
-        data = read_json(path)
-        if not isinstance(data, dict):
+            part = json.loads(raw_part)
+            if not isinstance(part, dict):
+                raise ValueError("part is not an object")
+        except (json.JSONDecodeError, ValueError, TypeError):
+            stats["malformed"] = stats.get("malformed", 0) + 1
             continue
-        time_block = data.get("time") or {}
-        yield SessionRef(
-            "opencode", "storage", str(data.get("id") or path.stem),
-            locator={"file": str(path)},
-            title=data.get("title"), cwd=data.get("directory"),
-            created=time_block.get("created"), updated=time_block.get("updated"),
-            parent=data.get("parentID"),
-            extra={"agent": data.get("agent"), "version": data.get("version"), "projectID": data.get("projectID")},
-        )
+        parts_by_message.setdefault(message_id, []).append({**part, "type": part_type})
+    seq = 0
+    for row_id, row_type, timestamp, raw in rows:
+        try:
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError("message is not an object")
+        except (json.JSONDecodeError, ValueError, TypeError):
+            stats["malformed"] = stats.get("malformed", 0) + 1
+            continue
+        locator = {"db": str(store.path), "table": "session_message", "key": row_id}
+        model_info = data.get("model") if isinstance(data.get("model"), dict) else {}
+        model, provider = model_info.get("id"), model_info.get("providerID")
+        fragments = []
+        if row_type == "user":
+            fragments.append(("prompt", data.get("text"), "human", None))
+        elif row_type == "assistant":
+            # V2 may store parts in rows, inline, or both after a downgrade.
+            # OpenCode reads stored rows first and appends inline parts.
+            for part in parts_by_message.get(row_id, []) + (data.get("content") or []):
+                if not isinstance(part, dict):
+                    stats["malformed"] = stats.get("malformed", 0) + 1
+                    continue
+                kind = part.get("type")
+                if kind in ("text", "reasoning"):
+                    fragments.append(("assistant" if kind == "text" else "reasoning", part.get("text"), "agent", None))
+                elif kind == "tool":
+                    state = part.get("state") if isinstance(part.get("state"), dict) else {}
+                    rel = {"call_id": part.get("id"), "tool": part.get("name")}
+                    fragments.append(("tool_call", {"tool": part.get("name"), "input": state.get("input"), "status": state.get("status")}, "agent", rel))
+                    output = state.get("content") or state.get("output") or state.get("error")
+                    if output is not None:
+                        fragments.append(("tool_result", output, "system", rel))
+        elif row_type == "shell":
+            fragments.append(("tool_call", data.get("command"), "human", {"tool": "shell", "call_id": data.get("shellID")}))
+            output = data.get("output")
+            if isinstance(output, dict):
+                output = output.get("output")
+            if output is not None:
+                fragments.append(("tool_result", output, "system", {"tool": "shell", "call_id": data.get("shellID")}))
+        else:
+            fragments.append(("metadata", data, "system", None))
+        for kind, text_value, authorship, rel in fragments:
+            seq += 1
+            yield frag("opencode", store.name, ref.session_id, seq, kind, f"session_message.{row_type}", locator,
+                       text=text_value, ts=timestamp, authorship=authorship, model=model, provider=provider,
+                       cwd=ref.cwd, visible=kind in KINDS_CONVO, rel=rel, max_chars=max_chars)
 
 
 def opencode_iter_fragments(store: Store, ref: SessionRef, max_chars: int, stats: dict[str, int]) -> Iterator[dict[str, Any]]:
-    seq = 0
-    if store.name == "db":
-        conn = open_sqlite_ro(store.path)
-        try:
-            messages = conn.execute(
-                "SELECT id, time_created, data FROM message WHERE session_id=? ORDER BY time_created",
-                (ref.session_id,),
-            ).fetchall()
-            parts = conn.execute(
-                "SELECT id, message_id, time_created, data FROM part WHERE session_id=? ORDER BY time_created",
-                (ref.session_id,),
-            ).fetchall()
-        finally:
-            conn.close()
-        parts_by_msg: dict[str, list[tuple[str, int, dict[str, Any]]]] = {}
-        for pid, mid, ptime, pdata in parts:
-            try:
-                parts_by_msg.setdefault(mid, []).append((pid, ptime, json.loads(pdata)))
-            except json.JSONDecodeError:
-                stats["malformed"] = stats.get("malformed", 0) + 1
-        for mid, mtime, mdata in messages:
-            try:
-                msg = json.loads(mdata)
-            except json.JSONDecodeError:
-                stats["malformed"] = stats.get("malformed", 0) + 1
-                continue
-            seq += 1
-            loc = {"db": str(store.path), "table": "message", "key": mid}
-            role = msg.get("role")
-            model = msg.get("modelID") or (msg.get("model") or {}).get("modelID")
-            provider = msg.get("providerID") or (msg.get("model") or {}).get("providerID")
-            cwd = (msg.get("path") or {}).get("cwd")
-            if role == "user":
-                yield frag("opencode", "db", ref.session_id, seq, "prompt", "message.user", loc,
-                           ts=mtime, authorship="human" if not msg.get("format") else "unknown",
-                           visible=True, basis="role=user" + ("; format set → SDK/structured, authorship unproven" if msg.get("format") else ""),
-                           model=model, provider=provider, cwd=cwd,
-                           rel={"message_id": mid}, max_chars=max_chars)
-            elif role == "assistant":
-                seq += 0  # fragments come from parts; emit a boundary when finish is set
-                if msg.get("finish"):
-                    yield frag("opencode", "db", ref.session_id, seq, "boundary", f"message.finish.{msg['finish']}", loc,
-                               ts=(msg.get("time") or {}).get("completed") or mtime, authorship="system",
-                               status="completed" if msg["finish"] == "stop" else msg["finish"],
-                               error=bool(msg.get("error")),
-                               model=model, cwd=cwd, rel={"message_id": mid}, max_chars=max_chars)
-            for pid, ptime, part in parts_by_msg.get(mid, []):
-                seq += 1
-                ploc = {"db": str(store.path), "table": "part", "key": pid}
-                ptype = part.get("type")
-                kind = _opencode_part_kind(part)
-                if ptype == "text" and role == "user":
-                    yield frag("opencode", "db", ref.session_id, seq, "prompt", "part.text(user)", ploc,
-                               text=part.get("text"), ts=ptime, authorship="human", visible=True,
-                               basis="text part of role=user message", cwd=cwd,
-                               rel={"message_id": mid}, max_chars=max_chars)
-                    continue
-                if ptype == "tool":
-                    st = part.get("state") or {}
-                    is_err = st.get("status") == "error" or bool(st.get("error"))
-                    yield frag("opencode", "db", ref.session_id, seq, "tool_call", "part.tool", ploc,
-                               text=json.dumps({"tool": part.get("tool"), "input": st.get("input"), "status": st.get("status")}, ensure_ascii=False),
-                               ts=ptime, authorship="agent", model=model, cwd=cwd, error=is_err,
-                               usage=msg.get("tokens") or msg.get("usage"),
-                               rel={"call_id": part.get("callID"), "tool": part.get("tool")}, max_chars=max_chars)
-                    if st.get("output") or st.get("error"):
-                        seq += 1
-                        yield frag("opencode", "db", ref.session_id, seq, "tool_result", "part.tool.output", ploc,
-                                   text=st.get("output") or st.get("error"), ts=ptime, authorship="system",
-                                   visible=False, error=is_err,
-                                   rel={"call_id": part.get("callID")}, max_chars=max_chars)
-                elif ptype == "subtask":
-                    yield frag("opencode", "db", ref.session_id, seq, "metadata", "part.subtask", ploc,
-                               text=part.get("description") or part.get("prompt"), ts=ptime,
-                               authorship="agent", visible=False,
-                               rel={"child_agent": part.get("agent")}, basis="subtask part — child session link",
-                               max_chars=max_chars)
-                else:
-                    yield frag("opencode", "db", ref.session_id, seq, kind, f"part.{ptype}", ploc,
-                               text=part.get("text") or part.get("output"), ts=ptime,
-                               authorship="agent" if role == "assistant" else "system",
-                               visible=(kind == "assistant"), model=model, cwd=cwd,
-                               rel={"message_id": mid}, max_chars=max_chars)
-        return
-    # storage JSON tree
-    msg_root = store.path / "message" / ref.session_id
-    for mpath in sorted(msg_root.glob("msg_*.json")):
-        msg = read_json(mpath)
-        if not isinstance(msg, dict):
-            continue
-        seq += 1
-        role = msg.get("role")
-        loc = {"file": str(mpath)}
-        model, provider = msg.get("modelID"), msg.get("providerID")
-        cwd = (msg.get("path") or {}).get("cwd")
-        if role == "user":
-            yield frag("opencode", "storage", ref.session_id, seq, "prompt", "message.user", loc,
-                       ts=(msg.get("time") or {}).get("created"),
-                       authorship="human" if not msg.get("format") else "unknown",
-                       visible=True, basis="role=user" + ("; format set" if msg.get("format") else ""),
-                       cwd=cwd, rel={"message_id": msg.get("id")}, max_chars=max_chars)
-        elif role == "assistant" and msg.get("finish"):
-            yield frag("opencode", "storage", ref.session_id, seq, "boundary", f"message.finish.{msg['finish']}", loc,
-                       ts=(msg.get("time") or {}).get("completed"), authorship="system",
-                       status="completed" if msg["finish"] == "stop" else msg["finish"],
-                       model=model, cwd=cwd, rel={"message_id": msg.get("id")}, max_chars=max_chars)
-        part_root = store.path / "part" / str(msg.get("id"))
-        for ppath in sorted(part_root.glob("prt_*.json")):
-            part = read_json(ppath)
-            if not isinstance(part, dict):
-                continue
-            seq += 1
-            ptype = part.get("type")
-            ploc = {"file": str(ppath)}
-            if ptype == "text" and role == "user":
-                yield frag("opencode", "storage", ref.session_id, seq, "prompt", "part.text(user)", ploc,
-                           text=part.get("text"), ts=(part.get("time") or {}).get("start") if isinstance(part.get("time"), dict) else None,
-                           authorship="human", visible=True, basis="text part of role=user message",
-                           cwd=cwd, rel={"message_id": msg.get("id")}, max_chars=max_chars)
-                continue
-            if ptype == "tool":
-                st = part.get("state") or {}
-                is_err = st.get("status") == "error" or bool(st.get("error"))
-                yield frag("opencode", "storage", ref.session_id, seq, "tool_call", "part.tool", ploc,
-                           text=json.dumps({"tool": part.get("tool"), "input": st.get("input"), "status": st.get("status")}, ensure_ascii=False),
-                           ts=(st.get("time") or {}).get("start"), authorship="agent", error=is_err,
-                           model=model, cwd=cwd, rel={"call_id": part.get("callID"), "tool": part.get("tool")},
-                           max_chars=max_chars)
-                if st.get("output") or st.get("error"):
-                    seq += 1
-                    yield frag("opencode", "storage", ref.session_id, seq, "tool_result", "part.tool.output", ploc,
-                               text=st.get("output") or st.get("error"), ts=(st.get("time") or {}).get("end"),
-                               authorship="system", visible=False, error=is_err,
-                               rel={"call_id": part.get("callID")}, max_chars=max_chars)
-            elif ptype == "subtask":
-                yield frag("opencode", "storage", ref.session_id, seq, "metadata", "part.subtask", ploc,
-                           text=part.get("description") or part.get("prompt"),
-                           authorship="agent", visible=False, rel={"child_agent": part.get("agent")},
-                           basis="subtask part — child session link", max_chars=max_chars)
-            else:
-                kind = _opencode_part_kind(part)
-                yield frag("opencode", "storage", ref.session_id, seq, kind, f"part.{ptype}", ploc,
-                           text=part.get("text"), ts=(part.get("time") or {}).get("start") if isinstance(part.get("time"), dict) else None,
-                           authorship="agent" if role == "assistant" else "system",
-                           visible=(kind == "assistant"), model=model, cwd=cwd,
-                           rel={"message_id": msg.get("id")}, max_chars=max_chars)
+    yield from _opencode_v2_fragments(store, ref, max_chars, stats)
 
 
 # ---------------------------------------------------------------------------
@@ -1746,6 +1670,138 @@ def claude_desktop_iter_fragments(store: Store, ref: SessionRef, max_chars: int,
 # cursor (state.vscdb)
 # ---------------------------------------------------------------------------
 
+def _proto_fields(data: bytes) -> dict[int, list[bytes]]:
+    """Decode protobuf wire fields used by Cursor ACP; reject malformed nodes."""
+    offset = 0
+    fields: dict[int, list[bytes]] = {}
+    def varint() -> int:
+        nonlocal offset
+        value = 0
+        for index in range(10):
+            if offset >= len(data):
+                raise ValueError("truncated protobuf varint")
+            byte = data[offset]
+            offset += 1
+            if index == 9 and byte > 1:
+                raise ValueError("invalid protobuf varint")
+            value |= (byte & 127) << (index * 7)
+            if byte < 128:
+                return value
+        raise ValueError("invalid protobuf varint")
+    while offset < len(data):
+        key = varint()
+        number, wire = key >> 3, key & 7
+        if not number:
+            raise ValueError("invalid protobuf field")
+        if wire == 0:
+            varint()
+        elif wire == 2:
+            length = varint()
+            if length > len(data) - offset:
+                raise ValueError("truncated protobuf field")
+            fields.setdefault(number, []).append(data[offset:offset + length])
+            offset += length
+        elif wire in (1, 5):
+            offset += 8 if wire == 1 else 4
+            if offset > len(data):
+                raise ValueError("truncated protobuf field")
+        else:
+            raise ValueError("unsupported protobuf wire type")
+    return fields
+
+
+def _cursor_acp_read(path: Path) -> tuple[dict[str, Any], dict[str, Any], list[tuple[str, str, str]], int]:
+    # Validate the full graph before emitting any text. One SQLite read
+    # transaction keeps the root and referenced blobs on the same snapshot.
+    if path.is_symlink() or path.parent.is_symlink() or path.parent.parent.is_symlink():
+        raise ValueError("symlinked ACP session path")
+    session_id = str(uuid.UUID(path.parent.name))
+    sidecar_path = path.parent / "meta.json"
+    if sidecar_path.is_symlink():
+        raise ValueError("symlinked ACP metadata")
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    if not isinstance(sidecar, dict) or sidecar.get("schemaVersion") != 1:
+        raise ValueError("unsupported ACP metadata version")
+    conn = open_sqlite_ro(path)
+    try:
+        conn.execute("BEGIN")
+        row = conn.execute("SELECT value FROM meta WHERE key='0'").fetchone()
+        if not row:
+            raise ValueError("missing ACP root")
+        metadata = json.loads(bytes.fromhex(row[0]))
+        if str(uuid.UUID(metadata["agentId"])) != session_id:
+            raise ValueError("ACP session identity mismatch")
+        def blob(key: bytes) -> bytes:
+            if len(key) != 32:
+                raise ValueError("invalid ACP blob id")
+            row = conn.execute("SELECT data FROM blobs WHERE id=?", (key.hex(),)).fetchone()
+            if not row or not isinstance(row[0], bytes):
+                raise ValueError("missing ACP blob")
+            return row[0]
+        root = _proto_fields(blob(bytes.fromhex(metadata["latestRootBlobId"])))
+        result: list[tuple[str, str, str]] = []
+        omitted = 0
+        for turn_id in root.get(8, []):
+            turn = _proto_fields(blob(turn_id))
+            agents, shells = turn.get(1, []), turn.get(2, [])
+            if len(agents) + len(shells) != 1:
+                raise ValueError("invalid ACP turn")
+            if shells:
+                _proto_fields(shells[0])
+                omitted += 1
+                continue
+            agent = _proto_fields(agents[0])
+            users = agent.get(1, [])
+            if len(users) != 1:
+                raise ValueError("invalid ACP user reference")
+            user = _proto_fields(blob(users[0])).get(1, [])
+            if not user or not user[0]:
+                raise ValueError("missing ACP user text")
+            result.append(("prompt", user[0].decode("utf-8"), users[0].hex()))
+            for step_id in agent.get(2, []):
+                step = _proto_fields(blob(step_id))
+                variants = [field for field in (1, 2, 3) if step.get(field)]
+                if len(variants) != 1 or len(step[variants[0]]) != 1:
+                    raise ValueError("invalid ACP step")
+                if variants[0] != 1:
+                    omitted += 1
+                    continue
+                assistant_id = step[1][0]
+                assistant = _proto_fields(blob(assistant_id)).get(1, [])
+                if not assistant or not assistant[0]:
+                    raise ValueError("missing ACP assistant text")
+                result.append(("assistant", assistant[0].decode("utf-8"), assistant_id.hex()))
+        return sidecar, metadata, result, omitted
+    finally:
+        conn.close()
+
+
+def cursor_acp_sessions(store: Store) -> Iterator[SessionRef]:
+    for path in sorted(store.path.glob("*/store.db")):
+        try:
+            sidecar, meta, _, _ = _cursor_acp_read(path)
+            sid = "cursor-acp:" + str(uuid.UUID(path.parent.name))
+            yield SessionRef("cursor", "acp", sid, locator={"db": str(path), "table": "meta", "key": "0"},
+                             title=meta.get("name"), cwd=sidecar.get("cwd"), created=meta.get("createdAt"))
+        except (OSError, sqlite3.Error, ValueError, TypeError, KeyError) as exc:
+            store.status, store.error = "unavailable", f"ACP store {path}: {exc}"
+
+
+def cursor_acp_fragments(store: Store, ref: SessionRef, max_chars: int, stats: dict[str, int]) -> Iterator[dict[str, Any]]:
+    path = Path(ref.locator["db"])
+    try:
+        _, _, records, omitted = _cursor_acp_read(path)
+    except (OSError, sqlite3.Error, ValueError, TypeError, KeyError) as exc:
+        store.status, store.error = "unavailable", f"ACP store {path}: {exc}"
+        stats["unreadable"] = stats.get("unreadable", 0) + 1
+        return
+    stats["unsupported_fragments"] = stats.get("unsupported_fragments", 0) + omitted
+    for seq, (kind, text_value, blob_id) in enumerate(records, 1):
+        yield frag("cursor", "acp", ref.session_id, seq, kind, "acp." + kind,
+                   {"db": str(path), "table": "blobs", "key": blob_id}, text=text_value,
+                   authorship="unknown" if kind == "prompt" else "agent", visible=True,
+                   basis="Cursor ACP text projection", cwd=ref.cwd, max_chars=max_chars)
+
 def _folder_uri_to_path(uri: Any) -> str | None:
     """'file:///Users/x/proj' -> '/Users/x/proj'; plain paths pass through."""
     if not isinstance(uri, str) or not uri:
@@ -1757,6 +1813,9 @@ def _folder_uri_to_path(uri: Any) -> str | None:
 
 
 def cursor_iter_sessions(store: Store) -> Iterator[SessionRef]:
+    if store.name == "acp":
+        yield from cursor_acp_sessions(store)
+        return
     try:
         conn = open_sqlite_ro(store.path)
     except sqlite3.Error as e:
@@ -1807,6 +1866,9 @@ def cursor_iter_sessions(store: Store) -> Iterator[SessionRef]:
 
 
 def cursor_iter_fragments(store: Store, ref: SessionRef, max_chars: int, stats: dict[str, int]) -> Iterator[dict[str, Any]]:
+    if store.name == "acp":
+        yield from cursor_acp_fragments(store, ref, max_chars, stats)
+        return
     conn = open_sqlite_ro(store.path)
     try:
         key = ref.locator["key"]
@@ -2261,6 +2323,68 @@ def porch_iter_fragments(store: Store, ref: SessionRef, max_chars: int, stats: d
 
 
 # ---------------------------------------------------------------------------
+# Hermes current state database (do not read its config or system prompts)
+# ---------------------------------------------------------------------------
+
+def hermes_iter_sessions(store: Store) -> Iterator[SessionRef]:
+    try:
+        conn = open_sqlite_ro(store.path)
+        try:
+            columns = table_columns(conn, "sessions")
+            required = {"id", "started_at"}
+            if not required.issubset(columns) or not table_exists(conn, "messages"):
+                raise sqlite3.OperationalError("unsupported Hermes state database schema")
+            optional = ("title", "cwd", "model", "parent_session_id", "ended_at", "source")
+            select = ", ".join(name if name in columns else f"NULL AS {name}" for name in optional)
+            rows = conn.execute(f"SELECT id, started_at, {select} FROM sessions").fetchall()
+        finally:
+            conn.close()
+        for sid, started, title, cwd, model, parent, ended, source in rows:
+            yield SessionRef("hermes", store.name, str(sid),
+                locator={"db": str(store.path), "table": "sessions", "key": sid},
+                title=title, cwd=cwd, created=started, updated=ended,
+                models=[model] if model else [], parent=parent, extra={"source": source})
+    except sqlite3.Error as exc:
+        store.status, store.error = "unavailable", str(exc)
+
+
+def hermes_iter_fragments(store: Store, ref: SessionRef, max_chars: int, stats: dict[str, int]) -> Iterator[dict[str, Any]]:
+    try:
+        conn = open_sqlite_ro(store.path)
+        try:
+            columns = table_columns(conn, "messages")
+            if not {"id", "session_id", "role", "content", "timestamp"}.issubset(columns):
+                raise sqlite3.OperationalError("unsupported Hermes messages schema")
+            optional = ("tool_calls", "tool_call_id", "tool_name", "reasoning", "reasoning_content")
+            select = ", ".join(name if name in columns else f"NULL AS {name}" for name in optional)
+            rows = conn.execute(f"SELECT id, role, content, timestamp, {select} FROM messages WHERE session_id=? ORDER BY timestamp, id", (ref.session_id,)).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        store.status, store.error = "unavailable", str(exc)
+        stats["unreadable"] = stats.get("unreadable", 0) + 1
+        return
+    seq = 0
+    for mid, role, content, timestamp, calls, call_id, tool_name, reasoning, reasoning_content in rows:
+        loc = {"db": str(store.path), "table": "messages", "key": mid}
+        items = []
+        if reasoning or reasoning_content:
+            items.append(("reasoning", reasoning or reasoning_content, "agent"))
+        kind, author = {"user": ("prompt", "unknown"), "assistant": ("assistant", "agent"),
+                        "tool": ("tool_result", "system"), "system": ("context", "system")}.get(role, ("unknown", "unknown"))
+        if content:
+            items.append((kind, content, author))
+        if calls:
+            items.append(("tool_call", calls, "agent"))
+        for fragment_kind, text_value, authorship in items:
+            seq += 1
+            yield frag("hermes", store.name, ref.session_id, seq, fragment_kind, f"messages.{role}", loc,
+                       text=text_value, ts=timestamp, authorship=authorship, cwd=ref.cwd,
+                       basis="role=user; local record does not prove human authorship" if role == "user" else "Hermes message role",
+                       rel={"call_id": call_id, "tool": tool_name}, max_chars=max_chars)
+
+
+# ---------------------------------------------------------------------------
 # dispatch tables
 # ---------------------------------------------------------------------------
 
@@ -2277,6 +2401,7 @@ READERS = {
     "kimi-code": (kimi_iter_sessions, kimi_iter_fragments),
     "omp": (omp_iter_sessions, omp_iter_fragments),
     "porch": (porch_iter_sessions, porch_iter_fragments),
+    "hermes": (hermes_iter_sessions, hermes_iter_fragments),
 }
 
 
@@ -2303,13 +2428,15 @@ def selected_stores(harnesses: list[str], store_filter: str | None = None) -> li
     return out
 
 
-def iter_all_sessions(store: Store, cwd: str | None, since: float | None, until: float | None) -> Iterator[SessionRef]:
+def iter_all_sessions(store: Store, cwd: str | None, since: float | None, until: float | None, *, cwd_exact: bool = False) -> Iterator[SessionRef]:
     if store.status != "ok":
         return
     iter_sessions, _ = READERS[store.harness]
     try:
         for ref in iter_sessions(store):
-            if ref.matches(cwd, since, until):
+            if cwd_exact and cwd is not None and ref.cwd != cwd:
+                continue
+            if ref.matches(None if cwd_exact else cwd, since, until):
                 yield ref
     except (OSError, sqlite3.Error) as e:
         store.status, store.error = "unavailable", str(e)
@@ -2355,7 +2482,9 @@ def coverage_summary(stores: list[Store], scanned: int, matched: int, stats: dic
         "malformed_records": stats.get("malformed", 0),
         "truncated_tail_files": stats.get("truncated_tail", 0),
         "unreadable_files": stats.get("unreadable", 0),
-        "scan_complete": not truncated and all(s.status != "unavailable" for s in stores),
+        "compressed_errors": stats.get("compressed_errors", 0),
+        "unsupported_fragments": stats.get("unsupported_fragments", 0),
+        "scan_complete": not truncated and not stats.get("unreadable") and not stats.get("unsupported_fragments") and all(s.status != "unavailable" for s in stores),
         "note": "empty result means: no matches AND scan_complete — check stores[].status for missing/unavailable",
     }
 
@@ -2380,15 +2509,21 @@ def cmd_list(args: argparse.Namespace) -> int:
     since, until = parse_time_bound(args.since), parse_time_bound(args.until)
     scanned = emitted = 0
     stats: dict[str, int] = {}
+    truncated = False
     for store in stores:
-        for ref in iter_all_sessions(store, args.cwd, since, until):
+        for ref in iter_all_sessions(store, args.cwd, since, until, cwd_exact=args.cwd_exact):
+            if args.title and args.title.lower() not in (ref.title or "").lower():
+                continue
             scanned += 1
             if args.limit and emitted >= args.limit:
+                truncated = True
                 break
             emit(ref.as_dict())
             emitted += 1
-    emit(coverage_summary(stores, scanned, emitted, stats))
-    return EXIT_OK if all(s.status != "unavailable" for s in stores) else EXIT_PARTIAL
+        if truncated:
+            break
+    emit(coverage_summary(stores, scanned, emitted, stats, truncated=truncated))
+    return EXIT_OK if all(s.status != "unavailable" for s in stores) and not stats.get("unreadable") and not stats.get("unsupported_fragments") else EXIT_PARTIAL
 
 
 def cmd_grep(args: argparse.Namespace) -> int:
@@ -2397,36 +2532,70 @@ def cmd_grep(args: argparse.Namespace) -> int:
     since, until = parse_time_bound(args.since), parse_time_bound(args.until)
     if args.regex:
         pattern = re.compile(args.pattern, re.IGNORECASE if args.ignore_case else 0)
-        match = lambda t: bool(pattern.search(t))
+        def match(t: str) -> tuple[int, int] | None:
+            found = pattern.search(t)
+            return found.span() if found else None
     else:
         needle = args.pattern if not args.ignore_case else args.pattern.lower()
-        match = (lambda t: needle in t) if not args.ignore_case else (lambda t: needle in t.lower())
+        def match(t: str) -> tuple[int, int] | None:
+            pos = (t if not args.ignore_case else t.lower()).find(needle)
+            if pos < 0:
+                return None
+            if not args.ignore_case or not needle:
+                return pos, pos + len(needle)
+            # Some Unicode lowercase mappings expand to several characters.
+            # Map the match offsets back to the original excerpt's characters.
+            lower_offset = 0
+            start = end = None
+            for index, char in enumerate(t):
+                next_offset = lower_offset + len(char.lower())
+                if start is None and next_offset > pos:
+                    start = index
+                if next_offset >= pos + len(needle):
+                    end = index + 1
+                    break
+                lower_offset = next_offset
+            return (start, end) if start is not None and end is not None else None
     scanned = emitted = 0
     stats: dict[str, int] = {}
     truncated = False
     for store in stores:
         if store.status != "ok":
             continue
-        for ref in iter_all_sessions(store, args.cwd, None, None):
+        for ref in iter_all_sessions(store, args.cwd, None, None, cwd_exact=args.cwd_exact):
             scanned += 1
-            for f in iter_all_fragments(store, ref, args.max_chars, stats):
+            grouped = []
+            # Match the entire decoded fragment; --max-chars limits output only.
+            for f in iter_all_fragments(store, ref, 0, stats):
                 if not in_scope(f, args.scope) or not in_window(f, since, until):
                     continue
                 text = f.get("text")
-                if text is None or not match(text):
+                span = match(text) if text is not None else None
+                if span is None:
                     continue
+                if args.max_chars > 0 and len(text) > args.max_chars:
+                    start = max(0, min(span[0] - max(0, (args.max_chars - (span[1] - span[0])) // 2),
+                                       len(text) - args.max_chars))
+                    f["text"] = text[start:start + args.max_chars]
+                    f["text_offset"] = start
+                    f["truncated"] = True
                 f["session"] = {k: v for k, v in ref.as_dict().items() if k in ("session_id", "title", "cwd", "created", "parent", "agent")}
-                emit(f)
+                if args.group_by_session:
+                    grouped.append(f)
+                else:
+                    emit(f)
                 emitted += 1
                 if args.limit and emitted >= args.limit:
                     truncated = True
                     break
+            if grouped:
+                emit({"_session": ref.as_dict(), "matches": grouped})
             if truncated:
                 break
         if truncated:
             break
     emit(coverage_summary(stores, scanned, emitted, stats, truncated=truncated))
-    return EXIT_OK if all(s.status != "unavailable" for s in stores) else EXIT_PARTIAL
+    return EXIT_OK if all(s.status != "unavailable" for s in stores) and not stats.get("unreadable") and not stats.get("unsupported_fragments") else EXIT_PARTIAL
 
 
 def fast_resolve(store: Store, query_id: str) -> SessionRef | None:
@@ -2461,7 +2630,7 @@ def fast_resolve(store: Store, query_id: str) -> SessionRef | None:
                 if str(rec.get("session_id")) == query_id:
                     return SessionRef("codex", "history", query_id, locator={"file": str(p)})
             return None
-        hits = list(p.rglob(f"rollout-*-{query_id}.jsonl"))
+        hits = list(p.rglob(f"rollout-*-{query_id}.jsonl")) + list(p.rglob(f"rollout-*-{query_id}.jsonl.zst"))
         if len(hits) == 1:
             return SessionRef("codex", store.name, query_id, locator={"file": str(hits[0])})
     elif store.harness == "grok":
@@ -2472,27 +2641,7 @@ def fast_resolve(store: Store, query_id: str) -> SessionRef | None:
             return SessionRef("grok", store.name, query_id, locator={"dir": str(hits[0])},
                               cwd=info.get("cwd"), title=summary.get("generated_title"))
     elif store.harness == "opencode":
-        if store.name == "db":
-            try:
-                conn = open_sqlite_ro(p)
-                row = conn.execute(
-                    "SELECT s.id, s.directory, s.title, s.time_created, s.time_updated, s.parent_id, s.agent, s.model, s.version, p.worktree "
-                    "FROM session s LEFT JOIN project p ON p.id = s.project_id WHERE s.id=?", (query_id,)
-                ).fetchone()
-                conn.close()
-            except sqlite3.Error:
-                row = None
-            if row:
-                return SessionRef("opencode", "db", row[0],
-                                  locator={"table": "session", "key": row[0], "db": str(p)},
-                                  title=row[2], cwd=row[1] or row[9], created=row[3], updated=row[4],
-                                  parent=row[5], extra={"agent": row[6], "version": row[8]})
-        else:
-            hits = list(p.glob(f"session/*/{query_id}.json"))
-            if len(hits) == 1:
-                data = read_json(hits[0]) or {}
-                return SessionRef("opencode", "storage", query_id, locator={"file": str(hits[0])},
-                                  title=data.get("title"), cwd=data.get("directory"))
+        return next((ref for ref in opencode_iter_sessions(store) if ref.session_id == query_id), None)
     elif store.harness == "devin":
         if store.name == "sessions.db":
             try:
@@ -2690,7 +2839,7 @@ def cmd_show(args: argparse.Namespace) -> int:
             f"seq {target} {'exists but was filtered out by --scope/--since/--until — retry with --scope all' if around_seen else 'does not exist in this session'}"
         )
     emit(summary)
-    return EXIT_OK
+    return EXIT_PARTIAL if stats.get("unreadable") or stats.get("unsupported_fragments") or store.status == "unavailable" else EXIT_OK
 
 
 def _store_for_file(path: Path) -> tuple[Store, SessionRef]:
@@ -2710,17 +2859,17 @@ def _store_for_file(path: Path) -> tuple[Store, SessionRef]:
                     store = Store("cursor", "custom", path, "sqlite")
                     sid = _pick_single_session(conn, "cursorDiskKV", "key", like="composerData:%")
                     return store, SessionRef("cursor", "custom", sid.split(":", 1)[-1], locator={"db": str(path), "table": "cursorDiskKV", "key": sid})
-                if table_exists(conn, "session"):
+                if table_exists(conn, "session_v2"):
                     store = Store("opencode", "db", path, "sqlite")
-                    sid = _pick_single_session(conn, "session", "id")
-                    return store, SessionRef("opencode", "db", sid, locator={"table": "session", "key": sid, "db": str(path)})
+                    sid = _pick_single_session(conn, "session_v2", "id")
+                    return store, SessionRef("opencode", "db", sid, locator={"table": "session_v2", "key": sid, "db": str(path)})
             finally:
                 conn.close()
         except sqlite3.Error as e:
             raise SystemExit(f"cannot open sqlite read-only: {e}")
         raise SystemExit(f"unrecognized sqlite store: {path}")
     # JSON / JSONL: peek first records
-    first = path.open("r", encoding="utf-8", errors="replace").read(65536)
+    first = "" if path.name.endswith(".jsonl.zst") else path.open("r", encoding="utf-8", errors="replace").read(65536)
     try:
         obj = json.loads(first)
         if isinstance(obj, dict) and "messages" in obj and ("sessionId" in obj or "projectHash" in obj):
@@ -2791,12 +2940,16 @@ def main() -> int:
 
     p = sub.add_parser("list", help="list sessions (id, title, cwd, dates, models)")
     _add_common(p)
+    p.add_argument("--cwd-exact", action="store_true", help="match --cwd exactly")
+    p.add_argument("--title", help="case-insensitive substring of the session title")
 
     p = sub.add_parser("grep", help="literal/regex search over decoded fragment text")
     _add_common(p)
+    p.add_argument("--cwd-exact", action="store_true", help="match --cwd exactly")
     p.add_argument("pattern")
     p.add_argument("-i", "--ignore-case", action="store_true")
     p.add_argument("--regex", action="store_true", help="treat pattern as a regex")
+    p.add_argument("--group-by-session", action="store_true", help="emit matches grouped by session")
 
     p = sub.add_parser("show", help="dump one session's fragments with locators")
     _add_common(p)
@@ -2819,6 +2972,8 @@ def main() -> int:
     p.add_argument("--by", choices=("model", "harness", "cwd", "day"), default="model")
 
     args = parser.parse_args()
+    if getattr(args, "cwd_exact", False) and not args.cwd:
+        parser.error("--cwd-exact requires --cwd")
     args.max_chars = getattr(args, "max_chars", 400) or 0
     if getattr(args, "limit", 200) == 0:
         args.limit = 0

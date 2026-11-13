@@ -21,7 +21,7 @@ The API key is not a setting on this page. The server operator sets it in `SKILL
 - **Turn the assistant on** (`llm-enabled`): shows the Assistant tab in the Help center and the **Ask the assistant** button in the side help panel to every signed-in user.
 - **API address (OpenAI-compatible)** (`llm-base-url`): for example `https://api.openai.com/v1` or `http://localhost:11434/v1`. Only `http:` and `https:` addresses without a user name or password are accepted; SkillForge calls `/chat/completions` under this address.
 - **Model** (`llm-model`): the model name exactly as the provider spells it.
-- **API key** (`llm-key-status`): whether the key is set in the server environment and whether it is sent to the saved address. The value of the key is never shown.
+- **API key** (`llm-key-status`): whether the key is set in the server environment and whether it is sent to the saved address. The value of the key is never shown. With an Agent Space budget broker (`SKILLFORGE_BUDGET_SOCKET`) it says that the broker holds the key: every model call goes through the broker, and the address must be one of the providers it serves (DeepSeek, OpenAI, Gemini).
 - **Temperature (0–2)**: lower values give steadier answers; the default is 0.2.
 - **Longest answer, tokens (64–8192)**: the cap on one answer; the default is 1024.
 - **Timeout, seconds (5–300)**: how long to wait for the model; the default is 60.

@@ -4,9 +4,10 @@
 #
 # Modes:
 #   porch review ask  [...]
-#   porch review code --depth basic|specialists|super|ultra [...]
+#   porch review code -a <exact-agent-id> [...]
 #   porch delegate -a <exact-agent-id> [...]
 #   porch delegate wait|watch|events|list [...]
+#   porch media transcribe|image|capabilities [...]
 #   porch quota [all|codex|grok]
 #   porch sessions roots|list|grep|show [...]
 #
@@ -27,16 +28,17 @@ source "$LIB_DIR/progress.sh"
 
 usage() {
     cat <<'EOF'
-porch — multi-agent review and single-agent YOLO delegation
+porch — independent review and single-agent YOLO delegation
 
 Usage:
   porch review ask [options] ["question"]
-  porch review code --depth basic|specialists|super|ultra [options] <file|--diff>
+  porch review code -a <agent-id> [options] <file|--diff>
   porch delegate -a <exact-agent-id> ["task"]
   porch delegate -a <exact-agent-id> --one-shot ["task"]
   porch delegate -a <exact-agent-id> --detach ["task"]
   porch delegate -a <codex-profile> --persist-session [--detach] "task"
   porch delegate -a <codex-profile> --continue-run RUN_ID [--detach] "follow-up"
+  porch delegate -a <codex-profile> --continue-run RUN_ID --recover-session [--detach] "remaining work"
   porch delegate steer RUN_ID [--mode auto|queue|interrupt] [--prompt-file FILE] "guidance"
   porch delegate status RUN_ID [--json]
   porch delegate cancel RUN_ID
@@ -45,7 +47,14 @@ Usage:
   porch delegate watch RUN_ID [--heartbeat SEC] [--json]
   porch delegate events RUN_ID [--cursor N] [--max-events N]
   porch delegate list [--active|--all] [--reap] [--json]
+  porch media transcribe -a <agent-id> [--format text|srt|vtt|json] [--out FILE] FILE
+  porch media image describe -a <agent-id> --input IMAGE [--input IMAGE ...] ["question"]
+  porch media image generate -a <agent-id> [--count N] [--aspect 16:9] [--out-dir DIR] "prompt"
+  porch media image edit -a <agent-id> --input IMAGE [...] [--count N] [--out-dir DIR] "instruction"
+  porch media image animate -a <agent-id> [--frames N] [--frame-ms MS] [--out-dir DIR] "motion"
+  porch media capabilities [--json]
   porch quota [all|codex|grok]
+  porch fleet probe|status|plan|launch|control|reconcile [options]
   porch ui [--desktop] [--port PORT] [--registry-root PATH]
   porch sessions roots [-a harness[,harness...]] [--store SUBSTR]
   porch sessions list [-a ...] [--store S] [--cwd S] [--since T] [--until T] [--limit N]
@@ -59,23 +68,15 @@ Usage:
   porch -h | --help
 
 review ask
-  Fan-out independent opinions across enabled (or selected) agents. Read-only.
-  Every agent's answer is returned separately — this skill never synthesizes a
-  verdict; the calling agent is the judge.
-  Options: --xml, --list-agents, --prompt-file, -a/--agents, -x/--exclude,
+  Ask exactly one explicitly selected profile for an independent review.
+  Options: --xml, --list-agents, --prompt-file, --context-stdin, -a/--agent,
            --progress full|compact|none
 
 review code
-  Structured code review. Always read-only.
-  --depth basic         2 specialists: security + correctness (default)
-  --depth specialists   5 specialists
-  --depth super         multi-stage superreview + judge
-  --depth ultra         multi-stage ultrareview + judge
-  Other options: --xml, --diff, --related FILE (repeatable), -a/--agents,
-                 -x/--exclude, --dry-run (super/ultra),
-                 --judge, --no-fallback (ultra), --progress full|compact|none
+  One independent code review. Options: -a ID, --xml, --diff,
+  --related FILE (repeatable), --progress full|compact|none.
 
-Live progress (all review depths)
+Live progress (review)
   full (default)  per-agent thinking / answer previews on stderr, keyed by the
                   invocation (agent, agent.role, stage.index.agent.role) so
                   parallel passes of the same agent stay distinguishable
@@ -86,7 +87,8 @@ Live progress (all review depths)
 delegate
   Full-YOLO: run exactly one agent in the current directory with no sandbox
   and no approval prompts. Requires -a <exact-agent-id> (no globs, no default).
-  Supported backends: codex-cli, claude-code, opencode, grok-build, devin-cli.
+  Supported backends: codex-cli, claude-code, opencode, grok-build, devin-cli,
+  antigravity-cli.
   Gemini is review-only.
   Starts a long-lived session with mailbox steer/status/cancel by default.
   --steerable is an explicit alias for the default; --one-shot uses the legacy
@@ -100,6 +102,19 @@ delegate
   events returns one bounded JSON page of normalized progress and exits. Reuse
   next_cursor as --cursor on the next observation.
   list finds runs again after the run id was lost.
+
+media
+  Read-only media work through one exact profile; `media capabilities` lists
+  which profiles support each operation (transcribe: Antigravity; image
+  describe: Antigravity, Codex, Claude Code; image generate/edit/animate:
+  Antigravity, Codex). transcribe and animate need ffmpeg. transcribe converts
+  audio or video to MP3/WAV, splits long recordings (--segment-minutes,
+  default 15) and prints the transcript (text, srt, vtt or json) on stdout or
+  to --out. Image generate and edit collect the images the harness's own tool
+  saved for that session, copy them to --out-dir and print a JSON manifest on
+  stdout; animate turns one generated spritesheet into a looping GIF.
+    Exit: 0 done, 2 fewer images than --count, 4 unsupported profile or
+    missing ffmpeg, 5 usage, 66 nothing transcribed or generated.
 
 quota
   Return machine-readable remaining subscription quota for Codex, Grok, or
@@ -165,49 +180,7 @@ case "$1" in
                 exec bash "$LIB_DIR/review_ask.sh" "$@"
                 ;;
             code)
-                # Parse --depth early to route super/ultra pipelines
-                DEPTH="${PORCH_REVIEW_MODE:-basic}"
-                FORWARD=()
-                while [[ $# -gt 0 ]]; do
-                    case "$1" in
-                        --depth)
-                            DEPTH="${2:-}"
-                            shift 2
-                            ;;
-                        --depth=*)
-                            DEPTH="${1#--depth=}"
-                            shift
-                            ;;
-                        --mode)
-                            # accept legacy --mode as alias of --depth
-                            DEPTH="${2:-}"
-                            shift 2
-                            ;;
-                        --mode=*)
-                            DEPTH="${1#--mode=}"
-                            shift
-                            ;;
-                        *)
-                            FORWARD+=("$1")
-                            shift
-                            ;;
-                    esac
-                done
-                case "$DEPTH" in
-                    basic|specialists)
-                        exec bash "$LIB_DIR/review_code.sh" --depth "$DEPTH" "${FORWARD[@]+"${FORWARD[@]}"}"
-                        ;;
-                    super)
-                        exec bash "$LIB_DIR/review_super.sh" "${FORWARD[@]+"${FORWARD[@]}"}"
-                        ;;
-                    ultra)
-                        exec bash "$LIB_DIR/review_ultra.sh" "${FORWARD[@]+"${FORWARD[@]}"}"
-                        ;;
-                    *)
-                        echo "Error: --depth must be basic|specialists|super|ultra (got: $DEPTH)" >&2
-                        exit $EXIT_USAGE
-                        ;;
-                esac
+                exec bash "$LIB_DIR/review_code.sh" "$@"
                 ;;
             *)
                 echo "Error: unknown review subcommand: $sub (expected ask|code)" >&2
@@ -225,6 +198,16 @@ case "$1" in
         export PYTHONPATH="${LIB_DIR}${PYTHONPATH:+:$PYTHONPATH}"
         exec "$PY" -m ui "$@"
         ;;
+    fleet)
+        shift
+        PY=$(command -v python3 || command -v python) || exit "$EXIT_USAGE"
+        exec "$PY" "$LIB_DIR/fleet_cli.py" "$@"
+        ;;
+    media)
+        shift
+        PY=$(command -v python3 || command -v python) || exit "$EXIT_USAGE"
+        exec "$PY" "$LIB_DIR/media.py" "$@"
+        ;;
     quota|sessions|history)
         cmd=$1; shift
         # python3 on POSIX; Git Bash on Windows usually exposes only `python`
@@ -239,7 +222,7 @@ case "$1" in
         fi
         ;;
     *)
-        echo "Error: unknown command: $1 (expected review|delegate|quota|sessions|ui)" >&2
+        echo "Error: unknown command: $1 (expected review|delegate|quota|sessions|ui|media)" >&2
         usage >&2
         exit $EXIT_USAGE
         ;;

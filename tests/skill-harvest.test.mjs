@@ -73,8 +73,23 @@ test("from PR review: only repeating rules, with evidence; code in comments does
   assert.ok(!JSON.stringify(harvest).includes(TOKEN));
 });
 
-test("a draft from a harvest is a candidate under the usual review, with rules and links", async () => {
-  const d = await call("POST", `/api/v1/harvests/${harvest.id}/draft`, { name: "api-review-rules" });
+test("a draft from a harvest is a rule candidate by default; type skill keeps the skill draft; another type is refused", async () => {
+  // rule-artifacts: the draft is a rule unless the admin asks for a skill.
+  const r = await call("POST", `/api/v1/harvests/${harvest.id}/draft`, { name: "api-review-habits" });
+  assert.equal(r.status, 201, JSON.stringify(r.data));
+  const rule = (await call("GET", "/api/v1/artifacts/rule/api-review-habits")).data;
+  assert.equal(rule.artifact.status, "candidate");
+  assert.equal(rule.latest.provenance?.source, "harvest");
+  const ruleFile = await fetch(`${srv.base}/api/v1/artifacts/rule/api-review-habits/versions/${rule.latest.version}/files/rules/api-review-habits.md`, { headers: { cookie: auth.admin.cookie } });
+  assert.equal(ruleFile.status, 200);
+  const ruleText = await ruleFile.text();
+  assert.match(ruleText, /timeout/i);
+  assert.ok(ruleText.includes(HTML(1, 1)), "a link to the evidence in the rule");
+  const refused = await call("POST", `/api/v1/harvests/${harvest.id}/draft`, { name: "api-review-hook", type: "hook" });
+  assert.equal(refused.status, 400);
+  assert.equal((await call("GET", "/api/v1/artifacts/hook/api-review-hook")).status, 404);
+
+  const d = await call("POST", `/api/v1/harvests/${harvest.id}/draft`, { name: "api-review-rules", type: "skill" });
   assert.equal(d.status, 201, JSON.stringify(d.data));
   const card = (await call("GET", "/api/v1/artifacts/skill/api-review-rules")).data;
   assert.equal(card.artifact.status, "candidate", "the draft does not bypass review");
@@ -85,11 +100,11 @@ test("a draft from a harvest is a candidate under the usual review, with rules a
   const text = await file.text();
   assert.match(text, /timeout/i);
   assert.ok(text.includes(HTML(1, 1)), "a link to the evidence in the text");
-  assert.equal((await call("POST", `/api/v1/harvests/${harvest.id}/draft`, { name: "api-review-rules" })).status, 409, "name is taken");
+  assert.equal((await call("POST", `/api/v1/harvests/${harvest.id}/draft`, { name: "api-review-rules", type: "skill" })).status, 409, "name is taken");
   assert.equal((await call("GET", "/api/v1/harvests")).data.items[0].id, harvest.id);
 });
 
-test("CLI: a draft from session logs — only the human's requests, locally, without a network", () => {
+test("CLI: a draft from session logs — only the human's requests, locally, without a network; a rule by default", () => {
   const work = mkdtempSync(join(tmpdir(), "skillforge-harvest-cli-"));
   const logs = join(work, "projects", "app");
   mkdirSync(logs, { recursive: true });
@@ -108,8 +123,14 @@ test("CLI: a draft from session logs — only the human's requests, locally, wit
   const res = JSON.parse(r.stdout);
   assert.equal(res.rules.length, 1, "'Never push to main' is one session, not a rule");
   assert.deepEqual([res.rules[0].count, res.rules[0].sources], [3, 3], "agent answers and tool output do not count");
-  const md = readFileSync(join(out, "skills", "lint-rules", "SKILL.md"), "utf8");
+  const md = readFileSync(join(out, "rules", "lint-rules.md"), "utf8");
   assert.match(md, /^---\nname: lint-rules\n/);
   assert.match(md, /run the linter before committing/i);
   assert.match(md, /s1\.jsonl/, "the evidence is the session file");
+
+  // --type skill keeps the earlier skill draft.
+  const outSkill = join(work, "draft-skill");
+  const s2 = spawnSync(process.execPath, [CLI, "harvest", "sessions", "--dir", join(work, "projects"), "--out", outSkill, "--name", "lint-rules", "--type", "skill"], { env, encoding: "utf8", timeout: 60_000 });
+  assert.equal(s2.status, 0, s2.stderr);
+  assert.match(readFileSync(join(outSkill, "skills", "lint-rules", "SKILL.md"), "utf8"), /^---\nname: lint-rules\n/);
 });

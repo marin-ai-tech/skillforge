@@ -99,6 +99,14 @@ const PRIMARY_BY_TYPE = new Map<string, (name: string, files: FileList) => strin
       ),
   ],
   [
+    "rule",
+    (name, files) =>
+      firstMatch(
+        files,
+        (f) => f.path === `rules/${name}.md` || /(^|\/)rules\/[^/]+\.md$/i.test(f.path),
+      ),
+  ],
+  [
     "mcp-server",
     (name, files) =>
       firstMatch(

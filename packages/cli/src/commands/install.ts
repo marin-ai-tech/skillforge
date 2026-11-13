@@ -13,6 +13,7 @@ import {
   runtimeSupport,
   translateAgent,
   translateCommand,
+  translateRule,
   type AgentTranslateMethod,
   type RuntimeDef,
   type RuntimeInstallMethod,
@@ -263,6 +264,15 @@ function fileMethod(
   return method;
 }
 
+/** rule-artifacts: a rule for Cursor becomes rules/<name>.mdc with Cursor's frontmatter. */
+function translateRuleBundle(files: UnzippedFile[], name: string): UnzippedFile[] {
+  const main = `rules/${name}.md`;
+  const file = files.find((f) => f.path === main);
+  if (!file) throw new Error(`bundle has no ${main} to translate`);
+  const t = translateRule(name, file.content.toString("utf8"));
+  return [{ path: t.path, content: Buffer.from(t.content, "utf8") }];
+}
+
 function translateBundle(
   ctx: AppContext,
   files: UnzippedFile[],
@@ -270,6 +280,7 @@ function translateBundle(
   method: FileMethod,
 ): UnzippedFile[] {
   if (method === "files") return files;
+  if (method === "cursor-rule") return translateRuleBundle(files, name);
   const agent = isAgentMethod(method);
   const main = `${agent ? "agents" : "commands"}/${name}.md`;
   if (!files.some((f) => f.path === main)) {

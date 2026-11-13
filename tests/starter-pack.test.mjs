@@ -1,4 +1,4 @@
-// Starter pack of nine MIT-licensed CodeAlive-AI skills shipped with the server: attribution, validation, admin install.
+// Starter pack of twelve MIT-licensed CodeAlive-AI skills shipped with the server: attribution, validation, admin install.
 // Requires `npm run build`.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -11,6 +11,7 @@ const PACK_DIR = join(ROOT, "packages", "server", "starter-packs", "codealive");
 const EXPECTED = [
   "bug-fix-protocol",
   "code-that-fits-in-your-head",
+  "coordinator-mode",
   "hooks-management",
   "investigating-repository-history",
   "plan-mode",
@@ -18,8 +19,12 @@ const EXPECTED = [
   "prompt-engineering",
   "settings-management",
   "skills-management",
+  "ubiquitous-language",
+  "ux-best-practices",
 ];
 const REPOS = ["CodeAlive-AI/ai-driven-development", "CodeAlive-AI/pragmatic-orchestration"];
+// U+0400..U+04FF, built from code points so that this file itself carries no Cyrillic letters
+const CYRILLIC = new RegExp(`[${String.fromCharCode(0x400)}-${String.fromCharCode(0x4ff)}]`);
 
 const readPack = () => JSON.parse(readFileSync(join(PACK_DIR, "pack.json"), "utf8"));
 const skillFiles = (entry) => toB64(loadDir(join(PACK_DIR, entry.path)).map((f) => ({ path: `${entry.name}/${f.path}`, content: f.content })));
@@ -49,6 +54,8 @@ test("pack contents, origin, license, attribution; the packs directory in the im
   assert.equal(pack.license, "MIT");
   assert.ok(typeof pack.title === "string" && pack.title.length > 0);
   assert.deepEqual(pack.artifacts.map((a) => a.name).sort(), EXPECTED);
+  // pragmatic-orchestration ships remote-agents too; it is left out of the pack on purpose
+  assert.ok(!pack.artifacts.some((a) => a.name === "remote-agents"), "remote-agents is not part of the pack");
   for (const r of pack.source_repositories) {
     assert.ok(REPOS.includes(r.repo), `unexpected repository ${r.repo}`);
     assert.match(r.commit, /^[0-9a-f]{40}$/);
@@ -70,6 +77,7 @@ test("pack contents, origin, license, attribution; the packs directory in the im
 
 test("pack skills contain text only; differences from the source are recorded in NOTICE.md", () => {
   const binary = [];
+  const cyrillic = [];
   for (const entry of readPack().artifacts) {
     for (const f of loadDir(join(PACK_DIR, entry.path))) {
       const bytes = Buffer.from(f.content);
@@ -80,9 +88,12 @@ test("pack skills contain text only; differences from the source are recorded in
         text = false;
       }
       if (!text || bytes.includes(0)) binary.push(`${entry.name}/${f.path}`);
+      else if (CYRILLIC.test(bytes.toString("utf8"))) cyrillic.push(`${entry.name}/${f.path}`);
     }
   }
   assert.deepEqual(binary, []);
+  // the public tree carries no Cyrillic, third-party skills included
+  assert.deepEqual(cyrillic, []);
   const notice = readFileSync(join(PACK_DIR, "NOTICE.md"), "utf8");
   assert.match(notice, /## Local changes/);
   assert.match(notice, /assets\/pragmatic-orchestration-cover\.png/);
@@ -104,7 +115,7 @@ test("pack list: admin only", async () => {
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const item = r.data.items.find((i) => i.id === "codealive");
   assert.ok(item, JSON.stringify(r.data));
-  assert.equal(item.artifacts, 9);
+  assert.equal(item.artifacts, 12);
   assert.equal(item.installed, 0);
   assert.equal(item.license, "MIT");
   assert.equal((await api(base, "GET", "/api/v1/admin/starter-packs", undefined, { cookie: alice.cookie })).status, 403);
@@ -112,7 +123,7 @@ test("pack list: admin only", async () => {
   assert.equal((await api(base, "POST", "/api/v1/admin/starter-packs/codealive/install", {}, { cookie: alice.cookie })).status, 403);
 });
 
-test("install: nine candidates with import provenance; repeat — exists with no new versions", async () => {
+test("install: twelve candidates with import provenance; repeat — exists with no new versions", async () => {
   const r = await api(base, "POST", "/api/v1/admin/starter-packs/codealive/install", {}, { cookie: admin.cookie });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.deepEqual(r.data.results.map((x) => x.name).sort(), EXPECTED);
@@ -136,7 +147,7 @@ test("install: nine candidates with import provenance; repeat — exists with no
   const card = await api(base, "GET", "/api/v1/artifacts/skill/plan-mode", undefined, { cookie: admin.cookie });
   assert.equal(card.data.versions.length, 1, "a repeated install creates no versions");
   const list = await api(base, "GET", "/api/v1/admin/starter-packs", undefined, { cookie: admin.cookie });
-  assert.equal(list.data.items.find((i) => i.id === "codealive").installed, 9);
+  assert.equal(list.data.items.find((i) => i.id === "codealive").installed, 12);
 });
 
 test("unknown pack and a path substitution in :id → 404", async () => {
@@ -173,5 +184,27 @@ test("a pack with an outward path in pack.json is neither shown nor installed; a
   } finally {
     if (s2?.up) await s2.stop();
     rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+// tracked-sources: the pack's local changes are edit rules, and installing the pack creates tracked sources with them.
+test("edit rules in pack.json match NOTICE.md local changes; install creates tracked sources", async () => {
+  const pack = readPack();
+  const notice = readFileSync(join(PACK_DIR, "NOTICE.md"), "utf8");
+  const localChanges = notice.slice(notice.indexOf("## Local changes"));
+  for (const a of pack.artifacts) {
+    const named = localChanges.includes(`- ${a.name}:`);
+    assert.equal(Array.isArray(a.edits) && a.edits.length > 0, named, `${a.name}: edits in pack.json and NOTICE.md disagree`);
+  }
+  const po = pack.artifacts.find((a) => a.name === "pragmatic-orchestration");
+  assert.ok(po.edits.some((e) => e.op === "delete" && /cover\.png/.test(e.glob)), JSON.stringify(po.edits));
+  // the pack was installed by the test above
+  for (const a of pack.artifacts) {
+    const s = await api(base, "GET", `/api/v1/artifacts/skill/${a.name}/source`, undefined, { cookie: admin.cookie });
+    assert.equal(s.status, 200, `${a.name}: ${JSON.stringify(s.data)}`);
+    assert.equal(s.data.source.url, `https://github.com/${a.repo}`);
+    assert.equal(s.data.source.path, a.source_path);
+    assert.equal(s.data.source.last_commit, a.commit);
+    assert.deepEqual(s.data.source.edits, a.edits ?? []);
   }
 });

@@ -71,7 +71,7 @@ export type TaskResult = { text: string; usage: Usage; model: string };
 export async function completeTask(
   db: Database,
   config: AppConfig,
-  args: { purpose: LlmPurpose; messages: ChatMessage[] },
+  args: { purpose: LlmPurpose; messages: ChatMessage[]; budgetGrant?: string },
 ): Promise<TaskResult> {
   const { purpose, messages } = args;
   if (!taskStatus(db, purpose).active) throw new LlmError("llm_disabled");
@@ -84,6 +84,7 @@ export async function completeTask(
     settings: { ...settings, timeout_s: settings.validation_timeout_s },
     messages,
     maxTokens: settings.validation_max_output_tokens,
+    budgetGrant: args.budgetGrant,
   });
   addTaskTokens(db, purpose, usage.input_tokens, usage.output_tokens);
   return { text, usage, model: settings.model };

@@ -15,7 +15,8 @@ export type CreatedNotification = {
 };
 
 type Event = {
-  kind: "comment" | "mention" | "new_version" | "status_change";
+  /** `source` (tracked-sources): a tracked source could not be updated. */
+  kind: "comment" | "mention" | "new_version" | "status_change" | "source";
   artifact: ArtifactRow;
   actor: string;
   version?: string | null;

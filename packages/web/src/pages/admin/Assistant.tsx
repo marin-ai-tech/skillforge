@@ -71,10 +71,16 @@ function KeyStatus({ view, baseUrl }: { view: AdminLlmView; baseUrl: string }) {
       className="space-y-1 rounded-sf border border-line bg-surface-2 p-3 text-sm"
     >
       <div className="font-medium text-ink">{STR.adm.assistant.keyTitle}</div>
-      <p className="text-ink-2">
-        {k.set ? STR.adm.assistant.keySet(k.env) : STR.adm.assistant.keyNotSet(k.env)}
-      </p>
-      {k.set && view.settings.base_url && saved ? (
+      {k.managed ? (
+        <p data-testid="llm-key-managed" className="text-ink-2">
+          {STR.adm.assistant.keyManaged}
+        </p>
+      ) : (
+        <p className="text-ink-2">
+          {k.set ? STR.adm.assistant.keySet(k.env) : STR.adm.assistant.keyNotSet(k.env)}
+        </p>
+      )}
+      {!k.managed && k.set && view.settings.base_url && saved ? (
         <p className={k.allowed_for_base_url ? "text-ink-2" : "text-warning"}>
           {k.allowed_for_base_url
             ? STR.adm.assistant.keyAllowed

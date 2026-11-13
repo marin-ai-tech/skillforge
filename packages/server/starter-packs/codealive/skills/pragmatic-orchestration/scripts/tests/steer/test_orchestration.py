@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -11,18 +12,24 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from test_steer_e2e import PORCH, env_base, extract_run_id
-from steer.adapters.opencode import OpenCodeAdapter
+from steer.adapters.opencode import OpenCodeAdapter, _startup_lock, _startup_lock_path
 from steer.adapters.codex import CodexAdapter
 from steer.adapters.claude import ClaudeAdapter
+from steer.config_loader import agent_settings
 from steer.control import _duration_seconds
 from steer.registry import Registry, RegistryError
 from steer.launcher import launcher_metadata
 from steer.session import SessionLease
+from steer.supervisor import Supervisor
 from steer.util import atomic_write_json, atomic_write_text
 from steer.waiter import wait_for_any, wait_for_terminal
+
+
+CONTRACT_PATH = PORCH.parents[1] / "prompts" / "delegate-executor.txt"
+CONTRACT = CONTRACT_PATH.read_text(encoding="utf-8")
 
 
 class OrchestrationTests(unittest.TestCase):
@@ -59,6 +66,55 @@ class OrchestrationTests(unittest.TestCase):
     def rpc_calls(self):
         p = self.root / "rpc.jsonl"
         return [json.loads(x) for x in p.read_text().splitlines()] if p.exists() else []
+
+    def turn_texts(self):
+        return [c["params"]["input"][0]["text"] for c in self.rpc_calls() if c["method"] == "turn/start"]
+
+    def test_steerable_task_is_prefixed_with_executor_contract(self):
+        self.assertTrue(CONTRACT.startswith("You are the executor of one delegated assignment."))
+        p = self.cli("-a", "codex", "STEERABLE_TASK")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(self.turn_texts(), [CONTRACT + "STEERABLE_TASK"])
+
+    def test_detached_task_is_prefixed_and_keeps_task_bytes(self):
+        task = "  LINE_ONE\n\nLINE_TWO\n\n"
+        src = self.root / "task.txt"
+        src.write_text(task, encoding="utf-8")
+        p = self.cli("-a", "codex", "--detach", "--prompt-file", str(src))
+        self.assertEqual(p.returncode, 0, p.stderr)
+        rid = p.stdout.strip()
+        w = self.cli("wait", rid)
+        self.assertEqual(w.returncode, 0, w.stderr)
+        self.assertEqual(self.turn_texts(), [CONTRACT + task])
+
+    def test_one_shot_prompt_is_prefixed_with_executor_contract(self):
+        log = self.root / "oneshot-argv.jsonl"
+        env = dict(self.env, PORCH_BIN_GROK=str(PORCH.parent / "tests" / "fakes" / "fake-grok"),
+                   PORCH_FAKE_ARGV_LOG=str(log), PORCH_FAKE_CAPTURE_PROMPT="1")
+        p = self.cli("-a", "grok", "--one-shot", "ONE_SHOT_TASK", env=env)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        metas = [json.loads(x) for x in log.read_text().splitlines()]
+        bodies = [m["prompt_body"] for m in metas if m.get("bin") == "grok-prompt-meta"]
+        self.assertEqual(len(bodies), 1)
+        self.assertTrue(bodies[0].startswith(CONTRACT.splitlines()[0]))
+        self.assertTrue(bodies[0].endswith("ONE_SHOT_TASK"))
+        self.assertEqual(bodies[0], CONTRACT_PATH.read_text().rstrip("\n") + "\n\nONE_SHOT_TASK")
+
+    def test_missing_contract_is_config_error_and_never_starts_backend(self):
+        copy = self.root / "tree"
+        shutil.copytree(PORCH.parents[1], copy, ignore=shutil.ignore_patterns("tests", ".git", "__pycache__"))
+        (copy / "prompts" / "delegate-executor.txt").unlink()
+        argv_log = self.root / "missing-argv.jsonl"
+        for extra in ([], ["--one-shot"], ["--detach"]):
+            with self.subTest(extra=extra):
+                env = dict(self.env, PORCH_FAKE_ARGV_LOG=str(argv_log),
+                           PORCH_BIN_GROK=str(PORCH.parent / "tests" / "fakes" / "fake-grok"))
+                p = subprocess.run([str(copy / "scripts" / "porch"), "delegate", "-a", "grok", *extra, "TASK"],
+                                   cwd=self.root, env=env, text=True, input="", capture_output=True, timeout=30)
+                self.assertEqual(p.returncode, 4, p.stderr)
+                self.assertIn("delegate-executor.txt", p.stderr)
+        self.assertFalse(argv_log.exists())
+        self.assertFalse(self.rpc_calls())
 
     def test_named_run_ids_carry_agent_and_slug(self):
         rid = self.reg.create_run(agent_id="grok", backend="grok-build", model="test",
@@ -98,10 +154,57 @@ class OrchestrationTests(unittest.TestCase):
         self.assertNotEqual(p.returncode, 0)
         self.assertIn("--name", p.stderr)
 
+    def test_argon_go_profile_defaults_to_high_in_steerable_payload(self):
+        for config in (PORCH.parents[1] / "config.example.json", Path(self.env["PORCH_CONFIG"])):
+            with self.subTest(config=config), patch.dict(os.environ, self.env):
+                os.environ["PORCH_CONFIG"] = str(config)
+                os.environ.pop("OPENCODE_MODEL", None)
+                os.environ.pop("OPENCODE_EFFORT", None)
+                agent, backend, model, binary = agent_settings("opencode-go-gemini-4-argon-contributor")
+                self.assertEqual(backend, "opencode")
+                self.assertEqual(model, "opencode-go/gemini-4-argon-contributor")
+                self.assertEqual(agent["effort"], "high")
+                self.assertFalse(agent["enabled"])
+                adapter = OpenCodeAdapter(binary=binary, model=model, effort=agent["effort"],
+                                          cwd=str(self.root), artifacts_dir=str(self.root))
+                self.assertEqual(adapter._model_ref(), {"providerID": "opencode-go",
+                    "id": "gemini-4-argon-contributor", "variant": "high"})
+                os.environ["OPENCODE_EFFORT"] = "low"
+                self.assertEqual(agent_settings("opencode-go-gemini-4-argon-contributor")[0]["effort"], "low")
+
+    def test_native_argon_and_terra_profiles_reach_steerable_backends(self):
+        configs = (PORCH.parents[1] / "config.example.json", Path(self.env["PORCH_CONFIG"]))
+        profiles = (("devin-gemini-4-argon", "devin-cli", "gemini-4-argon-high", ""),
+                    ("codex-gpt-6.1-terra", "codex-cli", "gpt-6.1-terra", "xhigh"))
+        for index, config in enumerate(configs):
+            for profile, backend, model, effort in profiles:
+                with self.subTest(config=config, profile=profile):
+                    argv_log = self.root / f"{index}-{profile}-argv.jsonl"
+                    rpc_log = self.root / f"{index}-{profile}-rpc.jsonl"
+                    env = dict(self.env, PORCH_CONFIG=str(config),
+                               PORCH_FAKE_ARGV_LOG=str(argv_log), PORCH_FAKE_RPC_LOG=str(rpc_log))
+                    for key in ("CODEX_MODEL", "CODEX_EFFORT", "DEVIN_MODEL"):
+                        env.pop(key, None)
+                    p = self.cli("-a", profile, "PROFILE_TASK", env=env)
+                    self.assertEqual(p.returncode, 0, p.stderr)
+                    meta = self.reg.load_meta(extract_run_id(p.stderr))
+                    self.assertEqual((meta["backend"], meta["model"], meta["effort"]),
+                                     (backend, model, effort))
+                    self.assertIn("FAKE_", p.stdout)
+                    if backend == "devin-cli":
+                        launch = json.loads(argv_log.read_text().splitlines()[0])
+                        self.assertEqual(launch["argv"], ["acp", "--model", model])
+                    else:
+                        calls = [json.loads(line) for line in rpc_log.read_text().splitlines()]
+                        thread = next(c["params"] for c in calls if c["method"] == "thread/start")
+                        turn = next(c["params"] for c in calls if c["method"] == "turn/start")
+                        self.assertEqual(thread["model"], model)
+                        self.assertEqual((turn["model"], turn["effort"]), (model, effort))
+
     def test_abort_failure_never_sends_replacement(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "test"
-        with patch.object(a, "_http_json", side_effect=TimeoutError("unresolved")), patch.object(a, "_prompt_async") as send:
+        with patch.object(a, "_http_json", side_effect=TimeoutError("unresolved")), patch.object(a, "_send_prompt") as send:
             result = a.steer("replacement", "interrupt", "id")
         self.assertFalse(result.ok)
         self.assertEqual(result.status, "failed")
@@ -109,7 +212,6 @@ class OrchestrationTests(unittest.TestCase):
         send.assert_not_called()
         self.assertTrue(a.is_done())
         self.assertNotEqual(a.exit_code(), 0)
-        self.assertFalse(a._replacement_pending)
 
     def test_opencode_permission_wakes_parent_with_cause_and_command(self):
         p = self.cli("-a", "opencode", "--detach", "PERMISSION_TEST",
@@ -147,24 +249,127 @@ class OrchestrationTests(unittest.TestCase):
     def test_opencode_ignores_foreign_nested_tool_and_permission(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "ours"
-        a._handle_event({"type": "message.part.updated", "properties": {"part": {
-            "sessionID": "other", "id": "tool", "type": "tool", "tool": "bash",
-            "state": {"status": "running", "input": {"command": "foreign"}}}}})
-        a._handle_event({"type": "permission.asked", "properties": {"sessionID": "other"}})
+        a._handle_event({"type": "session.tool.called", "data": {
+            "sessionID": "other", "id": "tool", "input": {"command": "foreign"}}})
+        a._handle_event({"type": "permission.asked", "data": {"sessionID": "other"}})
         self.assertEqual(list(a.poll_events()), [])
         self.assertFalse(a.is_done())
+
+    def test_opencode_child_permission_is_not_silently_ignored(self):
+        a = OpenCodeAdapter(binary="fake", model="test/model", cwd=str(self.root), artifacts_dir=str(self.root))
+        a.session_id = "ours"
+        a._child_sessions.add("ours")
+        a._handle_event({"type": "session.created", "data": {"sessionID": "child", "parentID": "ours"}})
+        a._handle_event({"type": "permission.asked", "data": {"sessionID": "child", "action": "shell", "resources": ["*"]}})
+        self.assertTrue(a.is_done())
+        self.assertIn("permission_required", a._error)
+
+    def test_opencode_ids_match_upstream_time_ordered_shape(self):
+        a = OpenCodeAdapter(binary="fake", model="test/model", cwd=str(self.root), artifacts_dir=str(self.root))
+        with patch("steer.adapters.opencode.time.time", return_value=1794063170.0):
+            first, second = a._message_id(), a._message_id()
+        self.assertEqual(len(first), 30)
+        self.assertLess(first, second)
+        self.assertEqual(first[4:16], f"{(1794063170000 * 4096 + 1) & ((1 << 48) - 1):012x}")
+
+    def test_opencode_startup_lock_tracks_database_identity(self):
+        binary = str(Path(__file__).resolve().parents[1] / "fakes/steer/fake-opencode-steer")
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "data"),
+                                     "OPENCODE_DB": "custom.db"}, clear=True):
+            relative = _startup_lock_path(binary, str(self.root), dict(os.environ))
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "other"),
+                                     "OPENCODE_DB": str(self.root / "data/opencode/custom.db")}, clear=True):
+            absolute = _startup_lock_path(binary, str(self.root), dict(os.environ))
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "data"),
+                                     "OPENCODE_DB": "other.db"}, clear=True):
+            other = _startup_lock_path(binary, str(self.root), dict(os.environ))
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "data"),
+                                     "PORCH_FAKE_OPENCODE_CHANNEL_DB": "channel.db"}, clear=True):
+            channel = _startup_lock_path(binary, str(self.root), dict(os.environ))
+        with patch.dict(os.environ, {"OPENCODE_DB": ":memory:"}, clear=True):
+            memory = _startup_lock_path(binary, str(self.root), dict(os.environ))
+        with patch.dict(os.environ, {"OPENCODE_DB": str(self.root)}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "database path is a directory"):
+                _startup_lock_path(binary, str(self.root), dict(os.environ))
+        self.assertEqual(relative, absolute)
+        self.assertEqual(relative, other)
+        self.assertEqual(relative, channel)
+        self.assertIsNone(memory)
+
+    def test_opencode_failed_start_stops_server_before_unlock(self):
+        binary = str(Path(__file__).resolve().parents[1] / "fakes/steer/fake-opencode-steer")
+        adapter = OpenCodeAdapter(binary=binary, model="test/model", cwd=str(self.root), artifacts_dir=str(self.root))
+        unlocked = []
+        @contextlib.contextmanager
+        def checked_lock(_path, *, blocking=True):
+            try:
+                yield
+            finally:
+                unlocked.append(adapter.proc is not None and adapter.proc.poll() is not None)
+        with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "data")}, clear=True), \
+             patch("steer.adapters.opencode.flock_exclusive", checked_lock), \
+             patch.object(adapter, "_http_json", side_effect=RuntimeError("readiness failed")):
+            with self.assertRaisesRegex(RuntimeError, "readiness failed"):
+                adapter._start_server()
+        self.assertEqual(unlocked, [True])
+
+    @unittest.skipIf(os.name == "nt", "POSIX lock-owner termination")
+    def test_opencode_startup_lock_timeout_and_owner_death(self):
+        lock = self.root / "startup.lock"
+        script = ("import fcntl,sys,time; "
+                  "f=open(sys.argv[1], 'a+'); fcntl.flock(f, fcntl.LOCK_EX); "
+                  "print('locked', flush=True); time.sleep(60)")
+        owner = subprocess.Popen([sys.executable, "-c", script, str(lock)],
+                                 stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(owner.stdout.readline().strip(), "locked")
+            with self.assertRaisesRegex(TimeoutError, "OpenCode database startup lock"):
+                with _startup_lock(lock, timeout=.15):
+                    self.fail("a held lock was acquired")
+            owner.kill()
+            owner.wait(timeout=5)
+            with _startup_lock(lock, timeout=2):
+                pass
+        finally:
+            if owner.poll() is None:
+                owner.kill()
+                owner.wait(timeout=5)
+            owner.stdout.close()
+
+    def test_opencode_failed_start_reports_cleanup_failure(self):
+        binary = str(Path(__file__).resolve().parents[1] / "fakes/steer/fake-opencode-steer")
+        adapter = OpenCodeAdapter(binary=binary, model="test/model", cwd=str(self.root), artifacts_dir=str(self.root))
+        try:
+            with patch.dict(os.environ, {"XDG_DATA_HOME": str(self.root / "data")}, clear=True), \
+                 patch.object(adapter, "_http_json", side_effect=RuntimeError("readiness failed")), \
+                 patch.object(adapter, "cancel", side_effect=RuntimeError("stop failed")):
+                with self.assertRaisesRegex(RuntimeError, "readiness failed.*stop failed.*still be running"):
+                    adapter._start_server()
+        finally:
+            adapter.cancel()
+
+    def test_cleanup_completion_follows_adapter_and_session_lease(self):
+        supervisor = Supervisor(agent_id="test", task="test", cwd=str(self.root),
+                                artifacts_dir=str(self.root), registry=self.reg)
+        actions = []
+        supervisor.adapter = Mock()
+        supervisor.adapter.child_pid.return_value = None
+        supervisor.adapter.close.side_effect = lambda: actions.append("adapter")
+        supervisor._session_lease = Mock()
+        supervisor._session_lease.close.side_effect = lambda: actions.append("lease")
+        supervisor._update_registry_meta = lambda **fields: actions.append(fields["cleanup_status"])
+        with patch("debug_tape.close_global_tape", side_effect=lambda: actions.append("tape")):
+            supervisor._finish_cleanup()
+        self.assertEqual(actions, ["adapter", "lease", "tape", "completed"])
 
     def test_opencode_long_sse_line_preserves_tool_completion(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "ours"
         a.base_url = "http://127.0.0.1:1234"
-        frames = []
-        for status in ("running", "running", "completed"):
-            frames.append({"directory": str(self.root), "payload": {
-                "type": "message.part.updated", "properties": {"part": {
-                    "sessionID": "ours", "id": "tool-1", "callID": "call-1", "type": "tool", "tool": "bash",
-                    "state": {"status": status, "input": {"command": "dotnet test"}, "output": "é" * 70000}}}}})
-        frames.append({"type": "session.idle", "properties": {"sessionID": "ours"}})
+        base = {"sessionID": "ours", "id": "call-1", "assistantMessageID": "msg_1"}
+        frames = [{"type": "session.tool.input.started", "data": {**base, "name": "shell"}},
+                  {"type": "session.tool.called", "data": {**base, "input": {"command": "dotnet test"}}},
+                  {"type": "session.tool.success", "data": {**base, "content": "é" * 70000}}]
         raw = ''.join('data: '+json.dumps(f, ensure_ascii=False)+'\n\n' for f in frames).encode()
         with patch.object(a._opener, "open", return_value=io.BytesIO(raw)):
             a._sse_loop()
@@ -172,7 +377,7 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual([e.kind for e in events if e.kind.startswith("tool")], ["tool_started", "tool_completed"])
         self.assertTrue(all('dotnet test' in e.data for e in events if e.kind.startswith("tool")))
         self.assertFalse(any(e.kind == "raw" for e in events))
-        self.assertEqual(a.exit_code(), 0)
+        self.assertNotEqual(a.exit_code(), 0)  # EOF without terminal confirmation fails closed.
 
     def test_codex_progress_does_not_repeat_streamed_completion(self):
         a = CodexAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
@@ -207,7 +412,7 @@ class OrchestrationTests(unittest.TestCase):
         def abort():
             a._busy = False  # idle arrived while replacement was pending
             raise RuntimeError("abort failed after idle")
-        with patch.object(a, "_abort", side_effect=abort), patch.object(a, "_prompt_async") as send:
+        with patch.object(a, "_abort", side_effect=abort), patch.object(a, "_send_prompt") as send:
             result = a.steer("replacement", "interrupt", "id")
         self.assertFalse(result.ok)
         self.assertTrue(a.is_done())
@@ -216,16 +421,16 @@ class OrchestrationTests(unittest.TestCase):
     def test_abort_rejection_never_sends_replacement(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "test"
-        with patch.object(a, "_http_json", return_value=False), patch.object(a, "_prompt_async") as send:
+        with patch.object(a, "_http_json", return_value=False), patch.object(a, "_send_prompt") as send:
             result = a.steer("replacement", "interrupt", "id")
         self.assertFalse(result.ok)
-        self.assertIn("rejected abort", result.error)
+        self.assertIn("invalid interrupt response", result.error)
         send.assert_not_called()
 
     def test_unresolved_stop_never_sends_replacement(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "test"
-        with patch.object(a, "_abort"), patch.object(a, "_runner_is_idle", return_value=False), patch.object(a, "_prompt_async") as send:
+        with patch.object(a, "_abort"), patch.object(a, "_runner_is_idle", return_value=False), patch.object(a, "_send_prompt") as send:
             wait = a._wait_for_abort_idle
             with patch.object(a, "_wait_for_abort_idle", side_effect=lambda: wait(timeout=.02)):
                 result = a.steer("replacement", "interrupt", "id")
@@ -237,25 +442,22 @@ class OrchestrationTests(unittest.TestCase):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "test"
         calls = []
-        with patch.object(a, "_abort", side_effect=lambda: calls.append("abort")), patch.object(a, "_runner_is_idle", side_effect=lambda **kw: calls.append("status") or True), patch.object(a, "_prompt_async", side_effect=lambda *args, **kw: calls.append("prompt")):
+        with patch.object(a, "_abort", side_effect=lambda: calls.append("abort")), patch.object(a, "_runner_is_idle", side_effect=lambda **kw: calls.append("status") or True), patch.object(a, "_send_prompt", side_effect=lambda *args, **kw: calls.append("prompt")):
             result = a.steer("replacement", "interrupt", "id")
         self.assertTrue(result.ok)
         self.assertEqual(calls, ["abort", "status", "prompt"])
 
-    def test_late_old_idle_does_not_finish_busy_replacement(self):
+    def test_late_interrupt_does_not_fail_replacement(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
         a.session_id = "test"
-        with patch.object(a, "_http_json", return_value={}):
-            self.assertTrue(a.steer("replacement", "interrupt", "id").ok)
-        idle = {"type": "session.idle", "properties": {"sessionID": "test"}}
-        with patch.object(a, "_runner_is_idle", return_value=False):
-            a._handle_event(idle)
+        a._busy = True
+        a._ignore_interrupt_once = True
+        a._handle_event({"type": "session.execution.interrupted", "data": {"sessionID": "test", "reason": "user"}})
         self.assertFalse(a.is_done())
         self.assertTrue(a.is_busy())
-        with patch.object(a, "_runner_is_idle", return_value=True):
-            a._handle_event(idle)
+        a._handle_event({"type": "session.execution.interrupted", "data": {"sessionID": "test", "reason": "user"}})
         self.assertTrue(a.is_done())
-        self.assertEqual(a.exit_code(), 0)
+        self.assertNotEqual(a.exit_code(), 0)
 
     def test_malformed_runner_status_is_not_idle(self):
         a = OpenCodeAdapter(binary="fake", model="test", cwd=str(self.root), artifacts_dir=str(self.root))
@@ -626,7 +828,7 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(len(resumes), 1)
         self.assertEqual(resumes[0]["params"]["threadId"], old_meta["session_handle"]["thread_id"])
         texts = [c["params"]["input"][0]["text"] for c in calls if c["method"] == "turn/start"]
-        self.assertEqual(texts, ["INITIAL_ONLY", "FOLLOWUP_ONLY"])
+        self.assertEqual(texts, [CONTRACT + "INITIAL_ONLY", "FOLLOWUP_ONLY"])
         third = self.cli("-a", "codex", "--continue-run", successor, "THIRD")
         self.assertEqual(third.returncode, 0, third.stderr)
 
@@ -659,6 +861,109 @@ class OrchestrationTests(unittest.TestCase):
         p = self.cli("-a", "codex", "--continue-run", rid, "new")
         self.assertNotEqual(p.returncode, 0)
         self.assertIn("outcome may be unknown", p.stderr)
+
+    def test_recover_unsuccessful_session_sends_only_new_instruction(self):
+        for status, code in (("failed", 1), ("cancelled", 130), ("completed", 74)):
+            with self.subTest(status=status):
+                rid = self.start_durable()
+                self.reg.update_meta(rid, status=status, exit_code=code)
+                before = self.reg.load_meta(rid)
+                calls_before = len(self.rpc_calls())
+                p = self.cli("-a", "codex", "--continue-run", rid,
+                             "--recover-session", "INSPECT_AND_FINISH_REMAINING")
+                self.assertEqual(p.returncode, 0, p.stderr)
+                successor = self.reg.load_meta(extract_run_id(p.stderr))
+                self.assertTrue(successor["recover_session"])
+                self.assertEqual(successor["continued_from"], rid)
+                self.assertEqual(successor["session_handle"], before["session_handle"])
+                self.assertEqual(self.reg.load_meta(rid), before)
+                calls = self.rpc_calls()[calls_before:]
+                self.assertEqual(len([c for c in calls if c["method"] == "thread/resume"]), 1)
+                self.assertFalse(any(c["method"] == "thread/start" for c in calls))
+                self.assertEqual([c["params"]["input"][0]["text"] for c in calls
+                                  if c["method"] == "turn/start"], ["INSPECT_AND_FINISH_REMAINING"])
+
+    def test_recover_cancelled_detached_run(self):
+        started = self.cli("-a", "codex", "--persist-session", "--detach", "ORIGINAL",
+                           env=dict(self.env, PORCH_FAKE_STEER_SLOW="10"))
+        self.assertEqual(started.returncode, 0, started.stderr)
+        rid = started.stdout.strip()
+        try:
+            deadline = time.monotonic() + 10
+            while not self.reg.load_meta(rid).get("session_handle") and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertTrue(self.reg.load_meta(rid).get("session_handle"))
+            self.assertEqual(self.cli("cancel", rid).returncode, 0)
+            deadline = time.monotonic() + 10
+            while self.reg.load_meta(rid).get("cleanup_status") != "completed" and time.monotonic() < deadline:
+                time.sleep(.02)
+            previous = self.reg.load_meta(rid)
+            self.assertEqual(previous["status"], "cancelled")
+            p = self.cli("-a", "codex", "--continue-run", rid, "--recover-session", "--detach", "REMAINING")
+            self.assertEqual(p.returncode, 0, p.stderr)
+            next_id = p.stdout.strip()
+            result = self.cli("wait", next_id, "--timeout", "10", "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(self.reg.load_meta(next_id)["session_handle"], previous["session_handle"])
+            # A terminal answer precedes detached supervisor cleanup. Keep the
+            # temporary registry until that supervisor has finished writing it.
+            deadline = time.monotonic() + 10
+            while self.reg.load_meta(next_id).get("cleanup_status") == "pending" and time.monotonic() < deadline:
+                time.sleep(.02)
+            self.assertEqual(self.reg.load_meta(next_id).get("cleanup_status"), "completed")
+        finally:
+            if self.reg.load_meta(rid)["status"] not in ("completed", "failed", "cancelled"):
+                self.cli("cancel", rid)
+
+    def test_recovery_rejects_active_or_unclean_source_without_provider_call(self):
+        rid = self.start_durable()
+        for status, cleanup in (("running", "completed"), ("starting", "completed"),
+                                ("failed", "pending"), ("cancelled", "failed"), ("failed", None)):
+            with self.subTest(status=status, cleanup=cleanup):
+                self.reg.update_meta(rid, status=status, exit_code=1, cleanup_status=cleanup)
+                count = len(self.rpc_calls())
+                p = self.cli("-a", "codex", "--continue-run", rid, "--recover-session", "new")
+                self.assertNotEqual(p.returncode, 0)
+                self.assertIn("terminal" if status in ("starting", "running") else "cleanup", p.stderr)
+                self.assertEqual(len(self.rpc_calls()), count)
+
+    def test_recover_session_requires_continue_run(self):
+        p = self.cli("-a", "codex", "--recover-session", "task")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("--recover-session requires --continue-run", p.stderr)
+        self.assertFalse(self.rpc_calls())
+
+    def test_failed_native_resume_can_recover_latest_claim(self):
+        rid = self.start_durable()
+        broken = dict(self.env, PORCH_FAKE_CODEX_STEER_MODE="resume-error")
+        p = self.cli("-a", "codex", "--continue-run", rid, "NOT_DELIVERED", env=broken)
+        self.assertNotEqual(p.returncode, 0)
+        failed_id = extract_run_id(p.stderr)
+        failed = self.reg.load_meta(failed_id)
+        self.assertEqual(failed["session_handle"], self.reg.load_meta(rid)["session_handle"])
+        p = self.cli("-a", "codex", "--continue-run", failed_id, "--recover-session", "NEW_RECOVERY")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        calls = self.rpc_calls()
+        self.assertEqual(len([c for c in calls if c["method"] == "thread/start"]), 1)
+        self.assertEqual([c["params"]["input"][0]["text"] for c in calls
+                          if c["method"] == "turn/start"], [CONTRACT + "INITIAL_ONLY", "NEW_RECOVERY"])
+
+    def test_recovery_keeps_session_coordination_and_identity_checks(self):
+        rid = self.start_durable()
+        self.reg.update_meta(rid, status="failed", exit_code=1)
+        before = self.reg.load_meta(rid)
+        for field in ("agent_id", "backend", "model", "effort", "backend_binary", "cwd"):
+            with self.subTest(field=field):
+                self.reg.update_meta(rid, **{field: "changed"})
+                count = len(self.rpc_calls())
+                p = self.cli("-a", "codex", "--continue-run", rid, "--recover-session", "new")
+                self.assertNotEqual(p.returncode, 0)
+                self.assertEqual(len(self.rpc_calls()), count)
+                self.reg.update_meta(rid, **{field: before[field]})
+        (self.reg.run_path(rid) / "session.json").unlink()
+        p = self.cli("-a", "codex", "--continue-run", rid, "--recover-session", "new")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("cannot safely continue after registry loss", p.stderr)
 
     def test_lost_session_coordination_fails_without_replaying(self):
         rid = self.start_durable()
@@ -719,6 +1024,12 @@ class OrchestrationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["status"], "completed")
         self.assertEqual(self.reg.load_meta(rid)["continued_from"], source)
+        # Terminal output can precede detached supervisor cleanup; do not remove
+        # the test registry while the supervisor is still writing to it.
+        deadline = time.monotonic() + 10
+        while self.reg.load_meta(rid).get("cleanup_status") == "pending" and time.monotonic() < deadline:
+            time.sleep(.02)
+        self.assertEqual(self.reg.load_meta(rid).get("cleanup_status"), "completed")
 
 
 if __name__ == "__main__":

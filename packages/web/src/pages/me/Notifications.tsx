@@ -14,7 +14,14 @@ import { isSafeInternalPath } from "../../lib/comment-text.tsx";
 import { STR } from "../../lib/strings.ts";
 import { errorText, formatDateTime } from "../../i18n/index.ts";
 
-const PREF_KINDS = ["comment", "mention", "new_version", "status_change", "plugin"] as const;
+const PREF_KINDS = [
+  "comment",
+  "mention",
+  "new_version",
+  "status_change",
+  "plugin",
+  "source",
+] as const;
 
 /** Interface label of a notification kind; an unknown kind from the server is shown as is. */
 function kindLabel(kind: string): string {

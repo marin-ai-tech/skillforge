@@ -9,7 +9,7 @@ import { visibleClause } from "../visibility/sql.ts";
 import type { Viewer } from "../visibility/index.ts";
 
 /** Types that are not Claude Code plugins: they never enter the marketplace or plugin tarballs. */
-export const NOT_PLUGINS: ReadonlySet<string> = new Set(["settings", "mcp-server"]);
+export const NOT_PLUGINS: ReadonlySet<string> = new Set(["settings", "mcp-server", "rule"]);
 
 export type MarketplacePlugin = {
   name: string;

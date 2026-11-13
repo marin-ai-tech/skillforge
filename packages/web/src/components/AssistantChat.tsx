@@ -167,11 +167,48 @@ function Shell({
   );
 }
 
+/**
+ * Agent Space task budget grant (llm-budget-broker): shown only when the server has a budget broker. The value lives in
+ * component state only — never in localStorage or the stored conversation — and goes with each question.
+ */
+function BudgetGrantField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <HelpTip action="assistant-budget-grant">
+      <label className="block text-xs text-muted">
+        {STR.tips.help.assistant.budgetGrant}
+        <input
+          data-testid="assistant-budget-grant"
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          aria-describedby="assistant-budget-grant-hint"
+          className="mt-1 w-full rounded-sf border border-line bg-bg px-3 py-2 text-sm"
+        />
+        <span id="assistant-budget-grant-hint" className="mt-1 block">
+          {STR.tips.help.assistant.budgetGrantHint}
+        </span>
+      </label>
+    </HelpTip>
+  );
+}
+
 export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
   const lang = useLang();
   const queryClient = useQueryClient();
   const [turns, setTurns] = useState<AssistantTurn[]>(() => loadStored(mode));
   const [input, setInput] = useState("");
+  const [budgetGrant, setBudgetGrant] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -199,6 +236,7 @@ export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
         lang,
         pageTopic,
         messages: history,
+        budgetGrant: budgetGrant.trim() || undefined,
         signal: controller.signal,
         onDelta: (text) =>
           setTurns((prev) => {
@@ -243,6 +281,9 @@ export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
 
   return (
     <Shell mode={mode} onMode={onMode}>
+      {status.budget_grant ? (
+        <BudgetGrantField value={budgetGrant} onChange={setBudgetGrant} disabled={busy} />
+      ) : null}
       {mode === "onboarding" ? (
         <p className="text-xs text-muted">{STR.tips.help.assistant.onboardingHint}</p>
       ) : null}

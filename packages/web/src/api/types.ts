@@ -962,6 +962,37 @@ export type ScopeResponse = { visibility: string; owner_team: string | null };
 
 export type LabelsResponse = { labels: string[] };
 
+/** Result state of a tracked source check (tracked-sources). */
+export type SourceState =
+  "ok" | "unchanged" | "quarantined" | "failed" | "edits_outdated" | "path_missing";
+
+/** Edit rule of a tracked source: a local change applied to every upstream download. */
+export type SourceEdit =
+  { op: "delete"; glob: string } | { op: "replace"; file: string; find: string; with: string };
+
+/** Tracked source of an artifact: `GET /api/v1/artifacts/:type/:name/source`. */
+export type TrackedSource = {
+  url: string;
+  path: string;
+  ref: string | null;
+  last_commit: string | null;
+  last_checked_at: string | null;
+  state: SourceState | null;
+  state_detail: string | null;
+  enabled: boolean;
+  edits: SourceEdit[];
+  created_at?: string;
+};
+
+/** `POST /api/v1/artifacts/:type/:name/source/check`. */
+export type SourceCheckResult = {
+  state: SourceState;
+  detail?: string;
+  commit?: string;
+  ready_at?: string;
+  version?: string;
+};
+
 export type CommentDto = {
   id: string;
   version: string | null;
@@ -1007,6 +1038,7 @@ export type NotificationPrefs = {
   new_version: boolean;
   status_change: boolean;
   plugin: boolean;
+  source: boolean;
 };
 
 export type EvalGate = "off" | "required";

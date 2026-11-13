@@ -11,6 +11,7 @@ export const ui = {
     plugin: "plugin",
     settings: "settings",
     "mcp-server": "MCP server",
+    rule: "rule",
   },
   /** Plural type caption by type id (unknown types show the server `plural`). */
   typePlural: {
@@ -21,6 +22,7 @@ export const ui = {
     plugin: "Plugins",
     settings: "Settings profiles",
     "mcp-server": "MCP servers",
+    rule: "Rules",
   },
   confirm: {
     confirm: "Confirm",

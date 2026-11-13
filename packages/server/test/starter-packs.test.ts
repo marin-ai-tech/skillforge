@@ -32,7 +32,7 @@ test("loadStarterPacks: missing dir is empty; valid codealive loads", () => {
   const packs = loadStarterPacks(root);
   const ca = packs.find((p) => p.id === "codealive");
   assert.ok(ca);
-  assert.equal(ca!.artifacts.length, 9);
+  assert.equal(ca!.artifacts.length, 12);
   assert.equal(ca!.license, "MIT");
 });
 
@@ -116,7 +116,7 @@ test("routes: list/install admin-only; install idempotent; unknown 404", async (
       assert.equal(list.statusCode, 200);
       const item = list.json().items.find((i: { id: string }) => i.id === "codealive");
       assert.ok(item);
-      assert.equal(item.artifacts, 9);
+      assert.equal(item.artifacts, 12);
       assert.equal(item.installed, 0);
 
       const anon = await app.inject({ method: "GET", url: "/api/v1/admin/starter-packs" });
@@ -138,7 +138,7 @@ test("routes: list/install admin-only; install idempotent; unknown 404", async (
       });
       assert.equal(first.statusCode, 200, first.body);
       const results = first.json().results as Array<{ status: string; name: string }>;
-      assert.equal(results.length, 9);
+      assert.equal(results.length, 12);
       assert.ok(
         results.every((r) => r.status === "created"),
         JSON.stringify(results),
@@ -160,7 +160,7 @@ test("routes: list/install admin-only; install idempotent; unknown 404", async (
       });
       assert.equal(
         list2.json().items.find((i: { id: string }) => i.id === "codealive").installed,
-        9,
+        12,
       );
     },
     { starterPacksDir: packsRoot },

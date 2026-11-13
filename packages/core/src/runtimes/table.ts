@@ -20,6 +20,7 @@ export type RuntimeInstallMethod =
   | "codex-toml"
   | "opencode-agent"
   | "cursor-agent"
+  | "cursor-rule"
   | "plugin"
   | "settings";
 
@@ -77,10 +78,28 @@ function mcpServerNotInstalled(id: RuntimeId): RuntimeTypeSupport {
   };
 }
 
+/** Where an agent without a rules folder reads its rules (rule-artifacts: writing there is the next step). */
+const SHARED_RULE_FILES: Partial<Record<RuntimeId, string>> = {
+  codex: "AGENTS.md",
+  gemini: "GEMINI.md",
+  qwen: "QWEN.md",
+};
+
+function rulesUnsupported(id: RuntimeId): RuntimeTypeSupport {
+  const shared = SHARED_RULE_FILES[id];
+  return {
+    method: null,
+    reason: shared
+      ? `rules are not installed into ${id} yet: ${id} reads its rules from ${shared}, and writing into that shared file is planned`
+      : `rules are not supported by ${id} (it has no rules folder SkillForge installs into)`,
+  };
+}
+
 function nonClaudeTypes(
   id: RuntimeId,
   command: RuntimeTypeSupport,
   agent: RuntimeTypeSupport = agentsUnsupported(id),
+  rule: RuntimeTypeSupport = rulesUnsupported(id),
 ): Readonly<Record<ArtifactType, RuntimeTypeSupport>> {
   return {
     skill: { method: "files" },
@@ -90,6 +109,7 @@ function nonClaudeTypes(
     plugin: pluginsOnlyClaude(id),
     settings: settingsOnlyClaude(id),
     "mcp-server": mcpServerNotInstalled(id),
+    rule,
   };
 }
 
@@ -109,6 +129,7 @@ export const RUNTIMES: readonly RuntimeDef[] = [
       plugin: { method: "plugin" },
       settings: { method: "settings" },
       "mcp-server": mcpServerNotInstalled("claude-code"),
+      rule: { method: "files" },
     },
   },
   {
@@ -149,6 +170,12 @@ export const RUNTIMES: readonly RuntimeDef[] = [
           "commands are not supported by cursor in the user scope (Cursor documents project commands only); use --scope project",
       },
       { method: "cursor-agent" },
+      {
+        method: "cursor-rule",
+        scopes: ["project"],
+        scope_reason:
+          "rules are not supported by cursor in the user scope (Cursor keeps user rules in its settings, not in files); use --scope project",
+      },
     ),
   },
   {

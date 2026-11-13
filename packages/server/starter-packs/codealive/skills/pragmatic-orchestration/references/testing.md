@@ -6,11 +6,23 @@ The default suite uses fake backend CLIs, is offline, and spends no model tokens
 scripts/tests/run.sh
 ```
 
-It covers backend argv safety, exact profile selection, model/effort resolution, stdout/stderr separation, artifacts, Grok streaming success/failure, live progress, credential redaction, prompt purity, all review progress styles, invocation-specific keys, human-readable ids, steerable adapters/mailbox lifecycle, concurrent Grok queue/sendNow behavior, a Devin ACP fake covering one-shot and steerable paths (same-turn merge, cancel), cancel/idempotency/cleanup, and shared runtime contracts.
+It covers backend argv safety, exact profile selection, model/effort resolution, stdout/stderr separation, artifacts, Grok streaming success/failure, live progress, credential redaction, prompt purity, all review progress styles, invocation-specific keys, human-readable ids, steerable adapters/mailbox lifecycle, concurrent Grok queue/sendNow behavior, a Devin ACP fake covering one-shot and steerable paths (same-turn merge, cancel), an Antigravity fake covering headless stream-json (review deny rules, failed/interrupted results) and `agy acp` (same-turn injection, cancel-and-send, rejected model), cancel/idempotency/cleanup, shared runtime contracts, and `porch media` (`scripts/tests/media_test.py`: fake ffmpeg/ffprobe segmenting, transcript rendering and failure codes, image collection from fake Codex/agy session stores, spritesheet-to-GIF assembly, input limits, and read-only argv).
+
+Input regressions keep an inherited stdin pipe open while exercising review,
+delegate, steering, backend launchers, and both prompt builders. They cover
+empty/whitespace explicit sources, conflicting sources, empty file-option
+values, stdin-only questions, explicit `--context-stdin` context, and EOF on
+unused stdin for file-based backends. Literal `-` filenames are checked in
+prompt transports and single-profile code review.
+Large file prompts guard against slow shell whitespace validation.
+Run them alone with `python3 scripts/tests/review_input_test.py -v` from the skill
+directory. Current-model checks cover the explicit `codex-gpt-6.1-sol` profile
+in both review and delegate argv.
 
 Quota parsing is tested offline for Codex multi-bucket limits, Grok `/usage`
 fields, fail-closed display drift, shell-safe remote paths, and one bounded retry
-after a transient Grok transport failure.
+after a transient Grok transport failure. Fake Codex RPC tests verify that a
+partial response line obeys the quota timeout and stderr is drained concurrently.
 
 The shared-runtime checks include the closed event schema and protocol-drift rejection, backend capability resolution, declarative workflow plans and concurrency defaults, prompt-layer purity, fail-closed mode policy, and debug tape bounds.
 
@@ -34,11 +46,20 @@ message completion without duplicate progress text.
 OpenCode regressions exercise a permission-blocked fake server through detached
 launch and wait-any, retained failure details, tool command visibility, nested
 foreign-session filtering, and SSE lines larger than 64 KiB with Unicode content.
+An additional local-model integration exercises the actual OpenCode 2 binary,
+including one-shot review, steering, interrupts, history and simultaneous server
+startup against the same cold and warm database. It uses a loopback fixture and
+isolated data directories; it does not use provider credentials or spend tokens:
+
+```bash
+PORCH_REAL_OPENCODE_BIN=/path/to/opencode python3 scripts/tests/opencode_v2_real_test.py -v
+```
 
 Opt-in real smoke tests spend tokens:
 
 ```bash
 PORCH_STEER_SMOKE=1 bash scripts/tests/steer/smoke_real.sh -a grok
+PORCH_STEER_SMOKE=1 bash scripts/tests/steer/smoke_real.sh -a agy-gemini-3.8-flash
 ```
 
 ## Cross-platform checks
@@ -47,7 +68,7 @@ Run `python scripts/tests/platform_test.py -v` from the skill directory with
 native Python (3.11+). These tests spend no model tokens and cover all steer
 imports, non-destructive PID probes, locks shared by two processes, nonblocking
 wait deadlines, exclusive session claims/no replay, process-tree cleanup,
-terminal-guard shutdown, and native supervisor Codex continuation. Windows also
+process cleanup, and native supervisor Codex continuation. Windows also
 checks Python/shell/batch launcher argument handling. Steering guidance after
 options is tested on Python 3.11 as well as newer runtimes. Symlink rejection is
 checked where the OS permits creating symlinks.

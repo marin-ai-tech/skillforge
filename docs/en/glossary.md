@@ -70,6 +70,9 @@ short definition and links to the page that explains the term in full.
 
 ## E
 
+- **Edit rule.** A local change a tracked source keeps over upstream content: delete files by a glob, or replace an
+  exact string in a file. Applied to every new upstream version before the checks. See
+  [Publishing and import](06-publishing-and-import.md#tracked-sources).
 - **Eval suite.** A skill's list of trigger, task and holdout cases plus an optional acceptance gate. See
   [Skill evals](17-skill-evals.md).
 - **Evidence.** Links or documents attached to a version that prove something about it, of kind `gate`, `run`,
@@ -207,6 +210,8 @@ short definition and links to the page that explains the term in full.
 
 - **Team.** A group of people who share private artifacts, with members and leads. See
   [Teams, visibility and ownership](11-teams-visibility-ownership.md).
+- **Tracked source.** The upstream git folder an artifact came from; the registry checks it and publishes a changed
+  folder as a beta version. See [Publishing and import](06-publishing-and-import.md#tracked-sources).
 - **Transfer Rate.** helped / uses over usage reports, shown as a percentage. See
   [Metrics dashboard](15-metrics-dashboard.md).
 - **Translated install.** An install the CLI converted to an agent's format; a scan compares it through the lock file.

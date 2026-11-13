@@ -10,6 +10,13 @@ import { buildTaskText, runReviewer, setSpawnIsolated, tryDecodeUtf8 } from "./r
 import { judge } from "./judge.js";
 import { LLM_PURPOSE, LLM_REVIEWER_ID, PROMPT_VERSION, runLlmReviewer } from "./llm-reviewer.js";
 import { renderReviewTab } from "./tab.js";
+import { PublicationGrants, budgetContextError, modelGrant, validGrant } from "./budget.js";
+import {
+  bindingForPublish,
+  budgetBackfill,
+  budgetRun,
+  registerBudgetRoutes,
+} from "./budget-routes.js";
 
 const FILES_LIMIT = 512 * 1024; // total of text files in a task is at most 512 KiB
 const MAX_NOTE = 500;
@@ -109,6 +116,8 @@ function serializeRun(row) {
     created_at: row.created_at,
     started_at: row.started_at,
     finished_at: row.finished_at,
+    request_id: row.request_id ?? null,
+    budget_grant_id: row.budget_grant_id ?? null,
   };
 }
 
@@ -139,12 +148,25 @@ function findActiveRun(db, type, name, version) {
     .get(type, name, version);
 }
 
-function insertRun(ctx, { type, name, version, requestedBy, trigger }) {
+function insertRun(
+  ctx,
+  { type, name, version, requestedBy, trigger, requestId, grantId, status = "queued" },
+) {
   const res = ctx.db
     .prepare(
-      "INSERT INTO ext_review_assistant_runs (artifact_type, artifact_name, version, status, requested_by, trigger, reviewers, judge, error, created_at) VALUES (?, ?, ?, 'queued', ?, ?, '[]', NULL, NULL, ?)",
+      "INSERT INTO ext_review_assistant_runs (artifact_type, artifact_name, version, status, requested_by, trigger, reviewers, judge, error, created_at, request_id, budget_grant_id) VALUES (?, ?, ?, ?, ?, ?, '[]', NULL, NULL, ?, ?, ?)",
     )
-    .run(type, name, version, requestedBy ?? null, trigger, nowIso());
+    .run(
+      type,
+      name,
+      version,
+      status,
+      requestedBy ?? null,
+      trigger,
+      nowIso(),
+      requestId ?? null,
+      grantId ?? null,
+    );
   return Number(res.lastInsertRowid);
 }
 
@@ -176,11 +198,14 @@ function llmActiveFor(ctx, type) {
   return type === "skill" && ctx.llm.status(LLM_PURPOSE).active;
 }
 
-/** Run composition: a `validation` run uses the model only; other runs use external reviewers and the model if enabled. */
+/** Triggers whose runs use the model only (the last two come with an Agent Space budget). */
+const LLM_ONLY_TRIGGERS = new Set(["validation", "backfill", "publication_validation"]);
+
+/** Run composition: model-only runs (budget runs too) use the model; other runs use external reviewers and the model if enabled. */
 function planReviewers(ctx, row) {
   const useLlm = llmActiveFor(ctx, row.artifact_type);
   const llm = { id: LLM_REVIEWER_ID, kind: "llm" };
-  if (row.trigger === "validation") {
+  if (row.budget_grant_id || LLM_ONLY_TRIGGERS.has(row.trigger)) {
     return useLlm ? { reviewers: [llm], judgeConfig: null } : { error: "llm_not_active" };
   }
   const lf = loadReviewersFile();
@@ -192,12 +217,19 @@ function planReviewers(ctx, row) {
   return { reviewers, judgeConfig: lf.judge ?? null };
 }
 
-function runAllReviewers(ctx, reviewers, artifact, detail, files, maxFindings) {
+function runAllReviewers(ctx, reviewers, artifact, detail, files, maxFindings, budgetGrant) {
   const checklist = CHECKLIST;
   return Promise.all(
     reviewers.map(async (r) => {
       if (r.kind === "llm") {
-        const res = await runLlmReviewer(ctx.llm, artifact, detail, files, maxFindings);
+        const res = await runLlmReviewer(
+          ctx.llm,
+          artifact,
+          detail,
+          files,
+          maxFindings,
+          budgetGrant,
+        );
         return { id: r.id, ...res };
       }
       const stdinText = buildTaskText(
@@ -226,7 +258,6 @@ function toReviewerRows(results) {
           model: r.model,
           prompt_version: r.prompt_version,
           truncated: r.truncated,
-          dropped_findings: r.dropped_findings,
         }
       : {}),
   }));
@@ -372,10 +403,14 @@ function backfillQueue(ctx, status) {
   }
 }
 
-async function executeRun(ctx, runId) {
+async function executeRun(ctx, runId, budgetGrant) {
   const db = ctx.db;
   const row = getRunRow(db, runId);
-  if (!row) return;
+  if (row?.status !== "queued") return;
+  if (row.budget_grant_id && !validGrant(budgetGrant)) {
+    setRunStatus(db, runId, "interrupted", "budget_grant_required");
+    return;
+  }
 
   const plan = planReviewers(ctx, row);
   if (plan.error) {
@@ -395,7 +430,16 @@ async function executeRun(ctx, runId) {
   const { artifact, detail } = resolved;
 
   const files = buildFiles(ctx, artifact, detail);
-  const results = await runAllReviewers(ctx, reviewers, artifact, detail, files, maxFindings);
+  const grant = budgetGrant ? modelGrant(row, budgetGrant) : undefined;
+  const results = await runAllReviewers(
+    ctx,
+    reviewers,
+    artifact,
+    detail,
+    files,
+    maxFindings,
+    grant,
+  );
 
   const judged = await judge(
     results.map((r) => ({ id: r.id, status: r.status, findings: r.findings })),
@@ -469,6 +513,19 @@ export async function register(ctx) {
       id: "0003_findings_index",
       sql: "CREATE INDEX IF NOT EXISTS ext_review_assistant_findings_run ON ext_review_assistant_findings (run_id)",
     },
+    // llm-budget-broker: runs paid from an Agent Space task budget.
+    {
+      id: "0004_recovery_request",
+      sql: "ALTER TABLE ext_review_assistant_runs ADD COLUMN request_id TEXT",
+    },
+    {
+      id: "0005_recovery_grant",
+      sql: "ALTER TABLE ext_review_assistant_runs ADD COLUMN budget_grant_id TEXT",
+    },
+    {
+      id: "0006_recovery_index",
+      sql: "CREATE UNIQUE INDEX IF NOT EXISTS ext_review_assistant_request ON ext_review_assistant_runs(request_id) WHERE request_id IS NOT NULL",
+    },
   ]);
 
   CHECKLIST = readChecklist(ctx.dir);
@@ -478,6 +535,17 @@ export async function register(ctx) {
     const p = queueTail.then(task, task);
     queueTail = p.catch(() => {});
     return p;
+  };
+  const deps = {
+    enqueue,
+    executeRun,
+    insertRun,
+    getRunRow,
+    serializeRun,
+    resolveVersion,
+    findActiveRun,
+    llmActiveFor,
+    bindings: new PublicationGrants(),
   };
 
   ctx.routes.register((app) => {
@@ -492,6 +560,8 @@ export async function register(ctx) {
       if (!resolved) {
         return reply.code(404).send({ error: "not_found" });
       }
+      const budgeted = budgetRun(ctx, deps, request, body, resolved, "manual");
+      if (budgeted) return reply.code(budgeted.code).send(budgeted.body);
 
       const lf = loadReviewersFile();
       const noFile = lf.missing || (Array.isArray(lf.reviewers) && lf.reviewers.length === 0);
@@ -517,6 +587,8 @@ export async function register(ctx) {
     app.post("/validation/runs", async (request, reply) => {
       if (!ctx.auth.requireRole(request, reply, "reviewer")) return;
       const { type, name, version } = request.body ?? {};
+      if (budgetContextError(request.body))
+        return reply.code(400).send({ error: "invalid_recovery_context" });
       if (typeof type !== "string" || typeof name !== "string") {
         return reply.code(404).send({ error: "not_found" });
       }
@@ -527,6 +599,8 @@ export async function register(ctx) {
       if (!status.active) {
         return reply.code(409).send({ error: "validation_inactive", reason: status.reason });
       }
+      const budgeted = budgetRun(ctx, deps, request, request.body, resolved, "validation");
+      if (budgeted) return reply.code(budgeted.code).send(budgeted.body);
       const existing = currentCheck(ctx.db, type, name, resolved.version, status.model);
       if (existing) return reply.code(200).send({ run: serializeRun(existing) });
       if (findActiveRun(ctx.db, type, name, resolved.version)) {
@@ -549,6 +623,8 @@ export async function register(ctx) {
       if (!status.active) {
         return reply.code(409).send({ error: "validation_inactive", reason: status.reason });
       }
+      const listed = budgetBackfill(ctx, deps, request, status);
+      if (listed) return reply.code(listed.code).send(listed.body);
       const { queue, skipped } = backfillQueue(ctx, status);
       for (const item of queue) {
         const id = insertRun(ctx, {
@@ -560,6 +636,8 @@ export async function register(ctx) {
       }
       return reply.code(200).send({ queued: queue.length, skipped });
     });
+
+    registerBudgetRoutes(app, ctx, deps);
 
     app.get("/runs/:id", async (request, reply) => {
       const id = Number(request.params.id);
@@ -628,6 +706,7 @@ export async function register(ctx) {
 
   ctx.events.on("artifact.published", (evt) => {
     const { type, name } = evt.artifact;
+    if (bindingForPublish(ctx, deps, evt)) return;
     const trigger = publishTrigger(ctx, type);
     if (!trigger) return;
     const version = evt.version.version;
@@ -647,7 +726,7 @@ export async function register(ctx) {
   ctx.events.on("server.started", () => {
     ctx.db
       .prepare(
-        "UPDATE ext_review_assistant_runs SET status = 'failed', error = 'interrupted by restart', finished_at = ? WHERE status IN ('queued','running')",
+        "UPDATE ext_review_assistant_runs SET status = CASE WHEN request_id IS NULL THEN 'failed' ELSE 'interrupted' END, error = 'interrupted by restart', finished_at = ? WHERE status IN ('queued','running')",
       )
       .run(nowIso());
   });

@@ -1,6 +1,6 @@
 import { toPublishFiles } from "../publish/files.ts";
 import type { FastifyPluginAsync } from "fastify";
-import { draftSkillMarkdown, type HarvestRule } from "@skillforge/core";
+import { draftRuleMarkdown, draftSkillMarkdown, type HarvestRule } from "@skillforge/core";
 import { requireRole } from "../auth/guard.ts";
 import { appendSystemEvent } from "../audit/journal.ts";
 import type { AppConfig } from "../config.ts";
@@ -21,6 +21,20 @@ type HarvestRow = {
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
+/** rule-artifacts: a draft is a rule by default; `type: "skill"` keeps the earlier skill draft. */
+type DraftType = "rule" | "skill";
+
+function draftType(raw: unknown): DraftType | null {
+  if (raw === undefined) return "rule";
+  return raw === "rule" || raw === "skill" ? raw : null;
+}
+
+function draftFile(type: DraftType, name: string, rules: HarvestRule[], origin: string) {
+  return type === "rule"
+    ? { path: `rules/${name}.md`, content: draftRuleMarkdown(name, rules, origin) }
+    : { path: `${name}/SKILL.md`, content: draftSkillMarkdown(name, rules, origin) };
+}
+
 function view(r: HarvestRow) {
   return {
     id: r.id,
@@ -31,7 +45,7 @@ function view(r: HarvestRow) {
   };
 }
 
-/** Skill drafts from recurring review rules (skill-harvest); admin only. */
+/** Rule (or skill) drafts from recurring review rules (skill-harvest, rule-artifacts); admin only. */
 export const harvestRoutes: FastifyPluginAsync<{ db: Database; config: AppConfig }> = async (
   app,
   opts,
@@ -88,7 +102,7 @@ export const harvestRoutes: FastifyPluginAsync<{ db: Database; config: AppConfig
     return reply.send({ items: rows.map(view) });
   });
 
-  app.post<{ Params: { id: string }; Body: { name?: unknown } }>(
+  app.post<{ Params: { id: string }; Body: { name?: unknown; type?: unknown } }>(
     "/api/v1/harvests/:id/draft",
     async (request, reply) => {
       if (!requireRole(request, reply, "admin")) return;
@@ -98,11 +112,17 @@ export const harvestRoutes: FastifyPluginAsync<{ db: Database; config: AppConfig
       if (typeof name !== "string" || !NAME_RE.test(name)) {
         return reply.code(400).send({ error: "bad_request", message: "name must be kebab-case" });
       }
+      const type = draftType(request.body?.type);
+      if (!type) {
+        return reply
+          .code(400)
+          .send({ error: "bad_request", message: "type must be rule or skill" });
+      }
       const h = view(row);
       if (h.rules.length === 0) return reply.code(422).send({ error: "no_rules" });
-      if (getArtifactByTypeName(db, "skill", name))
+      if (getArtifactByTypeName(db, type, name))
         return reply.code(409).send({ error: "name_taken" });
-      const md = draftSkillMarkdown(name, h.rules, `reviews of ${h.request.repo}`);
+      const file = draftFile(type, name, h.rules, `reviews of ${h.request.repo}`);
       const ctx = {
         db,
         dataDir: config.dataDir,
@@ -110,8 +130,8 @@ export const harvestRoutes: FastifyPluginAsync<{ db: Database; config: AppConfig
         role: request.user.role,
       };
       const stage = prepareArtifactPublish(ctx, {
-        type: "skill",
-        files: toPublishFiles([{ path: `${name}/SKILL.md`, content: md }]),
+        type,
+        files: toPublishFiles([file]),
         provenance: { source: "harvest", ref: `harvest:${h.id}` },
       });
       if (stage.kind !== "ready") return reply.code(422).send({ error: stage.kind, detail: stage });

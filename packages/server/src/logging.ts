@@ -19,7 +19,7 @@ const MAX_LOG_BYTES = 10 * 1024 * 1024;
 const MAX_ROTATED = 5;
 
 const SENSITIVE_KEY_RE =
-  /pass(word|wd)|token|secret|authorization|api[_-]?key|cookie|session[_-]?id/i;
+  /pass(word|wd)|token|secret|authorization|api[_-]?key|cookie|session[_-]?id|grant/i;
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -52,6 +52,8 @@ export function registerRedactSecrets(values: Iterable<string | null | undefined
 
 const URL_USERINFO_RE = /([a-z][a-z0-9+.-]*:\/\/)[^\s/"'@]*:[^\s/"'@]*@/gi;
 const BEARER_RE = /\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}/gi;
+/** Agent Space task budget grants (llm-budget-broker), with or without the `.<grant id>` suffix. */
+const BUDGET_GRANT_RE = /\bas_sf_[A-Za-z0-9_-]{43}(?:\.[0-9a-f-]{36})?/g;
 const KV_SECRET_RE =
   /(password|passwd|pwd|token|secret|api[_-]?key|authorization|cookie|client_secret|bind_password)(\s*[=:]\s*)([^\s"'&,;\\]{4,})/gi;
 
@@ -60,6 +62,7 @@ export function redactString(s: string): string {
   let out = s;
   out = out.replace(URL_USERINFO_RE, "$1[REDACTED]@");
   out = out.replace(BEARER_RE, "$1[REDACTED]");
+  out = out.replace(BUDGET_GRANT_RE, "[REDACTED]");
   out = out.replace(KV_SECRET_RE, "$1$2[REDACTED]");
   for (const secret of SECRET_VALUES) {
     if (out.includes(secret)) out = out.split(secret).join("[REDACTED]");

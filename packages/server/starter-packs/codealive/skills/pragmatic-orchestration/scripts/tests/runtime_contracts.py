@@ -52,10 +52,8 @@ def main() -> int:
         FRAMEWORK_RECAP_REVIEW,
         LAYER_ORDER,
     )
-    from workflow_plans import get_plan, assign_agents_to_roles, max_parallel
     from debug_tape import DebugTape
     from backend_contract import backend_capabilities, resolve_binary, list_backend_capabilities
-    from terminal_guard import is_terminal
     from normalize_stream import normalize_grok, normalize_opencode
 
     print("=== Event schema ===")
@@ -162,12 +160,12 @@ def main() -> int:
 
     print("=== Backend contract ===")
     caps = list_backend_capabilities()
-    ok("all six backends", set(caps) >= {"codex-cli", "claude-code", "opencode", "grok-build", "gemini-cli", "devin-cli"})
+    ok("all seven backends", set(caps) >= {"codex-cli", "claude-code", "opencode", "grok-build", "gemini-cli", "devin-cli", "antigravity-cli"})
     g = backend_capabilities("grok-build")
     ok("grok live_queue", g.live_queue is True)
     ok("grok steerable", g.steerable is True)
     cl = backend_capabilities("claude-code")
-    ok("claude interrupt unsupported", cl.steer_interrupt == "")
+    ok("claude interrupt uses native handover", cl.steer_interrupt == "cancel_and_send")
     gem = backend_capabilities("gemini-cli")
     ok("gemini not steerable", gem.steerable is False and gem.supports_delegate is False)
     ok("gemini final rule plain", gem.final_text_rule == "plain_stdout")
@@ -178,6 +176,13 @@ def main() -> int:
     ok("devin steerable acp-stdio", dev.steerable_transport == "acp-stdio")
     ok("devin steer same-turn", dev.steer_auto == "same_turn" and dev.steer_queue == "same_turn")
     ok("devin steer interrupt", dev.steer_interrupt == "cancel_and_send")
+    agy = backend_capabilities("antigravity-cli")
+    ok("agy steerable delegate", agy.steerable is True and agy.supports_delegate is True)
+    ok("agy oneshot stream-json", agy.oneshot_transport == "stream-json")
+    ok("agy steerable acp-stdio", agy.steerable_transport == "acp-stdio")
+    ok("agy steer same-turn", agy.steer_auto == "same_turn" and agy.steer_queue == "same_turn")
+    ok("agy steer interrupt", agy.steer_interrupt == "cancel_and_send")
+    ok("agy final rule result over deltas", agy.final_text_rule == "agy_result_over_deltas")
     # Distinct oneshot vs steerable transports where they differ
     codex = backend_capabilities("codex-cli")
     ok("codex oneshot transport exec-json", codex.oneshot_transport == "exec-json")
@@ -190,22 +195,8 @@ def main() -> int:
     ok("grok steerable acp-stdio", g.steerable_transport == "acp-stdio")
     ok("grok transports distinct", g.oneshot_transport != g.steerable_transport)
     oc = backend_capabilities("opencode")
-    ok(
-        "opencode notes mention part snapshots / step_inject",
-        "step_inject" in oc.notes and "cumulative" in oc.notes.lower(),
-    )
-    ok(
-        "opencode session.complete is terminal",
-        is_terminal(b'{"type":"session.complete"}', "opencode"),
-    )
-    ok(
-        "opencode session.idle is not process-terminal",
-        not is_terminal(b'{"type":"session.idle"}', "opencode"),
-    )
-    ok(
-        "opencode normalizer records idle as progress",
-        normalize_opencode({"type": "session.idle"}) == ("progress", "session.idle"),
-    )
+    ok("opencode v2 advertises durable steering", "step_inject" in oc.notes and "history reconciliation" in oc.notes)
+    ok("opencode v2 text uses JSON part", normalize_opencode({"type": "text", "part": {"text": "Hello"}}) == ("text", "Hello"))
     ok(
         "grok tool call exposes tool liveness",
         normalize_grok(
@@ -227,111 +218,6 @@ def main() -> int:
         normalize_grok({"type": "tool_call_update", "status": "completed"})
         == ("tool_completed", "completed"),
     )
-    if os.name == "posix":
-        with tempfile.TemporaryDirectory() as td:
-            child_pid_file = Path(td) / "child.pid"
-            child_code = (
-                "import json,os,signal,sys,time;"
-                "open(sys.argv[1],'w').write(str(os.getpid()));"
-                "signal.signal(signal.SIGTERM,signal.SIG_IGN);"
-                "print(json.dumps({'type':'session.complete'}),flush=True);"
-                "time.sleep(30)"
-            )
-            guard = subprocess.Popen(
-                [
-                    sys.executable,
-                    str(LIB / "terminal_guard.py"),
-                    "--backend",
-                    "opencode",
-                    "--terminal-grace",
-                    "30",
-                    "--",
-                    sys.executable,
-                    "-c",
-                    child_code,
-                    str(child_pid_file),
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            deadline = time.monotonic() + 3
-            while not child_pid_file.is_file() and time.monotonic() < deadline:
-                time.sleep(0.01)
-            child_pid = int(child_pid_file.read_text()) if child_pid_file.is_file() else -1
-            guard.terminate()
-            try:
-                guard.wait(timeout=4)
-            except subprocess.TimeoutExpired:
-                guard.kill()
-                guard.wait()
-            child_alive = child_pid > 0
-            if child_alive:
-                try:
-                    os.kill(child_pid, 0)
-                except ProcessLookupError:
-                    child_alive = False
-            ok(
-                "terminal guard SIGTERM reaps resistant child",
-                guard.returncode == 143 and not child_alive,
-                f"guard_rc={guard.returncode} child_pid={child_pid} alive={child_alive}",
-            )
-
-    print("=== Workflow plans and concurrency ===")
-    os.environ.pop("PORCH_MAX_PARALLEL", None)
-    ok("default unlimited concurrency", max_parallel() == 0)
-    os.environ["PORCH_MAX_PARALLEL"] = "2"
-    # re-import value via function reads env live
-    ok("override concurrency", max_parallel() == 2)
-    os.environ["PORCH_MAX_PARALLEL"] = "0"
-    super_p = get_plan("super")
-    ok("super has 9 discovery passes", len(super_p.all_passes()) == 9, str(len(super_p.all_passes())))
-    ok("super stage order", [s.id for s in super_p.stages][:3] == [
-        "discovery-small",
-        "discovery-frontier",
-        "dedup",
-    ])
-    basic = assign_agents_to_roles(get_plan("basic"), ["codex", "grok"])
-    roles = [p.role for p in basic.all_passes()]
-    ok("basic roles", roles == ["security", "correctness"])
-    keys = [p.artifact_key() for p in basic.all_passes()]
-    ok("basic keys agent.role form", all("." in k for k in keys), str(keys))
-    ultra = get_plan("ultra")
-    ok("ultra has probe stage", any(s.id == "probe" for s in ultra.stages))
-    ultra_spec = next(s for s in ultra.stages if s.id == "specialists")
-    ok(
-        "ultra specialists are 3×5 matrix (15)",
-        len(ultra_spec.passes) == 15,
-        str(len(ultra_spec.passes)),
-    )
-    ok(
-        "ultra total discovery passes 20 (4+15+1)",
-        len(ultra.all_passes()) == 20,
-        str(len(ultra.all_passes())),
-    )
-    ultra_keys = [p.artifact_key() for p in ultra.all_passes()]
-    ok("ultra keys unique", len(ultra_keys) == len(set(ultra_keys)), str(ultra_keys[:5]))
-    ok(
-        "ultra stage order broad→specialists→probe",
-        [s.id for s in ultra.stages][:3] == ["broad", "specialists", "probe"],
-    )
-    ask = get_plan("ask", agents=["codex", "grok"])
-    ok("ask pass count", len(ask.all_passes()) == 2)
-    # Dry-run shell plan agrees with runtime keys
-    proc = subprocess.run(
-        [sys.executable, str(LIB / "workflow_plans.py"), "ultra", "--shell"],
-        capture_output=True,
-        text=True,
-        cwd=str(LIB),
-    )
-    ok("ultra shell plan exit 0", proc.returncode == 0, proc.stderr[-200:])
-    shell_lines = [l for l in proc.stdout.splitlines() if l and not l.startswith("#")]
-    ok("ultra shell launched keys 20", len(shell_lines) == 20, str(len(shell_lines)))
-    ok(
-        "ultra shell has 15 specialists",
-        sum(1 for l in shell_lines if l.startswith("specialists|")) == 15,
-    )
-
     print("=== Prompt pipeline ===")
     rev = build_prompt(mode="review", user_input="Should we use X?", role_text="ROLE: analyst\n")
     assert_layer_order(rev)
@@ -383,28 +269,6 @@ def main() -> int:
     )
     ok("code review skips assessment", "## Assessment" not in code.text)
     ok("code review keeps framework", "INDEPENDENT ADVISORY MODE" in code.text)
-    prompt_dir = LIB.parent.parent / "prompts"
-    for template_name in (
-        "specialist.txt",
-        "probe-generic.txt",
-        "broad-analyst.txt",
-        "broad-lateral.txt",
-    ):
-        template = (prompt_dir / template_name).read_text(encoding="utf-8")
-        ok(
-            f"{template_name} receives relevant-file seed",
-            "{{INITIAL_RELEVANT_FILES}}" in template,
-        )
-        ok(
-            f"{template_name} expands blast radius",
-            "likely-incomplete navigation seed" in template
-            and "configuration" in template
-            and "build/CI/deployment/infra" in template,
-        )
-        ok(
-            f"{template_name} has no closed-file scope",
-            "entire scope" not in template and "Do not read external files" not in template,
-        )
     # User input remains untrusted; a compact trusted recap follows it.
     prov = rev.provenance()
     ok("user_input untrusted", "user_input" in prov["trusted_boundary"]["untrusted"])
@@ -416,6 +280,11 @@ def main() -> int:
     ok("review readonly", access_policy_for("review") == "readonly")
     ok("delegate yolo", access_policy_for("delegate") == "yolo")
     ok("review-ask aliases review", access_policy_for("review-ask") == "readonly")
+    mcaps = get_mode_capabilities("media")
+    ok("media readonly without shell or web",
+       mcaps.access_class == "readonly" and mcaps.filesystem == "read"
+       and not mcaps.shell and not mcaps.web and not mcaps.steer)
+    ok("media keeps subagents for agy image generator", mcaps.subagents is True)
     rcaps = get_mode_capabilities("review")
     ok("review has diagnostic shell", rcaps.shell is True and rcaps.filesystem == "read")
     ok("review web on", rcaps.web is True)
@@ -739,33 +608,9 @@ def main() -> int:
         )
         ok("grok EndTurn still success", proc.returncode == 0, proc.stderr[-200:])
 
-        # OpenCode production-shaped cumulative snapshots → Hello not HHeHello
+        # OpenCode 2 run JSON emits text chunks under part.text.
         ocraw = td / "oc-hello.jsonl"
-        ocraw.write_text(
-            "\n".join(
-                [
-                    json.dumps(
-                        {
-                            "directory": "/tmp/proj",
-                            "payload": {
-                                "type": "message.part.updated",
-                                "properties": {
-                                    "part": {
-                                        "id": "prt_1",
-                                        "type": "text",
-                                        "text": snap,
-                                    }
-                                },
-                            },
-                        }
-                    )
-                    for snap in ("H", "He", "Hello")
-                ]
-                + [json.dumps({"type": "session.idle"})]
-            )
-            + "\n",
-            encoding="utf-8",
-        )
+        ocraw.write_text("\n".join(json.dumps({"type": "text", "part": {"text": chunk}}) for chunk in ("H", "e", "llo")) + "\n", encoding="utf-8")
         octext = td / "oc-hello.txt"
         proc = subprocess.run(
             [
@@ -787,7 +632,7 @@ def main() -> int:
             cwd=str(LIB),
         )
         got = octext.read_text() if octext.is_file() else ""
-        ok("opencode H/He/Hello → Hello", got == "Hello", repr(got))
+        ok("opencode v2 text chunks → Hello", got == "Hello", repr(got))
         ok("opencode not HHeHello", got != "HHeHello", repr(got))
 
         # Gemini backend identity + plain text

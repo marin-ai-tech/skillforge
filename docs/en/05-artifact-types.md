@@ -1,6 +1,6 @@
 # Artifact types
 
-SkillForge stores seven types of artifact. The type you choose when you publish decides which files the package
+SkillForge stores eight types of artifact. The type you choose when you publish decides which files the package
 must contain, which checks run on it, where its files land (the canonical layout) and how it can be installed.
 Use this page to pick the right type and to understand the Blocking (`E_*`) and Warning (`W_*`) codes that
 validation reports. In-app help: `getting-started/artifact-types`.
@@ -27,7 +27,7 @@ validation at once (`E_TYPE_UNKNOWN`).
 Frontmatter that is not valid YAML is read line by line with the warning `W_FRONTMATTER_LOOSE`; a key that is
 not known for the type gives `W_UNKNOWN_FRONTMATTER_KEY`, often a typo.
 
-## The seven types at a glance
+## The eight types at a glance
 
 | Type | Use it for | Required files | Canonical path |
 |---|---|---|---|
@@ -38,6 +38,7 @@ not known for the type gives `W_UNKNOWN_FRONTMATTER_KEY`, often a typo.
 | `plugin` | a complete Claude Code plugin bundle | `.claude-plugin/plugin.json` + components | plugin root |
 | `settings` | an approved Claude Code settings baseline | `SETTINGS.md` + `settings.json` | `settings/<name>/` |
 | `mcp-server` | a description of an approved MCP server | `MCP.md` + `server.json` | `mcp/<name>/` |
+| `rule` | a project rule the agent follows always or for some files | exactly one Markdown file | `rules/<name>.md` |
 
 ## skill
 
@@ -144,6 +145,25 @@ run or reach the server with the field names of the official MCP registry. `pack
 
 SkillForge does not install an MCP server into agents yet: people configure it in their agent by hand, as its
 artifact page shows. The MCP policy and the server card are described in [MCP](13-mcp.md).
+
+## rule
+
+A project rule: one Markdown file with `name`, `description`, optional `paths` (a YAML list of file patterns) and
+`tags`. Without `paths` the rule applies always and the agent loads it on every turn; with `paths` it loads when the
+agent works with matching files.
+
+| Refused | Code |
+|---|---|
+| `paths` that is not a non-empty list of patterns | `E_RULE_PATHS_INVALID` |
+| more than one file | `E_RULE_EXTRA_FILE` |
+| a rule without `paths` longer than 1500 tokens | `E_RULE_ALWAYS_LONG` |
+
+`skillforge install rule/<name>` writes `.claude/rules/<name>.md` for Claude Code (project or user scope) and
+`.cursor/rules/<name>.mdc` for Cursor (project scope; `paths` become `globs`, a rule without them gets
+`alwaysApply: true`). Codex, Gemini CLI and Qwen Code read rules from `AGENTS.md`, `GEMINI.md` and `QWEN.md`;
+SkillForge does not write into those shared files yet. A rule is not a marketplace plugin. Its context cost is the
+whole body: every turn without `paths`, on use with them. Nobody "uses" a rule, so it ages by confirmation: a fresh
+`validate` by a reviewer or a `gate` evidence by the owner brings an aging rule back to `active`.
 
 ## Which agents each type reaches
 

@@ -2,6 +2,7 @@ import { successorsOf } from "../replacements.ts";
 import { applyLayers, fetchLayers, layersDigest, type Layer } from "../overlays.ts";
 import { fetchAssignments, keyOf, type Assignments } from "../assignments.ts";
 import { verifyBundle, type VersionMeta } from "../verify.ts";
+import { ensureOpencodeInstructions, warnPathRule } from "../opencode-rules.ts";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -281,6 +282,10 @@ function translateBundle(
 ): UnzippedFile[] {
   if (method === "files") return files;
   if (method === "cursor-rule") return translateRuleBundle(files, name);
+  if (method === "opencode-rule") {
+    warnPathRule(ctx, files, name);
+    return files;
+  }
   const agent = isAgentMethod(method);
   const main = `${agent ? "agents" : "commands"}/${name}.md`;
   if (!files.some((f) => f.path === main)) {
@@ -599,6 +604,8 @@ export async function installOne(
     allowRisky: flags.allowRisky,
     quiet,
   });
+  // opencode-rules: the config line first, so an unreadable config stops before any file is written.
+  if (method === "opencode-rule") ensureOpencodeInstructions(ctx, path.dirname(into), quiet);
 
   const runtimeField = target.runtime ? { runtime: target.runtime.id } : {};
   const pinField = pin !== undefined ? { pin } : {};

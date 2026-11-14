@@ -37,6 +37,7 @@ Support is verified against the real client in automated tests.
 | `plugin` | not supported: "Claude Code plugins are not supported by opencode; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by opencode (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in OpenCode by hand as the artifact page shows |
+| `rule` | copied as is to `rules/<name>.md`, project scope only; the line `.opencode/rules/*.md` is added once to `instructions` of the project's OpenCode config, so OpenCode loads the rules on every turn (it has no path rules) |
 
 ## Install and sync
 

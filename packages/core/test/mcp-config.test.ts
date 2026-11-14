@@ -167,6 +167,34 @@ test("variable references by dialect and non-secret literals", () => {
   assert.equal(plain.literal_secret, false);
 });
 
+// fix-mcp-path-secret: a `_FILE`/`_PATH` variable that holds a path names where the secret is, not the
+// secret; a non-path value or a key-shaped value under such a name, and a path under a plain secret name, stay secrets.
+test("a path to a secret file is not a literal secret", () => {
+  const vars = (env: Record<string, string>) =>
+    one("claude-mcp-json", { command: "node", args: ["server.js"], env }) as {
+      env: Array<{ name: string; kind: string; secret_like: boolean }>;
+      literal_secret: boolean;
+    };
+  const paths = vars({
+    SKILLFORGE_TOKEN_FILE: "C:\\Users\\me\\.skillforge\\token",
+    GITHUB_TOKEN_PATH: "~/.config/gh/token",
+    "X-AUTH-DIR": "./secrets",
+  });
+  for (const v of paths.env) assert.equal(v.secret_like, false, v.name);
+  assert.equal(paths.literal_secret, false);
+
+  for (const [name, value] of [
+    ["API_TOKEN_FILE", "abc123"],
+    ["SECRET_FILE", "ghp_0123456789abcdef"],
+    ["GITHUB_TOKEN", "/home/me/token"],
+    ["AUTH_FILE", "a b/c"],
+  ]) {
+    const s = vars({ [name!]: value! });
+    assert.equal(s.env[0]!.secret_like, true, `${name}=${value}`);
+    assert.equal(s.literal_secret, true, `${name}=${value}`);
+  }
+});
+
 test("broken and foreign text does not throw", () => {
   for (const dialect of [
     "claude-mcp-json",

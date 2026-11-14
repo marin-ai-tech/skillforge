@@ -3,6 +3,28 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.9 — 2026-11-14
+
+### Added
+- Rules install into OpenCode: `skillforge install rule/<name> --runtime opencode` (and `sync`) writes
+  `.opencode/rules/<name>.md` and adds `.opencode/rules/*.md` once to `instructions` in the project's OpenCode config,
+  keeping its comments and other keys; a config it cannot read stops the install with the line to add by hand.
+- `skillforge sessions import --harness opencode --root <dir>` counts skill use from OpenCode session exports
+  (`opencode export`), with the same four-field facts as for Claude Code.
+- MCP tool `read_artifact_files`: every file of a version in one call, with files over the limits listed in `omitted`.
+- A file built from a registry artifact can name it in front matter (`skillforge-source: <type>/<name>@<version>`);
+  `agent scan` then compares it with that artifact instead of showing it as `local_only` and the source as
+  `registry_only`.
+
+### Fixed
+- `agent scan --mcp` no longer flags a path under a `_FILE`, `_PATH` or `_DIR` variable (such as
+  `SKILLFORGE_TOKEN_FILE`) as a literal secret.
+
+### Compatibility
+- `install` and `sync` of a rule with `--runtime opencode` used to refuse or skip it; now they install it and may create
+  or edit the project's `opencode.json`.
+- MCP `tools/list` has five tools. The database gets a column for the source marker (migration 0052).
+
 ## 0.5.8 — 2026-11-13
 
 ### Security

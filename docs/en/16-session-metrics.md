@@ -61,10 +61,13 @@ otherwise. When no such command ran, the fact is `none` and does not count towar
 ## CLI
 
 ```bash
-skillforge sessions import [--harness claude-code] [--root <dir>] [--since <date>] [--dry-run] [--json]
+skillforge sessions import [--harness claude-code|opencode] [--root <dir>] [--since <date>] [--dry-run] [--json]
 ```
 
 - `--root` defaults to `~/.claude/projects`, or `SKILLFORGE_SESSIONS_ROOT` when set.
+- `--harness opencode` reads OpenCode session exports (`opencode export <session-id> > <dir>/<session-id>.json`)
+  and needs `--root <dir>`: OpenCode has no documented session store. A completed `skill` tool call is a use; the
+  last test or build command after it decides `pass` or `fail`.
 - `--since` uploads only facts with `used_at` on or after that ISO date.
 - `--dry-run` prints the facts that would be sent and uploads nothing, so you can check exactly what leaves the
   machine.

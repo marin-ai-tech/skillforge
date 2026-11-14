@@ -116,6 +116,7 @@ function printCompare(
       status: string;
       local?: { version?: string | null; digest?: string };
       registry?: { latest_version?: string | null } | null;
+      source?: { type: string; name: string; version: string };
     }>;
   },
 ): void {
@@ -123,7 +124,15 @@ function printCompare(
   ctx.out.write(
     `summary: local_only=${s.local_only} in_sync=${s.in_sync} outdated=${s.outdated} modified=${s.modified} registry_only=${s.registry_only}`,
   );
-  const rows = data.items.map((i) => [i.key, i.status, formatLocal(i), formatRegistry(i)]);
+  // agent-source-marker: a built file names the artifact it was built from.
+  const from = (i: (typeof data.items)[number]) =>
+    i.source ? ` (from ${i.source.type}/${i.source.name}@${i.source.version})` : "";
+  const rows = data.items.map((i) => [
+    i.key,
+    i.status,
+    formatLocal(i),
+    formatRegistry(i) + from(i),
+  ]);
   ctx.out.printTable(["type/name", "status", "local", "registry"], rows);
 }
 

@@ -3,6 +3,7 @@ import { getArtifactByTypeName, listArtifacts, listVersions, type VersionDetail 
 import type { AgentItemRow, AgentRow } from "./store.ts";
 import { listAgentItems } from "./store.ts";
 import { canView, type Viewer } from "../visibility/index.ts";
+import type { SourceMarker } from "./source-marker.ts";
 
 export type CompareSummary = {
   local_only: number;
@@ -27,6 +28,8 @@ export type CompareItem = {
   } | null;
   changed_files?: string[];
   translated?: boolean;
+  /** agent-source-marker: the visible registry artifact this file was built from. */
+  source?: SourceMarker;
 };
 
 export type RegistryOnlyItem = {
@@ -107,7 +110,38 @@ function modifiedChangedFiles(
   return item.files.map((f) => f.path).sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * agent-source-marker: a file built from a visible registry artifact is compared with that artifact by the version
+ * in its marker (its content differs from the source by design). null: no marker or the source is not visible.
+ */
+function compareBuilt(db: Database, item: AgentItemRow, viewer: Viewer): CompareItem | null {
+  const src = item.source;
+  if (!src) return null;
+  const art = getArtifactByTypeName(db, src.type, src.name);
+  if (!art || art.purged_at || !canView(db, viewer, art)) return null;
+  const versions = listVersions(db, art.id).filter((v) => !v.purged);
+  const known = versions.some((v) => v.version === src.version);
+  const status = src.version === art.latest_version ? "in_sync" : known ? "outdated" : "modified";
+  return withTranslated(item, {
+    key: item.key,
+    type: item.type,
+    name: item.name,
+    status,
+    root: item.root,
+    local: { version: item.version, digest: item.digest, files: item.files.length },
+    registry: {
+      status: art.status,
+      latest_version: art.latest_version,
+      latest_digest: pickLatestVersion(versions, art.latest_version)?.digest ?? null,
+      matched_version: known ? src.version : null,
+    },
+    source: { ...src },
+  });
+}
+
 function compareOne(db: Database, item: AgentItemRow, viewer: Viewer): CompareItem {
+  const built = compareBuilt(db, item, viewer);
+  if (built) return built;
   const art = getArtifactByTypeName(db, item.type, item.name);
   if (!art || art.purged_at || !canView(db, viewer, art)) return localOnlyItem(item);
 
@@ -147,6 +181,7 @@ export function compareAgent(
   const viewer = opts.viewer ?? null;
   const items = listAgentItems(db, agent.id).map((it) => compareOne(db, it, viewer));
   const keys = new Set(items.map((i) => i.key));
+  for (const i of items) if (i.source) keys.add(`${i.source.type}/${i.source.name}`);
 
   const registryStatus = opts.registryStatus ?? "active";
   const registry_only: RegistryOnlyItem[] = [];

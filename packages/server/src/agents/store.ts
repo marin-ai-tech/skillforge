@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { Database } from "../db.ts";
 import type { SnapshotItem } from "./scan.ts";
 import type { DuplicateGroup } from "./duplicates.ts";
+import { parseSourceMarkerJson, type SourceMarker } from "./source-marker.ts";
 
 export type AgentKind = "upload" | "server";
 
@@ -30,6 +31,8 @@ export type AgentItemRow = {
   root: string;
   scanned_at: string;
   translated: boolean;
+  /** agent-source-marker: the artifact the file was built from, or null. */
+  source?: SourceMarker | null;
 };
 
 function newId(): string {
@@ -83,6 +86,7 @@ function mapItem(row: Record<string, unknown>): AgentItemRow {
     root: String(row.root),
     scanned_at: String(row.scanned_at),
     translated: Number(row.translated ?? 0) !== 0,
+    source: row.source == null ? null : parseSourceMarkerJson(String(row.source)),
   };
 }
 
@@ -199,8 +203,8 @@ export function replaceItems(
 ): void {
   db.prepare("DELETE FROM agent_items WHERE agent_id = ?").run(agentId);
   const insert = db.prepare(
-    `INSERT INTO agent_items (agent_id, key, type, name, digest, files, version, root, scanned_at, translated)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO agent_items (agent_id, key, type, name, digest, files, version, root, scanned_at, translated, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const it of items) {
     insert.run(
@@ -214,6 +218,7 @@ export function replaceItems(
       it.root,
       scannedAt,
       it.translated ? 1 : 0,
+      it.source ? JSON.stringify(it.source) : null,
     );
   }
   bumpRegistryEpoch();

@@ -97,7 +97,9 @@ export function organisationInventory(db: Database, viewer: Viewer, dataDir?: st
       p.last_scan = agent.scanned_at;
     for (const item of compareAgent(db, agent, { viewer }).items) {
       const status = copyStatus(item);
-      copies.push({ type: item.type, name: item.name, status, digest: item.local.digest, person });
+      // agent-source-marker: a built copy counts at its source artifact.
+      const id = item.source ?? item;
+      copies.push({ type: id.type, name: id.name, status, digest: item.local.digest, person });
       p.copies++;
       if (status === "unregistered") p.unregistered++;
     }

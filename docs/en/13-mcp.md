@@ -10,16 +10,17 @@ Second, the registry describes the other MCP servers your company approves, as a
 ### What an agent can do
 
 The endpoint is `POST /mcp` (JSON-RPC 2.0, Streamable HTTP), also reachable through the `skillforge mcp`
-stdio bridge. It offers four tools:
+stdio bridge. It offers five tools:
 
 | Tool | What it does |
 |---|---|
 | `search_artifacts` | Search approved artifacts |
 | `get_artifact` | Return an artifact with its files, each with `sha256` and a `binary` flag, and the version `digest` |
 | `read_artifact_file` | Return one file: UTF-8 text up to 256 KiB, other files up to 4 MiB as base64 |
+| `read_artifact_files` | Return all files of a version in one call, each as `read_artifact_file` does; files over 4 MiB or past 8 MiB in one answer are listed in `omitted` with a reason |
 | `record_usage` | Report that an artifact was applied and whether it helped, optionally with `basis` `loaded` or `assigned` |
 
-The first three only read. Through MCP an agent cannot publish, change a lifecycle status or install files;
+The first four only read. Through MCP an agent cannot publish, change a lifecycle status or install files;
 that stays with `skillforge install` and the web interface.
 
 ### What an agent can see

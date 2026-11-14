@@ -70,6 +70,56 @@ test("get_artifact: version digest and sha256 of each file as in the registry; b
   assert.equal(byPath[skillPath].binary, false);
 });
 
+// mcp-read-files: all files of a version in one call, same per-file form as read_artifact_file; a file
+// over 4 MiB and files past the 8 MiB budget are listed in omitted, so every file is in exactly one list.
+test("read_artifact_files: text and PNG with exact bytes, the big file omitted as too_large", async () => {
+  const res = await call("read_artifact_files", { type: "skill", name: "bin-skill" });
+  assert.notEqual(res.isError, true, JSON.stringify(res).slice(0, 300));
+  const data = res.structuredContent;
+  assert.equal(data.version, "0.1.0");
+  const meta = await call("get_artifact", { type: "skill", name: "bin-skill" });
+  assert.equal(data.digest, meta.structuredContent.digest);
+  const byPath = Object.fromEntries(data.files.map((f) => [f.path, f]));
+  const skill = data.files.find((f) => f.path.endsWith("SKILL.md"));
+  const png = data.files.find((f) => f.path.endsWith("assets/cover.png"));
+  assert.equal(skill.encoding, "utf-8");
+  assert.equal(skill.text, SKILL_MD);
+  assert.equal(png.encoding, "base64");
+  assert.ok(Buffer.from(png.content_base64, "base64").equals(PNG));
+  assert.equal(png.sha256, sha(PNG));
+  assert.equal(png.size, PNG.length);
+  assert.deepEqual(data.omitted.map((o) => [o.path.replace(/^.*assets\//, "assets/"), o.reason, o.size]), [["assets/big.bin", "too_large", BIG.length]]);
+  const all = [...data.files.map((f) => f.path), ...data.omitted.map((o) => o.path)].sort();
+  assert.deepEqual(all, meta.structuredContent.files.map((f) => f.path).sort(), "every file in exactly one list");
+  assert.equal(Object.keys(byPath).length, 2);
+});
+
+test("read_artifact_files: past the 8 MiB budget files go to omitted as budget; candidate is not found", async () => {
+  const parts = [randomBytes(3 * 1024 * 1024), randomBytes(3 * 1024 * 1024), randomBytes(3 * 1024 * 1024)];
+  const md = SKILL_MD.replaceAll("bin-skill", "wide-skill");
+  const files = [
+    { path: "SKILL.md", content_base64: Buffer.from(md).toString("base64") },
+    ...parts.map((b, i) => ({ path: `assets/part-${i + 1}.bin`, content_base64: b.toString("base64") })),
+  ];
+  const pub = await api(base, "POST", "/api/v1/artifacts", { type: "skill", files }, { cookie: admin.cookie });
+  assert.equal(pub.status, 201, JSON.stringify(pub.data));
+  const t = await api(base, "POST", "/api/v1/artifacts/skill/wide-skill/transitions", { to: "active", reason: "fixture" }, { cookie: admin.cookie });
+  assert.equal(t.status, 200, JSON.stringify(t.data));
+  const data = (await call("read_artifact_files", { type: "skill", name: "wide-skill" })).structuredContent;
+  const sent = data.files.reduce((s, f) => s + f.size, 0);
+  assert.ok(sent <= 8 * 1024 * 1024, `sent ${sent} bytes`);
+  assert.deepEqual(data.files.map((f) => f.path.replace(/^.*assets\//, "assets/")).filter((p) => p.startsWith("assets/")), ["assets/part-1.bin", "assets/part-2.bin"]);
+  assert.deepEqual(data.omitted.map((o) => [o.path.replace(/^.*assets\//, "assets/"), o.reason]), [["assets/part-3.bin", "budget"]]);
+  for (const f of data.files.filter((x) => x.path.includes("part-"))) {
+    const i = Number(f.path.match(/part-(\d)/)[1]) - 1;
+    assert.equal(f.sha256, sha(parts[i]));
+  }
+
+  const draft = await call("read_artifact_files", { type: "skill", name: "draft-skill" });
+  assert.equal(draft.isError, true);
+  assert.match(draft.content[0].text, /not found/i);
+});
+
 test("read_artifact_file: utf-8 text, PNG as base64 with the correct bytes, a file over 4 MiB gives an error naming the limit", async () => {
   const listing = (await call("get_artifact", { type: "skill", name: "bin-skill" })).structuredContent.files;
   const path = (suffix) => listing.find((f) => f.path.endsWith(suffix)).path;

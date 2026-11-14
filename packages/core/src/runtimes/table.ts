@@ -9,6 +9,7 @@ export type RuntimeScope = "project" | "user";
  * How an artifact type is installed for a runtime:
  * `files` — canonical bundle paths as is; `gemini-toml` / `opencode-md` / `cursor-md` / `qwen-md` — command
  * translation; `codex-toml` / `opencode-agent` / `cursor-agent` — agent translation;
+ * `cursor-rule` / `opencode-rule` — rule translation (opencode-rule also adds the rules folder to `instructions`);
  * `plugin` — only via the Claude Code marketplace (`/plugin install`); `settings` — only `skillforge settings apply`.
  */
 export type RuntimeInstallMethod =
@@ -21,6 +22,7 @@ export type RuntimeInstallMethod =
   | "opencode-agent"
   | "cursor-agent"
   | "cursor-rule"
+  | "opencode-rule"
   | "plugin"
   | "settings";
 
@@ -184,7 +186,17 @@ export const RUNTIMES: readonly RuntimeDef[] = [
     docs_url: "https://opencode.ai/docs/skills",
     project_dir: ".opencode",
     user_dir: ".config/opencode",
-    types: nonClaudeTypes("opencode", { method: "opencode-md" }, { method: "opencode-agent" }),
+    types: nonClaudeTypes(
+      "opencode",
+      { method: "opencode-md" },
+      { method: "opencode-agent" },
+      {
+        method: "opencode-rule",
+        scopes: ["project"],
+        scope_reason:
+          "rules are not installed into opencode in the user scope (SkillForge adds them to the project config only); use --scope project",
+      },
+    ),
   },
   {
     id: "qwen",

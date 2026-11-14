@@ -14,6 +14,7 @@ import {
 import { putBlob } from "../blobs.ts";
 import { dedupeSnapshotItems, type DuplicateGroup } from "./duplicates.ts";
 import { pathInsideRoot } from "./roots.ts";
+import { sourceMarkerOf, type SourceMarker } from "./source-marker.ts";
 
 export type SnapshotFile = { path: string; content: Uint8Array };
 
@@ -41,6 +42,8 @@ export type SnapshotItem = {
   root: string;
   /** True when digest/version came from a lock match on installed foreign files. */
   translated?: boolean;
+  /** agent-source-marker: the registry artifact this file was built from, by its front matter. */
+  source?: SourceMarker;
 };
 
 export type SnapshotInvalid = {
@@ -270,8 +273,10 @@ export function buildSnapshot(
 
   for (const c of scanned.candidates) {
     const locked = lockKeyValid(c) ? matchLockEntry(c.id, lock, index) : null;
+    const source = sourceMarkerOf(c.type, c.files);
+    const withSource = (item: SnapshotItem) => (source ? { ...item, source } : item);
     if (locked) {
-      items.push(itemFromLockMatch(c, locked, lock));
+      items.push(withSource(itemFromLockMatch(c, locked, lock)));
       continue;
     }
     const parsed = itemFromParse(c, lock, dataDir);
@@ -279,7 +284,7 @@ export function buildSnapshot(
       invalid.push(parsed.invalid);
       continue;
     }
-    items.push(parsed.item);
+    items.push(withSource(parsed.item));
   }
 
   const deduped = dedupeSnapshotItems(items);

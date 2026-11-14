@@ -43,3 +43,5 @@ export const TAG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const MAX_FILE_BYTES = 256 * 1024;
 /** Ceiling for a non-text file returned as base64 by read_artifact_file (mcp-artifact-files). */
 export const MAX_BINARY_BYTES = 4 * 1024 * 1024;
+/** Ceiling for the file bytes of one read_artifact_files answer (mcp-read-files). */
+export const MAX_BUNDLE_BYTES = 8 * 1024 * 1024;

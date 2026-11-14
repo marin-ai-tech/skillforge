@@ -71,6 +71,12 @@ records the files actually written. An untouched translated install is matched t
 `in_sync` or `outdated` with the hint "installed with translation". If you edit any of those files, the
 usual content comparison applies and the item shows `modified`.
 
+A file built from a registry artifact rather than installed from it (for example a role agent that sdlc builds
+from `agent/<role>`) can name its source in front matter: `skillforge-source: <type>/<name>@<version>`. The item is
+compared with that artifact by the marker's version (`in_sync`, `outdated`, or `modified` for a version the registry
+does not have), carries `source` in the response, keeps the source out of `registry_only`, and counts at the source in
+the organisation inventory. The marker is trusted only for an artifact you can see.
+
 The snapshot page (`/me/agents/<name>`) shows summary chips per status, filters, a copyable
 `skillforge install` command for `outdated` and `registry_only` items, and, when the folder contains
 colliding copies of the same artifact, a duplicates section with the root to keep.

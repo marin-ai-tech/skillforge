@@ -3,7 +3,7 @@ title: MCP access for agents
 summary: How coding agents read approved artifacts over the Model Context Protocol, and the consent and safety limits that keep drafts hidden.
 section: start
 learn:
-  - What the four MCP tools do
+  - What the five MCP tools do
   - How token consent and MCP tags limit what an agent sees
   - How to connect Claude Code, Codex, Cursor, OpenCode and Qwen Code
   - How to revoke access and why skill text is untrusted
@@ -14,7 +14,7 @@ Model Context Protocol (MCP) lets coding agents talk to SkillForge over JSON-RPC
 
 ## What MCP access means
 
-SkillForge exposes four tools on the MCP endpoint: `search_artifacts`, `get_artifact`, `read_artifact_file`, and `record_usage`. The first three only read; `record_usage` reports how often an artifact was applied and helped, optionally with `basis`: `loaded` or `assigned` (the latter is shown separately and not counted) (fields it does not know, such as an `event` payload, are ignored). Agents cannot publish, change lifecycle status, or install files on their own machine through MCP—that remains the job of `skillforge install` and the web UI. An MCP token sees no more over REST than through MCP: apart from `GET /api/v1/me` and `GET /api/v1/health`, the REST API refuses it with `403 mcp_token_forbidden`. Every MCP request must carry `Authorization: Bearer <token>`; browser cookies are ignored so a random page cannot drive MCP on your behalf. Requests that include an `Origin` header are rejected to block DNS-rebinding attacks from a browser context. This topic is about SkillForge as an MCP server for your agent; other MCP servers your company approves are artifacts of type `mcp-server` in the catalog ([Artifact types](getting-started/artifact-types)).
+SkillForge exposes five tools on the MCP endpoint: `search_artifacts`, `get_artifact`, `read_artifact_file`, `read_artifact_files`, and `record_usage`. The first four only read; `read_artifact_files` returns every file of a version in one call, each in the same form as `read_artifact_file`, and lists in `omitted` the files it did not send (`too_large` over 4 MiB, `budget` past 8 MiB in one answer, `missing`) so they can be read one by one; `record_usage` reports how often an artifact was applied and helped, optionally with `basis`: `loaded` or `assigned` (the latter is shown separately and not counted) (fields it does not know, such as an `event` payload, are ignored). Agents cannot publish, change lifecycle status, or install files on their own machine through MCP—that remains the job of `skillforge install` and the web UI. An MCP token sees no more over REST than through MCP: apart from `GET /api/v1/me` and `GET /api/v1/health`, the REST API refuses it with `403 mcp_token_forbidden`. Every MCP request must carry `Authorization: Bearer <token>`; browser cookies are ignored so a random page cannot drive MCP on your behalf. Requests that include an `Origin` header are rejected to block DNS-rebinding attacks from a browser context. This topic is about SkillForge as an MCP server for your agent; other MCP servers your company approves are artifacts of type `mcp-server` in the catalog ([Artifact types](getting-started/artifact-types)).
 
 ## Consent through tokens and tags
 

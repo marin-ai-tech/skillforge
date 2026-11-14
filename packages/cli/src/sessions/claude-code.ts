@@ -1,15 +1,9 @@
-import { createHash } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import readline from "node:readline";
 import type { ParseResult, SessionAdapter, SessionFact } from "./adapter.ts";
+import { VERIFY_RE, findSessionFiles, sessionKey } from "./walk.ts";
 
 export const MAX_LINE_BYTES = 1 * 1024 * 1024;
-export const MAX_FILE_BYTES = 200 * 1024 * 1024;
-
-/** Verification command patterns (word-boundary, case-insensitive). Design decision 3. */
-const VERIFY_RE =
-  /\b(?:npm\s+(?:test|run\s+(?:test|build|lint))|pnpm\s+(?:test|build|lint)|yarn\s+(?:test|build|lint)|node\s+--test|npx\s+playwright\s+test|pytest|python\s+-m\s+(?:pytest|unittest)|go\s+test|cargo\s+(?:test|build|check)|make\s+(?:test|check|lint)|mvn\s+test|gradle\s+test|dotnet\s+(?:test|build)|tsc\b|eslint\b|ruff\b|phpunit\b|rspec\b)/i;
 
 const EXIT_CODE_RE = /Exit code\s*[:=]?\s*(-?\d+)/i;
 /** The first thing in a meta message of a subagent when `skills:` preloads a skill; the tag elsewhere means nothing. */
@@ -22,93 +16,6 @@ type SkillWindow = {
   used_at: string;
   lastVerify: { success: boolean } | null;
 };
-
-function sessionKey(sessionId: string): string {
-  return createHash("sha256").update(sessionId).digest("hex").slice(0, 32);
-}
-
-function realpathSafe(p: string): string | null {
-  try {
-    return fs.realpathSync(p);
-  } catch {
-    return null;
-  }
-}
-
-function isInsideRoot(rootReal: string, candidateReal: string): boolean {
-  const root = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
-  return candidateReal === rootReal || candidateReal.startsWith(root);
-}
-
-function walkSymlinkEntry(
-  full: string,
-  entName: string,
-  rootReal: string,
-  out: string[],
-  seen: Set<string>,
-): void {
-  const target = realpathSafe(full);
-  if (!target || !isInsideRoot(rootReal, target) || seen.has(target)) return;
-  try {
-    const tst = fs.statSync(full);
-    if (tst.isDirectory()) {
-      seen.add(target);
-      walkJsonl(full, rootReal, out, seen);
-    } else if (tst.isFile() && entName.endsWith(".jsonl") && tst.size <= MAX_FILE_BYTES) {
-      seen.add(target);
-      out.push(full);
-    }
-  } catch {
-    return;
-  }
-}
-
-function walkDirOrFile(
-  full: string,
-  ent: fs.Dirent,
-  st: fs.Stats,
-  rootReal: string,
-  out: string[],
-  seen: Set<string>,
-): void {
-  if (st.isDirectory()) {
-    const dirReal = realpathSafe(full);
-    if (!dirReal || !isInsideRoot(rootReal, dirReal) || seen.has(dirReal)) return;
-    seen.add(dirReal);
-    walkJsonl(full, rootReal, out, seen);
-    return;
-  }
-  if (!st.isFile()) return;
-  if (!ent.name.endsWith(".jsonl")) return;
-  if (st.size > MAX_FILE_BYTES) return;
-  const fileReal = realpathSafe(full);
-  if (!fileReal || !isInsideRoot(rootReal, fileReal) || seen.has(fileReal)) return;
-  seen.add(fileReal);
-  out.push(full);
-}
-
-function walkJsonl(root: string, rootReal: string, out: string[], seen: Set<string>): void {
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(root, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const ent of entries) {
-    const full = path.join(root, ent.name);
-    let st: fs.Stats;
-    try {
-      st = fs.lstatSync(full);
-    } catch {
-      continue;
-    }
-    if (st.isSymbolicLink()) {
-      walkSymlinkEntry(full, ent.name, rootReal, out, seen);
-      continue;
-    }
-    walkDirOrFile(full, ent, st, rootReal, out, seen);
-  }
-}
 
 function contentBlocks(msg: unknown): unknown[] {
   if (!msg || typeof msg !== "object") return [];
@@ -414,11 +321,7 @@ function parseFileSync(file: string): ParseResult {
 export const claudeCodeAdapter: SessionAdapter = {
   id: "claude-code",
   findFiles(root: string): string[] {
-    const rootReal = realpathSafe(root);
-    if (!rootReal) return [];
-    const out: string[] = [];
-    walkJsonl(root, rootReal, out, new Set([rootReal]));
-    return out;
+    return findSessionFiles(root, ".jsonl");
   },
   parse(file: string): ParseResult {
     return parseFileSync(file);

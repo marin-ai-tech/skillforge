@@ -17,16 +17,22 @@ export type SessionsImportFlags = {
   dryRun?: boolean;
 };
 
-function defaultRoot(): string {
+/** Claude Code keeps transcripts in ~/.claude/projects; OpenCode has no documented store (opencode-sessions). */
+function defaultRoot(harness: string): string | null {
   const env = process.env.SKILLFORGE_SESSIONS_ROOT;
   if (env && env.trim()) return path.resolve(env.trim());
-  return path.join(os.homedir(), ".claude", "projects");
+  return harness === "claude-code" ? path.join(os.homedir(), ".claude", "projects") : null;
 }
 
-function resolveRoot(flags: SessionsImportFlags): string {
+function resolveRoot(flags: SessionsImportFlags, harness: string): string | null {
   if (flags.root) return path.resolve(flags.root);
-  return defaultRoot();
+  return defaultRoot(harness);
 }
+
+const NO_ROOT: Record<string, string> = {
+  opencode:
+    "OpenCode sessions are read from exports: run `opencode export <session-id> > <dir>/<session-id>.json` for the sessions to count, then pass --root <dir>",
+};
 
 type Uploaded = {
   accepted: number;
@@ -181,7 +187,12 @@ export async function runSessionsImport(
     return;
   }
 
-  const root = resolveRoot(flags);
+  const root = resolveRoot(flags, harness);
+  if (root === null) {
+    ctx.out.error(NO_ROOT[harness] ?? `--root is required for ${harness}`);
+    setExit(EXIT.INVALID_INPUT);
+    return;
+  }
   if (!fs.existsSync(root)) {
     ctx.out.error(`sessions root not found: ${root}`);
     setExit(EXIT.NOT_FOUND);

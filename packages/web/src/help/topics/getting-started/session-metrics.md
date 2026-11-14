@@ -46,4 +46,4 @@ Verification matches (word boundaries, case-insensitive) include: `npm test`, `n
 
 MCP tokens cannot upload or delete session facts. Use the cabinet panel **My sessions** (`me-sessions-delete`) or `DELETE /api/v1/me/session-facts` to remove your facts. Metrics on the artifact Overview update after the next refresh.
 
-Supported harness in this version: **claude-code** only. Other runtimes can be added later as adapters without changing the four-field server contract.
+Supported harnesses: **claude-code** and **opencode**. OpenCode has no documented session store, so its sessions are read from exports: run `opencode export <session-id> > <dir>/<session-id>.json` for the sessions you want counted, then `skillforge sessions import --harness opencode --root <dir>`. A completed `skill` tool call is a use; the last test or build command after it (`bash` with exit code 0 or not) gives `pass` or `fail`. Exports in UTF-8 or UTF-16 (a `>` redirect in Windows PowerShell) are both read; a file that is not a session export is skipped and counted in `skipped_lines`.

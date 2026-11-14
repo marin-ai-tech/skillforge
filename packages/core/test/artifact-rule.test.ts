@@ -148,7 +148,13 @@ test("runtimes: Claude Code as files in both scopes, Cursor translated in the pr
     assert.equal(s.supported, false, id);
     assert.ok(!s.supported && s.reason.includes(file), `${id}: ${JSON.stringify(s)}`);
   }
-  for (const id of ["opencode", "devin", "reckon"])
+  // opencode-rules: project scope only.
+  assert.deepEqual(runtimeSupport(def("opencode"), "rule", "project"), {
+    supported: true,
+    method: "opencode-rule",
+  });
+  assert.equal(runtimeSupport(def("opencode"), "rule", "user").supported, false);
+  for (const id of ["devin", "reckon"])
     assert.equal(runtimeSupport(def(id), "rule", "project").supported, false, id);
 });
 

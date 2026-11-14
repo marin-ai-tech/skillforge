@@ -118,6 +118,9 @@ export {
   formatAgentDeclarations,
   AgentDeclarationError,
   translateRule,
+  OPENCODE_RULES_GLOB,
+  OPENCODE_CONFIG_FILES,
+  planOpencodeInstructions,
 } from "./runtimes/index.ts";
 export type {
   NormalizeForeignResult,
@@ -135,6 +138,8 @@ export type {
   AgentDeclaration,
   AgentCompat,
   RuleTranslation,
+  OpencodeConfigFile,
+  OpencodeConfigPlan,
 } from "./runtimes/index.ts";
 export {
   parseVersionSpec,

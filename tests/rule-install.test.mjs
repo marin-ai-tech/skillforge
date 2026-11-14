@@ -95,6 +95,76 @@ test("Cursor: .cursor/rules/<name>.mdc with globs and alwaysApply; no .md and no
   assert.notEqual(user.code, 0, "Cursor user rules are not files");
 });
 
+// opencode-rules: OpenCode reads rules from the files listed in `instructions` of its config, so the
+// rule goes to .opencode/rules/<name>.md and the config gets the line `.opencode/rules/*.md` once.
+const GLOB = ".opencode/rules/*.md";
+const jsonc = (text) => JSON.parse(text.replace(/^\s*\/\/.*$/gm, "").replace(/,(\s*[}\]])/g, "$1"));
+
+test("OpenCode, no config: .opencode/rules/<name>.md byte for byte, in the lock, and a new opencode.json with the glob", async () => {
+  const p = project("opencode-fresh");
+  const r = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: p });
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.equal(readFileSync(join(p, ".opencode", "rules", "no-secrets-in-logs.md"), "utf8"), ALWAYS);
+  assert.ok(lock(join(p, ".opencode")).artifacts["rule/no-secrets-in-logs"].files["rules/no-secrets-in-logs.md"]);
+  assert.deepEqual(JSON.parse(readFileSync(join(p, "opencode.json"), "utf8")).instructions, [GLOB]);
+  assert.equal(existsSync(join(p, ".claude")), false);
+});
+
+test("OpenCode, existing opencode.jsonc: comments and keys kept, the glob added once; a path rule warns", async () => {
+  const p = project("opencode-jsonc");
+  const before = `{\n  // team config\n  "$schema": "https://opencode.ai/config.json",\n  "mcp": { "skillforge": { "type": "local", "command": ["node", "mcp.js"] } },\n  "instructions": ["CONTRIBUTING.md"],\n}\n`;
+  writeFileSync(join(p, "opencode.jsonc"), before);
+  const always = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: p });
+  assert.equal(always.code, 0, always.err + always.out);
+  const scoped = await cli(["install", "rule/api-style", "--runtime", "opencode"], { cwd: p });
+  assert.equal(scoped.code, 0, scoped.err + scoped.out);
+  assert.match(scoped.err, /api-style[\s\S]*(paths|every|always)/i, "a path rule warns that OpenCode loads it always");
+  assert.doesNotMatch(always.err, /paths/i, "a rule without paths does not warn");
+  assert.equal(readFileSync(join(p, ".opencode", "rules", "api-style.md"), "utf8"), SCOPED);
+  const sync = await cli(["sync", "--type", "rule", "--runtime", "opencode"], { cwd: p });
+  assert.equal(sync.code, 0, sync.err + sync.out);
+  const text = readFileSync(join(p, "opencode.jsonc"), "utf8");
+  assert.ok(text.includes("// team config"), text);
+  const cfg = jsonc(text);
+  assert.deepEqual(cfg.instructions, ["CONTRIBUTING.md", GLOB]);
+  assert.equal(cfg.mcp.skillforge.type, "local");
+  assert.equal(existsSync(join(p, "opencode.json")), false, "a second config was created");
+});
+
+test("OpenCode: instructions already in .opencode/opencode.json get the glob there, no root config is made", async () => {
+  const p = project("opencode-dotdir");
+  mkdirSync(join(p, ".opencode"), { recursive: true });
+  writeFileSync(join(p, ".opencode", "opencode.json"), `{\n  "instructions": []\n}\n`);
+  const r = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: p });
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.deepEqual(JSON.parse(readFileSync(join(p, ".opencode", "opencode.json"), "utf8")).instructions, [GLOB]);
+  assert.equal(existsSync(join(p, "opencode.json")), false);
+  assert.equal(existsSync(join(p, "opencode.jsonc")), false);
+});
+
+test("OpenCode: an unreadable config refuses before writing; user scope refuses; uninstall keeps the glob", async () => {
+  const broken = project("opencode-broken");
+  writeFileSync(join(broken, "opencode.json"), `{ "instructions": [ \n`);
+  const r = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: broken });
+  assert.equal(r.code, 1, r.err + r.out);
+  assert.match(r.err + r.out, /opencode\.json/);
+  assert.ok((r.err + r.out).includes(GLOB), "the message names the line to add by hand");
+  assert.equal(existsSync(join(broken, ".opencode", "rules")), false);
+  assert.equal(readFileSync(join(broken, "opencode.json"), "utf8"), `{ "instructions": [ \n`);
+
+  const p = project("opencode-user");
+  const user = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode", "--scope", "user"], { cwd: p });
+  assert.equal(user.code, 1, user.err + user.out);
+  assert.equal(existsSync(join(work, "home", ".config", "opencode", "rules")), false);
+
+  const u = project("opencode-uninstall");
+  assert.equal((await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: u })).code, 0);
+  const un = await cli(["uninstall", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: u });
+  assert.equal(un.code, 0, un.err + un.out);
+  assert.equal(existsSync(join(u, ".opencode", "rules", "no-secrets-in-logs.md")), false);
+  assert.deepEqual(JSON.parse(readFileSync(join(u, "opencode.json"), "utf8")).instructions, [GLOB]);
+});
+
 test("an agent without a rules folder refuses, naming its shared file, and writes nothing", async () => {
   for (const [runtime, dir, file] of [["codex", ".codex", "AGENTS.md"], ["gemini", ".gemini", "GEMINI.md"], ["qwen", ".qwen", "QWEN.md"]]) {
     const p = project(`refuse-${runtime}`);

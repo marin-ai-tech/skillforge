@@ -152,7 +152,7 @@ test("handshake: initialize, notification 202, tools/list, version negotiation",
   assert.equal(note.text, "");
   const list = await rpc(mcpToken.token, req("tools/list"));
   const names = list.json.result.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ["get_artifact", "read_artifact_file", "record_usage", "search_artifacts"]);
+  assert.deepEqual(names, ["get_artifact", "read_artifact_file", "read_artifact_files", "record_usage", "search_artifacts"]);
   for (const t of list.json.result.tools) {
     assert.ok(t.description && t.inputSchema && t.inputSchema.type === "object", JSON.stringify(t));
   }

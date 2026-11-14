@@ -3,6 +3,36 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.10 — 2026-11-14
+
+### Fixed
+- A settings profile with a path under a `_FILE`, `_PATH` or `_DIR` variable in `env` (such as `GITHUB_TOKEN_FILE:
+  /run/secrets/gh`) is no longer refused as a literal secret; MCP configs and profiles share one rule.
+- The agent page shows a file built from a registry artifact as **built from** `type/name@version` with a link to
+  that artifact, instead of a link to a page that does not exist, a Publish button and an install command for its
+  local name.
+
+### Added
+- Plugins can add MCP tools (`ctx.mcp.tool`, capability `mcp`): they appear on `/mcp` next to the built-in tools
+  and read the registry only as the calling token. A tool marked for integrations is seen only by an integration
+  token (`integration: true`, **For an integration, not an agent** on the token page).
+- The built-in `sdlc-registry` plugin answers sdlc's team registry (`list_roles`, `get_role`, `list_skills`,
+  `get_skill`, `list_rules`, `get_rule`) on SkillForge's `/mcp`, so sdlc needs no adapter; `report_outcome` (integration
+  tokens only) records sdlc stage outcomes as `assigned` usage. It is off until an administrator turns it on.
+- A plugin manifest may set `enabled_by_default: false`: the plugin is recorded disabled when first seen.
+
+### Documentation
+- README screenshots and the animated tour show the current interface (language switch, the Rules tab).
+- README, docs and in-app help list rules among the artifact types and in the agent support tables, say that
+  `harvest` drafts a rule by default, list five MCP tools, and describe `sync` with local edits as it works now.
+- The Publish page subtitle no longer lists only four of the eight types.
+
+### Compatibility
+- Migration 0053 adds the integration flag to API tokens (default off); existing tokens behave as before.
+- Release archives and the image carry the `sdlc-registry` plugin; it is recorded disabled when first seen, so nothing
+  changes until an administrator turns it on on `/admin/plugins`.
+- MCP `tools/list` also lists the tools of enabled plugins with the `mcp` capability.
+
 ## 0.5.9 — 2026-11-14
 
 ### Added

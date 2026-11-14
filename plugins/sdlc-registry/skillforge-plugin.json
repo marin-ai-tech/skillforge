@@ -1,0 +1,9 @@
+{
+  "name": "sdlc-registry",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "sdlc team registry on /mcp: roles, skills and rules from SkillForge, and sdlc process events as usage",
+  "main": "index.js",
+  "capabilities": ["mcp", "registry"],
+  "enabled_by_default": false
+}

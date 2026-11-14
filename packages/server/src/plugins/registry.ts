@@ -1,4 +1,5 @@
 import type { PluginManifest } from "./manifest.ts";
+import type { PluginTool } from "./mcp-tools.ts";
 
 export type PluginStatus = "loaded" | "error" | "disabled";
 
@@ -26,6 +27,8 @@ export type PluginContributions = {
       }) => { markdown: string } | Promise<{ markdown: string }>;
     }
   >;
+  /** plugin-mcp-tools: MCP tools by name. */
+  mcpTools: Map<string, PluginTool>;
 };
 
 export type PluginState = {
@@ -51,6 +54,7 @@ export function emptyContributions(): PluginContributions {
     navItems: [],
     pages: new Map(),
     tabsHandlers: new Map(),
+    mcpTools: new Map(),
   };
 }
 

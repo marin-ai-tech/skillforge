@@ -12,7 +12,7 @@ related: pages/me-agents, getting-started/agents, getting-started/duplicates, ac
 
 ## What this page is for
 
-The agent detail page (`/me/agents/:name`) shows one snapshot compared against the registry. Summary chips count `local_only`, `in_sync`, `outdated`, `modified`, and `registry_only` items. Filters narrow the table client-side. From here contributors publish a local-only or modified item into the catalog with provenance `agent:<name>`, and anyone can copy CLI install commands for outdated or registry-only artifacts. Upload agents refresh via CLI; server agents offer an in-page Rescan button that calls the owner scan API.
+The agent detail page (`/me/agents/:name`) shows one snapshot compared against the registry. Summary chips count `local_only`, `in_sync`, `outdated`, `modified`, and `registry_only` items. Filters narrow the table client-side. From here contributors publish a local-only or modified item into the catalog with provenance `agent:<name>`, and anyone can copy CLI install commands for outdated or registry-only artifacts. Upload agents refresh via CLI; server agents offer an in-page Rescan button that calls the owner scan API. A file built from a registry artifact by another tool (front matter `skillforge-source`) shows its local name as plain text and the mark `agent-item-source` **built from** `type/name@version`, a link to the source artifact; it has no Publish button and no install command — when it is outdated, `agent-item-rebuild` says to rebuild it with the tool that built it.
 
 ## What you see
 

@@ -36,6 +36,7 @@ Support is checked against the Devin documentation.
 | `plugin` | not supported: "Claude Code plugins are not supported by devin; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by devin (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Devin by hand as the artifact page shows |
+| `rule` | not supported: "rules are not supported by devin (it has no rules folder SkillForge installs into)" |
 
 ## Install and sync
 

@@ -15,6 +15,7 @@ export type TokenRow = {
   revoked_at: string | null;
   mcp: number;
   mcp_tags: string;
+  integration: number;
 };
 
 export type TokenPublic = {
@@ -25,11 +26,14 @@ export type TokenPublic = {
   last_used_at: string | null;
   mcp: boolean;
   mcp_tags: string[];
+  /** plugin-mcp-tools: sees MCP tools with the integration audience; only with mcp. */
+  integration: boolean;
 };
 
 export type CreateTokenOpts = {
   mcp?: boolean;
   mcp_tags?: string[];
+  integration?: boolean;
 };
 
 export type ResolvedToken = {
@@ -37,6 +41,7 @@ export type ResolvedToken = {
   tokenId: string;
   mcp: boolean;
   mcp_tags: string[];
+  integration: boolean;
 };
 
 /** Uniform base62 string via crypto.randomInt (no modulo bias). */
@@ -74,6 +79,7 @@ function toPublic(row: {
   last_used_at: string | null;
   mcp: number | boolean | null | undefined;
   mcp_tags: string | null | undefined;
+  integration?: number | boolean | null;
 }): TokenPublic {
   return {
     id: row.id,
@@ -83,6 +89,7 @@ function toPublic(row: {
     last_used_at: row.last_used_at,
     mcp: Boolean(row.mcp),
     mcp_tags: parseTags(row.mcp_tags ?? "[]"),
+    integration: Boolean(row.integration),
   };
 }
 
@@ -94,15 +101,26 @@ export function createToken(
 ): { row: TokenPublic; token: string } {
   const mcp = opts.mcp === true;
   const mcpTags = mcp ? (opts.mcp_tags ?? []) : [];
+  const integration = mcp && opts.integration === true;
   const prefix = randomBase62(8);
   const secret = randomBase62(32);
   const token = `sf_${prefix}_${secret}`;
   const id = newId();
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO api_tokens (id, user_id, name, prefix, token_hash, created_at, last_used_at, revoked_at, mcp, mcp_tags)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
-  ).run(id, userId, name, prefix, hashToken(token), now, mcp ? 1 : 0, JSON.stringify(mcpTags));
+    `INSERT INTO api_tokens (id, user_id, name, prefix, token_hash, created_at, last_used_at, revoked_at, mcp, mcp_tags, integration)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
+  ).run(
+    id,
+    userId,
+    name,
+    prefix,
+    hashToken(token),
+    now,
+    mcp ? 1 : 0,
+    JSON.stringify(mcpTags),
+    integration ? 1 : 0,
+  );
   return {
     token,
     row: {
@@ -113,6 +131,7 @@ export function createToken(
       last_used_at: null,
       mcp,
       mcp_tags: mcpTags,
+      integration,
     },
   };
 }
@@ -120,7 +139,7 @@ export function createToken(
 export function listTokens(db: Database, userId: string): TokenPublic[] {
   const rows = db
     .prepare(
-      `SELECT id, name, prefix, created_at, last_used_at, mcp, mcp_tags FROM api_tokens
+      `SELECT id, name, prefix, created_at, last_used_at, mcp, mcp_tags, integration FROM api_tokens
        WHERE user_id = ? AND revoked_at IS NULL
        ORDER BY created_at DESC`,
     )
@@ -132,6 +151,7 @@ export function listTokens(db: Database, userId: string): TokenPublic[] {
     last_used_at: string | null;
     mcp: number;
     mcp_tags: string;
+    integration: number;
   }>;
   return rows.map(toPublic);
 }
@@ -165,5 +185,6 @@ export function resolveToken(db: Database, token: string, now = new Date()): Res
     tokenId: row.id,
     mcp: Boolean(row.mcp),
     mcp_tags: parseTags(row.mcp_tags),
+    integration: Boolean(row.integration),
   };
 }

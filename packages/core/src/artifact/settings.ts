@@ -1,4 +1,6 @@
 import { ISSUE_CODES } from "./types.ts";
+import { isPathToSecret } from "../secret-path.ts";
+import { isSecretValue } from "../mcp/secrets.ts";
 import type { Issue, ParseInput } from "./types.ts";
 import type { NormalizedFile } from "./paths.ts";
 import { toUint8Array } from "./paths.ts";
@@ -72,14 +74,19 @@ function isEnvReference(value: unknown): boolean {
   return typeof value === "string" && ENV_REF_RE.test(value);
 }
 
+/** A non-empty literal under a secret-like key; a reference or a path to a secret file is not one. */
+function isLiteralSecret(key: string, value: unknown): boolean {
+  if (!isSecretEnvKey(key) || value === null || value === undefined) return false;
+  if ((typeof value === "string" && value.length === 0) || isEnvReference(value)) return false;
+  // fix-settings-path-secret: a path under a _FILE/_PATH/_DIR key, unless the value itself looks like a key.
+  return isSecretValue(value) || !isPathToSecret(key, value);
+}
+
 function scanSecrets(obj: Record<string, unknown>, jsonPath: string, errors: Issue[]): void {
   const env = obj.env;
   if (typeof env !== "object" || env === null || Array.isArray(env)) return;
   for (const [key, value] of Object.entries(env as Record<string, unknown>)) {
-    if (!isSecretEnvKey(key)) continue;
-    if (value === null || value === undefined) continue;
-    if (typeof value === "string" && value.length === 0) continue;
-    if (isEnvReference(value)) continue;
+    if (!isLiteralSecret(key, value)) continue;
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
       errors.push({
         code: ISSUE_CODES.E_SETTINGS_SECRET,

@@ -12,7 +12,7 @@ related: pages/artifact, pages/home, getting-started/lifecycle, getting-started/
 
 SkillForge installs approved (`active`) artifacts into eight agents: Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Qwen Code, Devin and Reckon. There are three ways to bring an artifact to your agent:
 
-- **The SkillForge CLI** writes skills, commands and agents into the directory your agent reads. It works for every agent.
+- **The SkillForge CLI** writes skills, commands, agents and rules into the directory your agent reads. It works for every agent.
 - **MCP** lets your agent search and read approved skills in the registry without installing files.
 - **The Claude Code plugin marketplace** installs artifacts as plugins. It exists only in Claude Code, and it is the only way to install hooks and plugins, which are Claude Code features.
 
@@ -29,18 +29,18 @@ skillforge sync --runtime <id> [--type <type>] [--tag <tag>] [--prune]
 
 `--runtime` picks the agent; without it the CLI installs into `.claude`. `--scope project` (default) resolves against the current directory, `--scope user` against your home directory. The CLI keeps a `.skillforge-lock.json` in the agent directory, and `sync`, `outdated` and `uninstall` take the same `--runtime` and `--scope`. Each agent keeps its own lock under its base directory:
 
-| Agent | `--runtime` | Project directory | User directory | Skills | Commands | Agents |
-|---|---|---|---|---|---|---|
-| Claude Code | `claude-code` | `.claude` | `~/.claude` | yes | yes | yes |
-| Codex | `codex` | `.codex` | `~/.codex` | yes | no | yes (TOML) |
-| Gemini CLI | `gemini` | `.gemini` | `~/.gemini` | yes | yes (TOML) | no |
-| Cursor | `cursor` | `.cursor` | `~/.cursor` | yes | project scope only | yes |
-| OpenCode | `opencode` | `.opencode` | `~/.config/opencode` | yes | yes | yes |
-| Qwen Code | `qwen` | `.qwen` | `~/.qwen` | yes | yes | yes |
-| Devin | `devin` | `.agents` | — | yes | no | no |
-| Reckon | `reckon` | `.reckon` | — | yes | no | no |
+| Agent | `--runtime` | Project directory | User directory | Skills | Commands | Agents | Rules |
+|---|---|---|---|---|---|---|---|
+| Claude Code | `claude-code` | `.claude` | `~/.claude` | yes | yes | yes | yes |
+| Codex | `codex` | `.codex` | `~/.codex` | yes | no | yes (TOML) | no |
+| Gemini CLI | `gemini` | `.gemini` | `~/.gemini` | yes | yes (TOML) | no | no |
+| Cursor | `cursor` | `.cursor` | `~/.cursor` | yes | project scope only | yes | project scope only |
+| OpenCode | `opencode` | `.opencode` | `~/.config/opencode` | yes | yes | yes | project scope only |
+| Qwen Code | `qwen` | `.qwen` | `~/.qwen` | yes | yes | yes | no |
+| Devin | `devin` | `.agents` | — | yes | no | no | no |
+| Reckon | `reckon` | `.reckon` | — | yes | no | no | no |
 
-Skills are copied unchanged into every agent. Commands and agents are translated to the agent's format; when the agent has no equivalent, the CLI exits with code 1 and a `not supported by <runtime>` reason (for example, publish a command as a skill for an agent without slash commands). Devin and Reckon have no user-level directory. Hooks and plugins are never unpacked: `install` exits with code 1 and prints the `/plugin install <plugin>@<marketplace>` command for Claude Code, and `sync` lists them as skipped. Settings profiles are applied with `skillforge settings apply` (see below). An `mcp-server` describes an approved MCP server; SkillForge does not write it into agent configs yet, so configure it by hand as its artifact page shows.
+Skills are copied unchanged into every agent. Commands and agents are translated to the agent's format; when the agent has no equivalent, the CLI exits with code 1 and a `not supported by <runtime>` reason (for example, publish a command as a skill for an agent without slash commands). Rules install into Claude Code, Cursor and OpenCode; Codex, Gemini CLI and Qwen Code read rules from one shared file that SkillForge does not write into yet. Devin and Reckon have no user-level directory. Hooks and plugins are never unpacked: `install` exits with code 1 and prints the `/plugin install <plugin>@<marketplace>` command for Claude Code, and `sync` lists them as skipped. Settings profiles are applied with `skillforge settings apply` (see below). An `mcp-server` describes an approved MCP server; SkillForge does not write it into agent configs yet, so configure it by hand as its artifact page shows.
 
 For Codex the user scope is always `~/.codex`: SkillForge does not read `CODEX_HOME`. If you set `CODEX_HOME`, install skills with `--into "$CODEX_HOME"` instead (`--into` copies files without translation, so use it for skills only).
 
@@ -59,7 +59,7 @@ An agent that speaks the Model Context Protocol can search and read approved ski
 
 ## Claude Code plugin marketplace
 
-Only Claude Code has a plugin marketplace, and SkillForge can act as one. Approved (`active`) artifacts are published as deterministic plugin archives with a `.claude-plugin/plugin.json` manifest and the canonical layout Claude Code expects. In Claude Code any active artifact can be installed this way; hooks and plugins can be installed only this way.
+Only Claude Code has a plugin marketplace, and SkillForge can act as one. Approved (`active`) artifacts are published as deterministic plugin archives with a `.claude-plugin/plugin.json` manifest and the canonical layout Claude Code expects. In Claude Code active skills, commands, agents, hooks and plugins can be installed this way; hooks and plugins can be installed only this way. Settings profiles, MCP servers and rules are not in the marketplace.
 
 In Claude Code, add this registry once:
 

@@ -37,6 +37,7 @@ COPY --from=build /app/packages/server/migrations ./packages/server/migrations
 COPY --from=build /app/packages/server/starter-packs ./packages/server/starter-packs
 COPY --from=build /app/plugins ./plugins
 COPY --from=build /app/plugins/review-assistant ./packages/server/bundled-plugins/review-assistant
+COPY --from=build /app/plugins/sdlc-registry ./packages/server/bundled-plugins/sdlc-registry
 COPY --from=build /app/packages/server/package.json ./packages/server/package.json
 COPY --from=build /app/packages/core/package.json ./packages/core/package.json
 COPY --from=build /app/packages/cli/package.json ./packages/cli/package.json

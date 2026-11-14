@@ -12,7 +12,7 @@ related: getting-started/cli, getting-started/versions-and-digests, pages/catalo
 
 ## What this page is for
 
-Teams want to adopt a whole way of working — how they plan, build and review — not a loose set of skills. A pack captures it: a name, a version, a title and roles such as `developer` or `reviewer`, each listing skills, commands, agents or hooks at exact versions (workflows come with the artifacts that carry them). Pack versions never change once published, so everyone who installs `team-method@1.0.0` gets the same files, even after newer artifact versions appear in the catalog.
+Teams want to adopt a whole way of working — how they plan, build and review — not a loose set of skills. A pack captures it: a name, a version, a title and roles such as `developer` or `reviewer`, each listing skills, commands, agents, hooks, plugins or settings profiles at exact versions (workflows come with the artifacts that carry them). Pack versions never change once published, so everyone who installs `team-method@1.0.0` gets the same files, even after newer artifact versions appear in the catalog.
 
 ## What you see
 

@@ -23,6 +23,10 @@ stdio bridge. It offers five tools:
 The first four only read. Through MCP an agent cannot publish, change a lifecycle status or install files;
 that stays with `skillforge install` and the web interface.
 
+Enabled plugins with the `mcp` capability add their own tools to the same list ([Plugins](14-plugins.md)). A tool a
+plugin marks for integrations is visible only to a token created with `integration: true` (**For an integration,
+not an agent** on the token page); an agent's token does not see it.
+
 ### What an agent can see
 
 - Only artifacts in status `active`, the same set as the Claude Code marketplace. Candidate, aging, retired

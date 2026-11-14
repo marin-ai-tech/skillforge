@@ -100,11 +100,11 @@ function stageRelease(stage, version) {
     join(stage, "packages/server/starter-packs"),
     { recursive: true },
   );
-  cpSync(
-    join(ROOT, "plugins/review-assistant"),
-    join(stage, "packages/server/bundled-plugins/review-assistant"),
-    { recursive: true },
-  );
+  for (const plugin of ["review-assistant", "sdlc-registry"]) {
+    cpSync(join(ROOT, "plugins", plugin), join(stage, "packages/server/bundled-plugins", plugin), {
+      recursive: true,
+    });
+  }
   for (const f of ["start.cmd", "start.ps1", "start.sh", "skillforge.env.example", "INSTALL.md"]) {
     cpSync(join(TEMPLATES, f), join(stage, f));
   }

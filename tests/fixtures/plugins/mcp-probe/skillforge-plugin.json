@@ -1,0 +1,8 @@
+{
+  "name": "mcp-probe",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Lead fixture: MCP tools of a plugin, an integration tool and calls of built-in tools as the caller (plugin-mcp-tools)",
+  "main": "index.js",
+  "capabilities": ["mcp"]
+}

@@ -27,6 +27,11 @@ export const ws = {
       "Installed from the registry with translation: the files were converted for this client on install, so they are compared with the registry version through the lock file.",
     translatedLabel: "installed with translation",
     translatedAria: (help: string) => `installed with translation: ${help}`,
+    sourceLabel: "built from",
+    sourceHelp:
+      "Built from this registry artifact by another tool (the file names it in skillforge-source), so it is compared with that artifact by version, not by content.",
+    sourceAria: (ref: string, help: string) => `built from ${ref}: ${help}`,
+    rebuildHint: "A newer version exists: rebuild this file with the tool that built it.",
     colArtifact: "Artifact",
     colStatus: "Status",
     colLocal: "Local",

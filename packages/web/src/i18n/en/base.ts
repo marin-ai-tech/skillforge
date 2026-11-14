@@ -109,6 +109,8 @@ export const base = {
     never: "Never",
     mcpAllow: "Allow agents to load active skills via MCP",
     mcpTags: "MCP tags (comma-separated)",
+    integration: "For an integration, not an agent",
+    integrationChip: "integration",
     mcpSnippetTitle: "Connect an agent",
     mcpClientGroup: "Agent client",
     mcpClientLabels: {
@@ -305,7 +307,7 @@ export const base = {
   },
   publish: {
     title: "Publish",
-    subtitle: "Validate and publish a skill, command, agent, or hook.",
+    subtitle: "Validate and publish an artifact of any type; the type is detected from the files.",
     modeFiles: "Files",
     modePaste: "Paste markdown",
     dropHint: "Drop a folder or files here, or pick from disk.",

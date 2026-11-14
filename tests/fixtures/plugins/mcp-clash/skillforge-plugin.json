@@ -1,0 +1,8 @@
+{
+  "name": "mcp-clash",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Lead fixture: a plugin tool may not take the name of a built-in MCP tool (plugin-mcp-tools)",
+  "main": "index.js",
+  "capabilities": ["mcp"]
+}

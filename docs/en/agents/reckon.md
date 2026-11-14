@@ -37,6 +37,7 @@ Support is verified against the real client.
 | `plugin` | not supported: "Claude Code plugins are not supported by reckon; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by reckon (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it by hand as the artifact page shows |
+| `rule` | not supported: "rules are not supported by reckon (it has no rules folder SkillForge installs into)" |
 
 ## Install and sync
 

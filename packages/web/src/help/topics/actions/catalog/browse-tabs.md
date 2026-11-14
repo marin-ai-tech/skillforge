@@ -1,6 +1,6 @@
 ---
 title: Catalog type tabs
-summary: Restricts the catalog to one artifact type (skill, command, agent, hook, plugin, settings profile or MCP server) and shows counts per type. Use it to narrow browsing before searching or paging.
+summary: Restricts the catalog to one artifact type (skill, command, agent, hook, plugin, settings profile, MCP server or rule) and shows counts per type. Use it to narrow browsing before searching or paging.
 related: getting-started/artifact-types
 ---
 

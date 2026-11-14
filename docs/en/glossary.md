@@ -85,8 +85,8 @@ short definition and links to the page that explains the term in full.
 
 ## H
 
-- **Harvest.** Collecting rules that recur in review comments or in your own agent sessions into a draft skill. See
-  [Admin](handbook/admin.md#bring-artifacts-to-repositories-and-agents).
+- **Harvest.** Collecting rules that recur in review comments or in your own agent sessions into a draft rule or skill.
+  See [Admin](handbook/admin.md#bring-artifacts-to-repositories-and-agents).
 - **Hold.** A reviewer's freeze of automatic aging and zombie transitions for one artifact until a date. See
   [Reviewer](handbook/reviewer.md#hold-an-artifact).
 - **Hook.** A Claude Code hook bundle with `hooks.json`; it runs on its own and installs only through the Claude Code
@@ -178,6 +178,8 @@ short definition and links to the page that explains the term in full.
 - **Rollout.** Pull requests the registry opens to add active artifacts and the lock file to repositories. See
   [Admin](handbook/admin.md#bring-artifacts-to-repositories-and-agents).
 - **Routine.** A workflow or command run on a cron schedule on the server. See [Orchestration](18-orchestration.md).
+- **Rule.** A project instruction file `rules/<name>.md` that the agent follows always, or only for files that match its
+  `paths`. It installs into Claude Code, Cursor and OpenCode. See [Artifact types](05-artifact-types.md).
 
 ## S
 

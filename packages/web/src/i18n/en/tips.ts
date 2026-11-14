@@ -76,6 +76,8 @@ const actionTips = {
   "token-name": "Label for the new API token (shown in your token list).",
   "token-mcp": "Allow this token to call POST /mcp so agents can search and read active artifacts.",
   "token-mcp-tags": "Optional kebab-case tags that limit which active artifacts the agent can see.",
+  "token-integration":
+    "An integration token also sees MCP tools that plugins mark for integrations (for example sdlc process events). Give it to the tool, never to an agent.",
   "token-mcp-snippet": "Copy-paste commands to connect your agent over MCP; pick the client above.",
   "token-mcp-client":
     "Pick your agent client to see its MCP connect commands. Your choice is remembered in this browser.",

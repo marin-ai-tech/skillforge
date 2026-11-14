@@ -6,7 +6,7 @@ related: pages/publish, actions/publish/issue-help, getting-started/artifact-typ
 
 ## What it means
 
-Blocking error: `env` contains a literal secret. Keys are matched case-insensitively when they include `TOKEN`, `SECRET`, `PASSWORD`, `API_KEY`, `APIKEY`, or `PRIVATE_KEY`, and the value is non-empty and not an `${VAR}` reference. Severity label: **Blocking**.
+Blocking error: `env` contains a literal secret. Keys are matched case-insensitively when they include `TOKEN`, `SECRET`, `PASSWORD`, `API_KEY`, `APIKEY`, or `PRIVATE_KEY`, and the value is non-empty and not an `${VAR}` reference. A path under a key ending in `_FILE`, `_PATH` or `_DIR` (for example `GITHUB_TOKEN_FILE: /run/secrets/gh`) names where the secret is and is allowed, unless the value itself looks like a key (`ghp_…`, `sk-…`). Severity label: **Blocking**.
 
 > [!CAUTION]
 > Profiles are published to everyone who can read the registry, so literals must never ship inside the bundle.

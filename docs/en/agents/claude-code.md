@@ -61,8 +61,9 @@ because the CLI never unpacks them. `sync` does not fail on them: it lists them 
 
 ## Install through the plugin marketplace
 
-Only Claude Code has a plugin marketplace, and SkillForge can act as one. In Claude Code, any active artifact can be
-installed this way; hooks and plugins can be installed only this way. Add the registry once:
+Only Claude Code has a plugin marketplace, and SkillForge can act as one. In Claude Code, active skills, commands,
+agents, hooks and plugins can be installed this way; hooks and plugins can be installed only this way. Settings
+profiles, MCP servers and rules are not in the marketplace. Add the registry once:
 
 ```text
 /plugin marketplace add <SKILLFORGE_BASE_URL>/marketplace.json
@@ -142,10 +143,11 @@ config larger than 32 MiB is reported as unreadable instead of being read.
 ## Other Claude Code features
 
 - **Session metrics.** `skillforge sessions import --harness claude-code` counts registry skill calls in local
-  Claude Code session logs (`~/.claude/projects`) and uploads only a few fact fields. `claude-code` is the only
-  supported harness. See [Session metrics](../16-session-metrics.md).
-- **Skill drafts from sessions.** `skillforge harvest sessions --out <dir> --name <name>` reads what you typed in local
-  Claude Code logs and writes a draft skill on disk without contacting the registry.
+  Claude Code session logs (`~/.claude/projects`) and uploads only a few fact fields. The supported harnesses
+  are `claude-code` and `opencode`. See [Session metrics](../16-session-metrics.md).
+- **Drafts from sessions.** `skillforge harvest sessions --out <dir> --name <name>` reads what you typed in local
+  Claude Code logs and writes a draft rule on disk without contacting the registry; with `--type skill` it writes a
+  draft skill.
 - **Rollout to repositories.** An admin can open pull requests that add artifacts under `.claude/skills`,
   `.claude/commands` or `.claude/agents` with the `.claude/.skillforge-lock.json` lock file. See the
   [admin handbook](../handbook/admin.md).

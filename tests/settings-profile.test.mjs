@@ -95,6 +95,11 @@ test("profile check: type detection, settings file and secret errors, risks in t
   assert.ok(secret.data.errors.some((e) => e.code === "E_SETTINGS_SECRET" && String(e.path).includes("settings.json")));
   const ref = await api(base, "POST", "/api/v1/artifacts/validate", { type: "settings", files: files("team-baseline", replace("settings.json", '{ "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}" } }')) }, { cookie: admin.cookie });
   assert.deepEqual(ref.data.errors, [], "a reference to an environment variable is not a secret");
+  // fix-settings-path-secret: a path under a _FILE/_PATH name says where the secret is, not what it is.
+  const path = await api(base, "POST", "/api/v1/artifacts/validate", { type: "settings", files: files("team-baseline", replace("settings.json", '{ "env": { "GITHUB_TOKEN_FILE": "/run/secrets/gh", "API_TOKEN_PATH": "C:\\\\secrets\\\\api" } }')) }, { cookie: admin.cookie });
+  assert.deepEqual(path.data.errors, [], "a path to a secret file is not a secret");
+  await check(replace("settings.json", '{ "env": { "API_TOKEN_FILE": "abc123" } }'), "E_SETTINGS_SECRET");
+  await check(replace("settings.json", '{ "env": { "SECRET_FILE": "ghp_0123456789abcdef" } }'), "E_SETTINGS_SECRET");
   await check(replace("SETTINGS.md", "---\nname: team-baseline\ndescription: Baseline profile for a runtime that is not supported yet. Use when testing.\nruntime: vim\nscope: project\n---\n\n# X\n"), "E_SETTINGS_RUNTIME");
 });
 

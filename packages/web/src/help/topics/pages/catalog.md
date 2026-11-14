@@ -12,7 +12,7 @@ related: pages/home, actions/catalog/browse-search, getting-started/lifecycle
 
 ## What this page is for
 
-Catalog at `/artifacts` is the searchable, filterable list of every artifact identity in the store. Filters persist in the URL (`type`, `q`, `tag`, `status`, `team`, `owner`, `label`, `agent`, `page`) so reloads and shared links restore the same view. Use it to discover skills, commands, agents, hooks, plugins, settings profiles and MCP servers, to assemble review queues by status, and to open detail pages. Search debounces within 400 ms without requiring Enter. Pagination uses 24 cards per page. This page is the hub behind Home counts, tag clicks, and header search.
+Catalog at `/artifacts` is the searchable, filterable list of every artifact identity in the store. Filters persist in the URL (`type`, `q`, `tag`, `status`, `team`, `owner`, `label`, `agent`, `page`) so reloads and shared links restore the same view. Use it to discover skills, commands, agents, hooks, plugins, settings profiles, MCP servers and rules, to assemble review queues by status, and to open detail pages. Search debounces within 400 ms without requiring Enter. Pagination uses 24 cards per page. This page is the hub behind Home counts, tag clicks, and header search.
 
 ## What you see
 

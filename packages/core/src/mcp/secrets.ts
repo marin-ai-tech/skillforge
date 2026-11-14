@@ -1,4 +1,5 @@
 import type { McpDialect, McpValueKind } from "./types.ts";
+import { isPathToSecret } from "../secret-path.ts";
 
 /** Names that hold credentials; `-` is read as `_` so that `X-Api-Key` matches `API_KEY`. */
 const SECRET_NAME_RE =
@@ -50,24 +51,9 @@ export function valueKind(dialect: McpDialect, value: unknown): McpValueKind {
   return "literal";
 }
 
-/** `<NAME>_FILE`, `_PATH`, `_DIR`: by convention the variable says where the secret is, not what it is. */
-const PATH_NAME_RE = /_(?:FILE|PATH|DIR)$/i;
-/** No whitespace; rooted (`/`, `~/`, `./`, `../`, a drive letter) or containing a separator. */
-const PATH_VALUE_RE = /^(?=\S+$)(?:\/|~[\\/]|\.{1,2}[\\/]|[A-Za-z]:[\\/]|.*[\\/])/;
-
-/** fix-mcp-path-secret: a literal path under a `_FILE`/`_PATH`/`_DIR` name is not a secret by its name. */
-function isPathToSecret(name: string, kind: McpValueKind, value: unknown): boolean {
-  return (
-    kind === "literal" &&
-    typeof value === "string" &&
-    PATH_NAME_RE.test(name.replace(/-/g, "_")) &&
-    PATH_VALUE_RE.test(value)
-  );
-}
-
 export function secretLike(name: string, kind: McpValueKind, value: unknown): boolean {
   if (kind === "literal" && isSecretValue(value)) return true;
-  return isSecretName(name) && !isPathToSecret(name, kind, value);
+  return isSecretName(name) && !(kind === "literal" && isPathToSecret(name, value));
 }
 
 /** Userinfo or a credential-named query parameter in a URL; an unparsable URL counts as no secret here. */

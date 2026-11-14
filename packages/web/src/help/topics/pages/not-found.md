@@ -25,7 +25,7 @@ The not-found experience appears for unknown SPA paths and for artifact detail U
 
 1. Read the missing name or path in the message.
 2. Click Catalog and search for a similar artifact name.
-3. Check that the type segment is one of skill, command, agent, or hook.
+3. Check that the type segment is one of skill, command, agent, hook, plugin, settings, mcp-server, or rule.
 4. If you intended to publish, open Publishing an artifact and create the first version.
 5. Use nav search (Ctrl/Cmd+K) to jump to `/artifacts?q=...`.
 6. Open Help center if you followed a stale documentation link.

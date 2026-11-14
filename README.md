@@ -1,7 +1,7 @@
 # SkillForge: a self-hosted registry for coding-agent artifacts
 
 SkillForge is an internal marketplace for what your coding agents run on: **skills, commands, agents, hooks, plugins,
-settings profiles and MCP servers**. Teams publish them once, reviewers decide what becomes trusted, and every
+settings profiles, MCP servers and rules**. Teams publish them once, reviewers decide what becomes trusted, and every
 developer installs the same versions into Claude Code, Codex, Cursor, OpenCode, Gemini CLI, Qwen Code and other agents.
 It runs on your own server; nothing leaves your infrastructure.
 
@@ -108,19 +108,21 @@ skillforge sync --status active --runtime claude-code
 
 ## Supported agents
 
-| Agent | `--runtime` | Skills | Commands | Agents | MCP |
-|---|---|---|---|---|---|
-| [Claude Code](docs/en/agents/claude-code.md) | `claude-code` | yes | yes | yes | yes |
-| [Codex](docs/en/agents/codex.md) | `codex` | yes | — | TOML | yes |
-| [Gemini CLI](docs/en/agents/gemini-cli.md) | `gemini` | yes | TOML | — | over HTTP |
-| [Cursor](docs/en/agents/cursor.md) | `cursor` | yes | project scope | trimmed | yes |
-| [OpenCode](docs/en/agents/opencode.md) | `opencode` | yes | trimmed | subagents | yes |
-| [Qwen Code](docs/en/agents/qwen-code.md) | `qwen` | yes | yes | yes | yes |
-| [Devin](docs/en/agents/devin.md) | `devin` | project skills | — | — | over HTTP |
-| [Reckon](docs/en/agents/reckon.md) | `reckon` | project skills | — | — | through Claude Code |
+| Agent | `--runtime` | Skills | Commands | Agents | Rules | MCP |
+|---|---|---|---|---|---|---|
+| [Claude Code](docs/en/agents/claude-code.md) | `claude-code` | yes | yes | yes | yes | yes |
+| [Codex](docs/en/agents/codex.md) | `codex` | yes | — | TOML | — | yes |
+| [Gemini CLI](docs/en/agents/gemini-cli.md) | `gemini` | yes | TOML | — | — | over HTTP |
+| [Cursor](docs/en/agents/cursor.md) | `cursor` | yes | project scope | trimmed | project | yes |
+| [OpenCode](docs/en/agents/opencode.md) | `opencode` | yes | trimmed | subagents | project | yes |
+| [Qwen Code](docs/en/agents/qwen-code.md) | `qwen` | yes | yes | yes | — | yes |
+| [Devin](docs/en/agents/devin.md) | `devin` | project skills | — | — | — | over HTTP |
+| [Reckon](docs/en/agents/reckon.md) | `reckon` | project skills | — | — | — | through Claude Code |
 
-Hooks, plugins and settings profiles go to the agents that support them. What each agent gets, where its files
-go and how it connects: [Agents](docs/en/agents/README.md) and the in-app help topic `getting-started/agent-support`.
+Hooks, plugins and settings profiles install only into Claude Code; approved MCP servers (the `mcp-server` type) are
+configured in the agent by hand. The MCP column is the agent's connection to SkillForge itself.
+What each agent gets, where its files go and how it connects: [Agents](docs/en/agents/README.md) and the in-app help
+topic `getting-started/agent-support`.
 
 ## 📚 Documentation
 

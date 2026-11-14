@@ -1,19 +1,19 @@
 # User guide
 
 SkillForge is a self-hosted internal registry of artifacts for AI agents:
-skills, commands, agents, hooks, plugins, settings profiles, and descriptions of
-approved MCP servers. The registry stores versioned content, manages lifecycle
-and channels, computes quality and metrics, and delivers artifacts to agent
-runtimes (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Qwen Code, Devin,
-Reckon) via the CLI and MCP. This guide is a tour of the whole product; each
+skills, commands, agents, hooks, plugins, settings profiles, rules, and
+descriptions of approved MCP servers. The registry stores versioned content,
+manages lifecycle and channels, computes quality and metrics, and delivers
+artifacts to agent runtimes (Claude Code, Codex, Gemini CLI, Cursor, OpenCode,
+Qwen Code, Devin, Reckon) via the CLI and MCP. This guide is a tour of the whole product; each
 section links to the page with the details. Support table: help topic
 `getting-started/agent-support` and [Agents](agents/README.md).
 
 ## 1. Concepts
 
 - **Artifact** — a registry unit with a name, a type, and a version history.
-  Types: `skill`, `command`, `agent`, `hook`, `plugin`, `settings`, `mcp-server`
-  ([Artifact types](05-artifact-types.md)).
+  Types: `skill`, `command`, `agent`, `hook`, `plugin`, `settings`, `mcp-server`,
+  `rule` ([Artifact types](05-artifact-types.md)).
 - **Version** — an immutable content snapshot with a semver version, a digest
   (sha256), and provenance (where it came from). A version is never overwritten.
 - **Version channel** — every version is in exactly one channel, `stable` or
@@ -166,9 +166,10 @@ skillforge harvest sessions --out <dir> --name <name>
   `skillforge pack install team-method@1.0.0 --role developer` installs one
   role (all roles without `--role`); `sync` keeps the pinned versions, installing a
   newer pack version moves them. `skillforge pack list` lists packs.
-- **Skills from your sessions.** `skillforge harvest sessions` collects rules
+- **Rules from your sessions.** `skillforge harvest sessions` collects rules
   you keep asking your agent for from local Claude Code session logs (only
-  your own words) and writes a skill draft on disk; it sends nothing. Review
+  your own words) and writes a rule draft on disk (a skill draft with
+  `--type skill`); it sends nothing. Review
   the draft and publish it as usual.
 - The `.skillforge-lock.json` lock file pins versions/digests in the project;
   local edits are detected by `sync` (dirty check).
@@ -178,7 +179,8 @@ skillforge harvest sessions --out <dir> --name <name>
   the reason returned by `skillforge install … --runtime …`. Skills install into
   all eight; agents also into Codex (`.codex`), Cursor, OpenCode, and Qwen Code;
   hooks, plugins, and settings profiles remain Claude Code only (hooks and
-  plugins install through the Claude Code plugin marketplace, `/plugin install`).
+  plugins install through the Claude Code plugin marketplace, `/plugin install`);
+  rules install into Claude Code, Cursor, and OpenCode.
 - `skillforge settings apply` — settings profiles (Claude Code only).
 - `mcp-server` — an approved MCP server: not installed into agents yet; configure it
   by hand as its artifact page shows. Admins set the MCP policy on `/admin/lifecycle`.
@@ -272,7 +274,7 @@ session usage is collected: [Session metrics](16-session-metrics.md).
 - `/admin/rollout` — open a pull request with active artifacts in chosen
   GitHub repositories (needs `SKILLFORGE_GITHUB_TOKEN` on the server).
 - `/admin/harvest` — rules that recur in pull request review comments,
-  turned into a candidate skill draft (same GitHub token).
+  turned into a candidate rule draft (same GitHub token).
 - `/admin/assistant` — the LLM connection for the help assistant and for
   skill validation by the model.
 - Purge — irreversible erasure of a version or artifact

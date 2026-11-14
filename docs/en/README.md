@@ -14,7 +14,7 @@ recipes.
 
 ## 🧭 Guides by topic
 
-- [Artifact types](05-artifact-types.md) — the seven types, their files and validation codes.
+- [Artifact types](05-artifact-types.md) — the eight types, their files and validation codes.
 - [Publishing and import](06-publishing-and-import.md) — the Publish page, the CLI, imports, mirrors, starter packs.
 - [Lifecycle and review](07-lifecycle-and-review.md) — statuses, transitions, the review queue and the lifecycle board.
 - [Lifecycle by data](08-lifecycle-by-data.md) — how usage, quality and age move artifacts along.

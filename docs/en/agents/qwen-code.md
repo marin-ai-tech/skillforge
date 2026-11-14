@@ -37,6 +37,7 @@ Support is verified against the real client in automated tests.
 | `plugin` | not supported: "Claude Code plugins are not supported by qwen; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by qwen (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Qwen Code by hand as the artifact page shows |
+| `rule` | not installed yet: "rules are not installed into qwen yet: qwen reads its rules from QWEN.md, and writing into that shared file is planned" |
 
 ## Install and sync
 

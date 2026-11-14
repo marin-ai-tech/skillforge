@@ -144,6 +144,7 @@ export const authRoutes: FastifyPluginAsync<AuthPluginOpts> = async (app, opts) 
       name?: unknown;
       mcp?: unknown;
       mcp_tags?: unknown;
+      integration?: unknown;
     };
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (!name) {
@@ -156,7 +157,13 @@ export const authRoutes: FastifyPluginAsync<AuthPluginOpts> = async (app, opts) 
       return reply.code(400).send({ error: "bad_request" });
     }
 
-    const created = createToken(db, request.user.id, name, { mcp, mcp_tags: mcpTags });
+    // plugin-mcp-tools: an integration token is an MCP token; anything but a boolean is refused.
+    const integration = body.integration ?? false;
+    if (typeof integration !== "boolean" || (integration && !mcp)) {
+      return reply.code(400).send({ error: "bad_request" });
+    }
+
+    const created = createToken(db, request.user.id, name, { mcp, mcp_tags: mcpTags, integration });
     return reply.code(201).send({
       id: created.row.id,
       name: created.row.name,
@@ -164,6 +171,7 @@ export const authRoutes: FastifyPluginAsync<AuthPluginOpts> = async (app, opts) 
       token: created.token,
       mcp: created.row.mcp,
       mcp_tags: created.row.mcp_tags,
+      integration: created.row.integration,
     });
   });
 

@@ -618,6 +618,8 @@ export type ApiToken = {
   last_used_at: string | null;
   mcp: boolean;
   mcp_tags: string[];
+  /** plugin-mcp-tools: sees MCP tools meant for integrations. */
+  integration?: boolean;
 };
 
 export type CreatedToken = {
@@ -633,6 +635,7 @@ export type CreateTokenInput = {
   name: string;
   mcp?: boolean;
   mcp_tags?: string[];
+  integration?: boolean;
 };
 export type ImportSkipped = { path: string; reason: string };
 
@@ -822,6 +825,8 @@ export type AgentComparedItem = {
   changed_files?: string[];
   /** Installed from the registry in a client format and matched through the lock (optional, absent in old snapshots). */
   translated?: boolean;
+  /** agent-source-marker: the visible registry artifact this file was built from (front matter skillforge-source). */
+  source?: { type: string; name: string; version: string };
 };
 
 export type AgentRegistryOnly = {

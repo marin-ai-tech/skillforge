@@ -55,7 +55,7 @@ To stop loading every plugin without deleting folders, start the server with
 | `api` | must be `1` |
 | `description` | optional, at most 200 characters |
 | `main` | the ES module to load, default `index.js`; must stay inside the plugin folder |
-| `capabilities` | mostly informational; `process` and `llm` are required to use those APIs |
+| `capabilities` | mostly informational; `process`, `llm` and `mcp` are required to use those APIs |
 | `config_schema` | properties of type `string`, `number`, `boolean` or `array`, with defaults; drives the admin JSON editor |
 
 ## Load status and failures
@@ -101,6 +101,7 @@ The module exports `register(ctx)`. The context offers:
 | `ui.nav`, `ui.page`, `ui.artifactTab` | a header link, a markdown page under `/ext/<plugin>/<page>`, and a tab on the artifact page after Install |
 | `process.spawnIsolated` | start an external process without a shell (needs the `process` capability) |
 | `llm` | call the model connected on the Assistant page by purpose; the key never reaches the plugin (needs `llm`) |
+| `mcp.tool` | an MCP tool on `/mcp` (needs `mcp`); see below |
 
 Event handlers run after the database commit. An exception in a handler is logged and never fails the
 original request. The events are:
@@ -112,6 +113,19 @@ original request. The events are:
 - `auth.login`, `server.started`.
 
 A plugin that stores content derived from a version must delete it when it receives `artifact.purged`.
+
+### MCP tools
+
+`ctx.mcp.tool({ name, description, inputSchema, audience? }, handler)` adds a tool to `tools/list` and
+`tools/call` of `/mcp`. The name is `a-z0-9_`, starts with a letter, at most 64 characters, and may not be the name
+of a built-in tool or of a tool another plugin declared first — either stops the plugin with a load error.
+`audience: "integration"` hides the tool from ordinary MCP tokens: only a token created with `integration: true`
+sees and calls it.
+
+`handler(args, call)` returns the result object or throws (the message goes back as `isError`). `call.caller` is
+`{ username, role, integration }`; `call.registry(name, args)` calls a built-in tool — `search_artifacts`,
+`get_artifact`, `read_artifact_file`, `read_artifact_files`, `record_usage` — as the same token, so the plugin
+sees and reports exactly what the token may. A handler has 30 seconds. A disabled plugin's tools disappear at once.
 
 ### Badges
 
@@ -182,6 +196,16 @@ gets a background check by the single reviewer `llm`, with no reviewers file nee
 for it. A finding is kept only if its quote is really in the file. A check does not change the status and
 does not count as review evidence; no findings does not mean the skill is safe. See
 [Backups and operations](20-backups-and-operations.md) for the model settings.
+
+## The sdlc-registry plugin
+
+The built-in `sdlc-registry` plugin answers the team registry of sdlc (`team.registry` in `sdlc.yaml`) on SkillForge's
+own `/mcp`: `list_roles` and `get_role` (agents tagged `sdlc-role`), `list_skills` and `get_skill` (every file of a
+skill in one call, with sdlc's checksum), `list_rules` and `get_rule`. It reads only through the built-in tools as the
+calling token. `report_outcome`, for integration tokens only, turns an approved or rejected sdlc stage into `assigned`
+usage reports for the skills of the roles of that stage; they do not change Transfer Rate. The plugin is off until an
+administrator turns it on (`enabled_by_default: false` in its manifest). The in-app help topic
+`getting-started/sdlc-registry` describes it for users.
 
 ## See also
 

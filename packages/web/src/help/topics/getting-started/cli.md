@@ -87,7 +87,7 @@ skillforge agent rm --name laptop
 
 ## Skill drafts from your sessions
 
-`skillforge harvest sessions --out <dir> --name <name> [--dir <logs>] [--min 3] [--json]` reads local Claude Code session logs (default `~/.claude/projects`) and keeps the rules you kept asking the agent for: sentences that start like a rule (`always`, `never`, `don't`, `avoid`, `use`…) and recur at least 3 times in at least 2 sessions. Only what you typed counts — not the agent's replies or tool output. It writes `<dir>/skills/<name>/SKILL.md` with the rules and the session file and line of each, and contacts no registry. Review the draft, then publish it as usual.
+`skillforge harvest sessions --out <dir> --name <name> [--type rule|skill] [--dir <logs>] [--min 3] [--json]` reads local Claude Code session logs (default `~/.claude/projects`) and keeps the rules you kept asking the agent for: sentences that start like a rule (`always`, `never`, `don't`, `avoid`, `use`…) and recur at least 3 times in at least 2 sessions. Only what you typed counts — not the agent's replies or tool output. It writes a rule draft `<dir>/rules/<name>.md` (with `--type skill`, a skill draft `<dir>/skills/<name>/SKILL.md`) with the rules and the session file and line of each, and contacts no registry. Review the draft, then publish it as usual.
 
 ## Settings apply
 

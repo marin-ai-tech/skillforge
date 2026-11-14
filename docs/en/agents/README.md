@@ -20,16 +20,16 @@ agent also has its own page with its folders, the types it accepts, its MCP conn
 The order of the rows is the order of the server runtime table (`GET /api/v1/runtimes`), which is also the order of
 the runtime selectors in the web interface.
 
-| Agent | `--runtime` | Project folder | User folder | Skills | Commands | Agents | MCP connect | `agent scan --mcp` |
-|---|---|---|---|---|---|---|---|---|
-| [Claude Code](claude-code.md) | `claude-code` | `.claude` | `~/.claude` | as is | as is | as is | `claude mcp add` | yes |
-| [Codex](codex.md) | `codex` | `.codex` | `~/.codex` | as is | not supported | TOML | `codex mcp add` | yes |
-| [Gemini CLI](gemini-cli.md) | `gemini` | `.gemini` | `~/.gemini` | as is | TOML | not supported | any MCP client over HTTP | no |
-| [Cursor](cursor.md) | `cursor` | `.cursor` | `~/.cursor` | as is | body only, project scope | `name` + `description` | JSON for `~/.cursor/mcp.json` | yes |
-| [OpenCode](opencode.md) | `opencode` | `.opencode` | `~/.config/opencode` | as is | `description` frontmatter | `description` + `mode: subagent` | `opencode mcp add` | yes |
-| [Qwen Code](qwen-code.md) | `qwen` | `.qwen` | `~/.qwen` | as is | `$ARGUMENTS` becomes `{{args}}` | as is | `qwen mcp add -s user` | no |
-| [Devin](devin.md) | `devin` | `.agents` | none | as is | not supported | not supported | any MCP client over HTTP | no |
-| [Reckon](reckon.md) | `reckon` | `.reckon` | none | as is | not supported | not supported | through Claude Code | no |
+| Agent | `--runtime` | Project folder | User folder | Skills | Commands | Agents | Rules | MCP connect | `agent scan --mcp` |
+|---|---|---|---|---|---|---|---|---|---|
+| [Claude Code](claude-code.md) | `claude-code` | `.claude` | `~/.claude` | as is | as is | as is | as is | `claude mcp add` | yes |
+| [Codex](codex.md) | `codex` | `.codex` | `~/.codex` | as is | not supported | TOML | not yet (`AGENTS.md`) | `codex mcp add` | yes |
+| [Gemini CLI](gemini-cli.md) | `gemini` | `.gemini` | `~/.gemini` | as is | TOML | not supported | not yet (`GEMINI.md`) | any MCP client over HTTP | no |
+| [Cursor](cursor.md) | `cursor` | `.cursor` | `~/.cursor` | as is | body only, project scope | `name` + `description` | `.mdc`, project scope | JSON for `~/.cursor/mcp.json` | yes |
+| [OpenCode](opencode.md) | `opencode` | `.opencode` | `~/.config/opencode` | as is | `description` frontmatter | `description` + `mode: subagent` | project scope, added to `instructions` | `opencode mcp add` | yes |
+| [Qwen Code](qwen-code.md) | `qwen` | `.qwen` | `~/.qwen` | as is | `$ARGUMENTS` becomes `{{args}}` | as is | not yet (`QWEN.md`) | `qwen mcp add -s user` | no |
+| [Devin](devin.md) | `devin` | `.agents` | none | as is | not supported | not supported | not supported | any MCP client over HTTP | no |
+| [Reckon](reckon.md) | `reckon` | `.reckon` | none | as is | not supported | not supported | not supported | through Claude Code | no |
 
 - **Skills** are copied unchanged into every agent.
 - **Commands** and **agents** are written in Claude Code markdown in the registry. The CLI translates them into the
@@ -37,6 +37,8 @@ the runtime selectors in the web interface.
   and the CLI show the reason instead of a command.
 - **Hooks, plugins and settings profiles** are Claude Code features. They install only into Claude Code: hooks and
   plugins through its plugin marketplace, settings profiles with `skillforge settings apply`.
+- **Rules** install into Claude Code, Cursor and OpenCode. Codex, Gemini CLI and Qwen Code read rules from
+  `AGENTS.md`, `GEMINI.md` and `QWEN.md`; SkillForge does not write into those files yet.
 - **MCP servers** (type `mcp-server`) are not installed into any agent yet. The artifact page shows what the server
   runs and which variables each person sets, and you configure it in the agent by hand.
 
@@ -47,9 +49,9 @@ config. Gemini CLI, Cursor and Devin are checked against the client documentatio
 
 | Way | Works for | What it does |
 |---|---|---|
-| SkillForge CLI | every agent | writes skills, commands and agents into the folder the agent reads, with a lock file |
+| SkillForge CLI | every agent | writes skills, commands, agents and rules into the folder the agent reads, with a lock file |
 | MCP | any agent that speaks MCP | lets the agent search and read active artifacts in the registry without installed files |
-| Claude Code plugin marketplace | Claude Code only | installs any active artifact as a plugin; the only way to install hooks and plugins |
+| Claude Code plugin marketplace | Claude Code only | installs active artifacts as plugins, except settings profiles, MCP servers and rules; the only way to install hooks and plugins |
 
 Install commands appear only for `active` artifacts, on the Install tab of the artifact page and in the marketplace.
 
@@ -87,8 +89,8 @@ such as `skillforge install skill/pdf-tools --runtime cursor`, or the reason the
 
 ## Connect an agent over MCP
 
-SkillForge is itself an MCP server. An agent connected to it can call four tools: `search_artifacts`, `get_artifact`,
-`read_artifact_file` and `record_usage`. It sees only `active` artifacts and cannot publish, change status or install
+SkillForge is itself an MCP server. An agent connected to it can call five tools: `search_artifacts`, `get_artifact`,
+`read_artifact_file`, `read_artifact_files` and `record_usage`. It sees only `active` artifacts and cannot publish, change status or install
 files.
 
 1. Sign in to the web interface and open **API tokens** (`/me/tokens`).
@@ -152,7 +154,7 @@ version of the agent you have.
 
 ## See also
 
-- [Artifact types](../05-artifact-types.md) for the seven types and their files.
+- [Artifact types](../05-artifact-types.md) for the eight types and their files.
 - [Versions and channels](../10-versions-and-channels.md) for version specs, pins and downgrades.
 - [MCP](../13-mcp.md) for the MCP tools, token consent and MCP server artifacts.
 - In-app help: `getting-started/agent-support`, `getting-started/install`, `getting-started/mcp`.

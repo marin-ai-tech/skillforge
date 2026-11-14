@@ -70,7 +70,29 @@ function localVersionLabel(item: AgentComparedItem): string {
         : "—";
 }
 
+/** fix-agent-source-ui: a built file names its source; the source is the page to open, not the local name. */
+function AgentItemSource({ item }: { item: AgentComparedItem }) {
+  const src = item.source;
+  if (!src) return null;
+  const ref = `${src.type}/${src.name}@${src.version}`;
+  return (
+    <span data-testid="agent-item-source" className="ml-1 text-xs text-muted">
+      {STR.ws.agent.sourceLabel}{" "}
+      <Link
+        to={`/artifacts/${encodeURIComponent(src.type)}/${encodeURIComponent(src.name)}`}
+        title={STR.ws.agent.sourceHelp}
+        aria-label={STR.ws.agent.sourceAria(ref, STR.ws.agent.sourceHelp)}
+        className="rounded-sf border border-line px-1.5 py-0.5 text-ink-2 no-underline hover:text-accent"
+        translate="no"
+      >
+        {ref}
+      </Link>
+    </span>
+  );
+}
+
 function AgentItemName({ item, inRegistry }: { item: AgentComparedItem; inRegistry: boolean }) {
+  if (item.source) return <span>{item.key}</span>;
   return inRegistry && item.status !== "local_only" ? (
     <Link
       to={`/artifacts/${encodeURIComponent(item.type)}/${encodeURIComponent(item.name)}`}
@@ -87,6 +109,53 @@ function AgentItemName({ item, inRegistry }: { item: AgentComparedItem; inRegist
     >
       {item.key}
     </Link>
+  );
+}
+
+/** Publish for a local or modified copy, the install command for an outdated one; a built file gets neither. */
+function AgentItemActions({
+  item,
+  canPublish,
+  onPublish,
+}: {
+  item: AgentComparedItem;
+  canPublish: boolean;
+  onPublish: (item: AgentComparedItem) => void;
+}) {
+  const installCmd = `skillforge install ${item.type}/${item.name}`;
+  return (
+    <td className="px-3 py-2">
+      {(item.status === "local_only" || item.status === "modified") &&
+      canPublish &&
+      !item.source ? (
+        <HelpTip action="agent-item-publish">
+          <button
+            type="button"
+            data-testid="agent-item-publish"
+            className="rounded-sf border border-line px-2 py-1 text-xs hover:bg-surface-2"
+            onClick={() => onPublish(item)}
+          >
+            {STR.ws.agent.publish}
+          </button>
+        </HelpTip>
+      ) : null}
+      {item.source && item.status === "outdated" ? (
+        <span data-testid="agent-item-rebuild" className="text-xs text-muted">
+          {STR.ws.agent.rebuildHint}
+        </span>
+      ) : null}
+      {(item.status === "outdated" || item.status === "registry_only") && !item.source ? (
+        <HelpTip action="agent-item-install">
+          <span
+            data-testid="agent-item-install"
+            className="inline-flex flex-wrap items-center gap-1 text-xs"
+          >
+            <code className="rounded-sf bg-surface-2 px-1 py-0.5">{installCmd}</code>
+            <CopyButton value={installCmd} />
+          </span>
+        </HelpTip>
+      ) : null}
+    </td>
   );
 }
 
@@ -120,7 +189,6 @@ function AgentItemsTable({ items, registryOnly, canPublish, onPublish }: TablePr
         <tbody>
           {rows.map((item) => {
             const inRegistry = item.status !== "local_only";
-            const installCmd = `skillforge install ${item.type}/${item.name}`;
             return (
               <tr
                 key={item.key}
@@ -149,6 +217,7 @@ function AgentItemsTable({ items, registryOnly, canPublish, onPublish }: TablePr
                       {STR.ws.agent.translatedLabel}
                     </span>
                   ) : null}
+                  <AgentItemSource item={item} />
                   {item.status === "modified" && item.changed_files?.length ? (
                     <div
                       data-testid="agent-item-changed"
@@ -163,31 +232,7 @@ function AgentItemsTable({ items, registryOnly, canPublish, onPublish }: TablePr
                 <td className="px-3 py-2 text-xs text-ink-2">
                   {item.registry?.latest_version ?? "—"}
                 </td>
-                <td className="px-3 py-2">
-                  {(item.status === "local_only" || item.status === "modified") && canPublish ? (
-                    <HelpTip action="agent-item-publish">
-                      <button
-                        type="button"
-                        data-testid="agent-item-publish"
-                        className="rounded-sf border border-line px-2 py-1 text-xs hover:bg-surface-2"
-                        onClick={() => onPublish(item)}
-                      >
-                        {STR.ws.agent.publish}
-                      </button>
-                    </HelpTip>
-                  ) : null}
-                  {item.status === "outdated" || item.status === "registry_only" ? (
-                    <HelpTip action="agent-item-install">
-                      <span
-                        data-testid="agent-item-install"
-                        className="inline-flex flex-wrap items-center gap-1 text-xs"
-                      >
-                        <code className="rounded-sf bg-surface-2 px-1 py-0.5">{installCmd}</code>
-                        <CopyButton value={installCmd} />
-                      </span>
-                    </HelpTip>
-                  ) : null}
-                </td>
+                <AgentItemActions item={item} canPublish={canPublish} onPublish={onPublish} />
               </tr>
             );
           })}

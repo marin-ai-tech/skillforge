@@ -24,6 +24,8 @@ export const pluginManifestSchema = z.object({
   description: z.string().max(200).optional().default(""),
   main: z.string().optional().default("index.js"),
   capabilities: z.array(z.string()).optional().default([]),
+  /** sdlc-registry-plugin: false records the plugin disabled when it is first seen; an admin turns it on. */
+  enabled_by_default: z.boolean().optional().default(true),
   config_schema: configSchemaZod,
 });
 

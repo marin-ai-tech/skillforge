@@ -3,7 +3,7 @@ title: Agent support
 summary: One table of the eight agent runtimes SkillForge serves, what each one supports and how that support is verified.
 section: start
 learn:
-  - Which skills, commands and agents each runtime accepts
+  - Which skills, commands, agents and rules each runtime accepts
   - How each runtime connects to MCP and which folder is scanned
   - Which runtimes are verified against a real client
   - Known limitations of Cursor and Codex
@@ -15,21 +15,22 @@ SkillForge serves eight agent runtimes. This table is the single place that says
 
 ## Support table
 
-| Runtime | Skills | Commands | Agents | MCP connect (on /me/tokens) | Agent-folder scan | Verified by |
-|---|---|---|---|---|---|---|
-| Claude Code | `.claude/skills`, `~/.claude/skills` | as is | as is | `claude mcp add` (HTTP or stdio) | `.claude` | real client (marketplace, MCP, settings) |
-| Codex | `.codex/skills`, `~/.codex/skills` | not supported (custom prompts are deprecated; publish as a skill) | `.codex/agents/<name>.toml` (see limitation) | `codex mcp add` (token via `SKILLFORGE_TOKEN` or stdio) | `.codex` | real client in automated tests (skills, MCP config); agents: known limitation |
-| Gemini CLI | `.gemini/skills`, `~/.gemini/skills` | `commands/<name>.toml` | not supported | any MCP client: HTTP `<server>/mcp` with `Authorization: Bearer` | `.gemini` | documentation |
-| Cursor | `.cursor/skills`, `~/.cursor/skills` | body only, project scope | `name` + `description` frontmatter | JSON for `~/.cursor/mcp.json` | `.cursor` | documentation (client not installed on the test stand) |
-| OpenCode | `.opencode/skills`, `~/.config/opencode/skills` | `description` frontmatter | `description` + `mode: subagent` | `opencode mcp add` | `.opencode` | real client in automated tests |
-| Qwen Code | `.qwen/skills`, `~/.qwen/skills` | `$ARGUMENTS` → `{{args}}` | as is | `qwen mcp add -s user` | `.qwen` | real client in automated tests |
-| Devin | `.agents/skills` (project only) | not supported | not supported | any MCP client (as Gemini CLI) | `.agents` | documentation |
-| Reckon | `.reckon/skills` (project only) | not supported | not supported | through Claude Code | `.reckon` (learned skills) | real client |
+| Runtime | Skills | Commands | Agents | Rules | MCP connect (on /me/tokens) | Agent-folder scan | Verified by |
+|---|---|---|---|---|---|---|---|
+| Claude Code | `.claude/skills`, `~/.claude/skills` | as is | as is | `.claude/rules`, `~/.claude/rules` | `claude mcp add` (HTTP or stdio) | `.claude` | real client (marketplace, MCP, settings) |
+| Codex | `.codex/skills`, `~/.codex/skills` | not supported (custom prompts are deprecated; publish as a skill) | `.codex/agents/<name>.toml` (see limitation) | not installed yet (Codex reads `AGENTS.md`) | `codex mcp add` (token via `SKILLFORGE_TOKEN` or stdio) | `.codex` | real client in automated tests (skills, MCP config); agents: known limitation |
+| Gemini CLI | `.gemini/skills`, `~/.gemini/skills` | `commands/<name>.toml` | not supported | not installed yet (Gemini CLI reads `GEMINI.md`) | any MCP client: HTTP `<server>/mcp` with `Authorization: Bearer` | `.gemini` | documentation |
+| Cursor | `.cursor/skills`, `~/.cursor/skills` | body only, project scope | `name` + `description` frontmatter | `.cursor/rules/<name>.mdc`, project only | JSON for `~/.cursor/mcp.json` | `.cursor` | documentation (client not installed on the test stand) |
+| OpenCode | `.opencode/skills`, `~/.config/opencode/skills` | `description` frontmatter | `description` + `mode: subagent` | `.opencode/rules`, project only; added to `instructions` | `opencode mcp add` | `.opencode` | real client in automated tests |
+| Qwen Code | `.qwen/skills`, `~/.qwen/skills` | `$ARGUMENTS` → `{{args}}` | as is | not installed yet (Qwen Code reads `QWEN.md`) | `qwen mcp add -s user` | `.qwen` | real client in automated tests |
+| Devin | `.agents/skills` (project only) | not supported | not supported | not supported | any MCP client (as Gemini CLI) | `.agents` | documentation |
+| Reckon | `.reckon/skills` (project only) | not supported | not supported | not supported | through Claude Code | `.reckon` (learned skills) | real client |
 
 ## How to read the table
 
 - **Skills** shows the project folder and, where the runtime has one, the user folder that `skillforge install --runtime <id>` writes to (`--scope project` or `--scope user`). Skill files are copied unchanged.
 - **Commands** and **Agents** show how the CLI translates the canonical markdown for that runtime. "As is" means the file is copied unchanged; "not supported" means the Install tab and the CLI show the reason instead of a command.
+- **Rules** shows where `skillforge install rule/<name>` writes a rule. Cursor gets an `.mdc` file; for OpenCode the CLI adds the line `.opencode/rules/*.md` to `instructions` in the project's OpenCode config once. Codex, Gemini CLI and Qwen Code read rules from one shared file that SkillForge does not write into yet.
 - **MCP connect** is the client choice on `/me/tokens` after you create an MCP-enabled token.
 - **Agent-folder scan** is the folder that `skillforge agent scan --runtime <id>` and the Add agent dialog read for that runtime.
 - **Verified by** says whether support was checked against the real client or only against the client documentation.

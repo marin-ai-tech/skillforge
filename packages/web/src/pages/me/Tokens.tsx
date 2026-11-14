@@ -64,6 +64,7 @@ function TokensPage() {
   const [name, setName] = useState("");
   const [mcp, setMcp] = useState(false);
   const [mcpTags, setMcpTags] = useState("");
+  const [integration, setIntegration] = useState(false);
   const [lastCreated, setLastCreated] = useState<{
     token: string;
     mcp: boolean;
@@ -88,7 +89,7 @@ function TokensPage() {
       const tags = parseTagsInput(mcpTags);
       return createToken({
         name: name.trim(),
-        ...(mcp ? { mcp: true, mcp_tags: tags } : {}),
+        ...(mcp ? { mcp: true, mcp_tags: tags, integration } : {}),
       });
     },
     onSuccess: async (created) => {
@@ -146,7 +147,10 @@ function TokensPage() {
               checked={mcp}
               onChange={(e) => {
                 setMcp(e.target.checked);
-                if (!e.target.checked) setMcpTags("");
+                if (!e.target.checked) {
+                  setMcpTags("");
+                  setIntegration(false);
+                }
               }}
             />
           </HelpTip>
@@ -164,6 +168,18 @@ function TokensPage() {
               onChange={(e) => setMcpTags(e.target.value)}
             />
           </HelpTip>
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <HelpTip action="token-integration">
+            <input
+              type="checkbox"
+              data-testid="token-integration"
+              checked={integration}
+              disabled={!mcp}
+              onChange={(e) => setIntegration(e.target.checked)}
+            />
+          </HelpTip>
+          <span className={mcp ? "" : "opacity-40"}>{STR.tokens.integration}</span>
         </label>
         <HelpTip action="token-create-submit">
           <Button
@@ -271,6 +287,14 @@ function TokensPage() {
                       className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent"
                     >
                       {t.mcp_tags.length > 0 ? `MCP: ${t.mcp_tags.join(", ")}` : "MCP"}
+                    </span>
+                  ) : null}
+                  {t.integration ? (
+                    <span
+                      data-testid="token-integration-chip"
+                      className="rounded-full border border-line px-2 py-0.5 text-xs text-ink-2"
+                    >
+                      {STR.tokens.integrationChip}
                     </span>
                   ) : null}
                 </div>

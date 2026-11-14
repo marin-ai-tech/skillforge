@@ -8,6 +8,8 @@ related: pages/tokens, getting-started/mcp, actions/tokens/mcp-snippet
 
 Enables the `mcp` flag (and optional `mcp_tags`) when creating an API token so agents may call `POST /mcp` with that Bearer secret. Tags are kebab-case, at most ten entries, each up to 32 characters; tags without `mcp: true` are rejected by the API.
 
+**For an integration, not an agent** (`token-integration`, `integration: true`, only with `mcp`) makes an integration token: it also sees MCP tools that plugins declare for integrations, such as the process events of the sdlc registry plugin. An agent token does not see them, so an agent cannot forge those events. Give an integration token to the tool that sends them, never to an agent.
+
 ## When to use
 
 Use when connecting any MCP client to SkillForge for read-only search of active skills. Prefer a dedicated agent token instead of reusing a CI publish token.

@@ -6,7 +6,7 @@ related: pages/home, pages/catalog
 
 ## What it does
 
-Home chips home-count-<type> show per-type totals and link to /artifacts?type=<type> for skill, command, agent, and hook.
+Home chips home-count-<type> show per-type totals and link to /artifacts?type=<type>, one chip for every artifact type.
 
 ## When to use
 

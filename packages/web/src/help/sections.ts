@@ -90,6 +90,7 @@ const GUIDE_ORDER = [
   "getting-started/routines",
   "getting-started/hooks-runtime",
   "getting-started/plugins",
+  "getting-started/sdlc-registry",
   "getting-started/notifications-for-plugins",
   "getting-started/self-hosting",
   "getting-started/purge",

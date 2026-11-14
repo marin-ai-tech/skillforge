@@ -33,7 +33,7 @@ The repository is an npm workspaces monorepo in TypeScript.
 
 | Package | Role |
 |---|---|
-| `packages/core` | Domain logic without IO: types, parsers and validators of the seven artifact types, bundle digest, normalisation to the canonical bundle, quality checks, agent runtime table and translation, version specs. Used by the server and the CLI |
+| `packages/core` | Domain logic without IO: types, parsers and validators of the eight artifact types, bundle digest, normalisation to the canonical bundle, quality checks, agent runtime table and translation, version specs. Used by the server and the CLI |
 | `packages/server` | Fastify with zod schemas, `node:sqlite`, the blob store on the file system, the MCP endpoint, the marketplace and the static web app |
 | `packages/web` | React, Vite and Tailwind; built into `packages/web/dist` and served by the server at `/`. Includes the in-app help |
 | `packages/cli` | The `skillforge` CLI: `login`, `publish`, `install`, `sync`, `outdated`, `agent scan`, `mcp` and more |
@@ -79,6 +79,7 @@ The canonical formats follow Claude Code plugins and the agentskills.io skill fo
 | `plugin` | Claude Code plugin bundle with `.claude-plugin/plugin.json` and components | the bundle files as they are | Claude Code marketplace |
 | `settings` | `SETTINGS.md` + `settings.json` | `settings/<name>/…` | `skillforge settings apply`, not the marketplace |
 | `mcp-server` | `MCP.md` + `server.json` | `mcp/<name>/…` | described in the catalog; configured in the agent by hand |
+| `rule` | one `<name>.md` with frontmatter (optional `paths`) | `rules/<name>.md` | Claude Code, Cursor and OpenCode; not the marketplace |
 
 The author's frontmatter is never rewritten: the digest covers exactly what was published. Registry metadata (status,
 provenance, evidence, counters) lives in the database. Bundle limits: 32 MiB in total, 16 MiB per file, at most
@@ -97,7 +98,7 @@ provenance, evidence, counters) lives in the database. Bundle limits: 32 MiB in 
 
 - **Marketplace.** `GET /marketplace.json` (also `/api/v1/marketplace.json`) returns a Claude Code
   `.claude-plugin/marketplace.json`. By default it lists `active` artifacts; `?status=candidate,active` gives a preview
-  and `?type=` filters by type. `settings` and `mcp-server` are not listed. Each entry's source follows
+  and `?type=` filters by type. `settings`, `mcp-server` and `rule` are not listed. Each entry's source follows
   `SKILLFORGE_MARKETPLACE_SOURCE`: an `archive` (a zip with its `sha256`) or a `command` that runs
   `skillforge plugin-dir` on the client.
 - **Plugin archives.** `GET /api/v1/plugins/<type>/<name>/<version>.zip` (plugin root at the archive root) and
@@ -107,7 +108,7 @@ provenance, evidence, counters) lives in the database. Bundle limits: 32 MiB in 
   (default `.claude`). The CLI records what it installed in `.skillforge-lock.json`. Supported runtimes are listed by
   `GET /api/v1/runtimes`; see [Agents](agents/README.md).
 - **MCP.** `POST /mcp` (or the `skillforge mcp` stdio bridge) offers agents `search_artifacts`, `get_artifact`,
-  `read_artifact_file` and `record_usage` over JSON-RPC 2.0, for `active` artifacts only. See [MCP](13-mcp.md).
+  `read_artifact_file`, `read_artifact_files` and `record_usage` over JSON-RPC 2.0, for `active` artifacts only. See [MCP](13-mcp.md).
 - **CLI download.** `/downloads/skillforge-cli.tgz` serves the CLI package from `SKILLFORGE_DOWNLOADS_DIR`.
 
 ## Channels and pins

@@ -37,6 +37,7 @@ Support is checked against the Gemini CLI documentation.
 | `plugin` | not supported: "Claude Code plugins are not supported by gemini; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by gemini (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Gemini CLI by hand as the artifact page shows |
+| `rule` | not installed yet: "rules are not installed into gemini yet: gemini reads its rules from GEMINI.md, and writing into that shared file is planned" |
 
 ## Install and sync
 

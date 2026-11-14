@@ -88,7 +88,8 @@ commands for every client — help topics `getting-started/mcp` and `getting-sta
 skillforge sync   # updates changed versions, reports local edits (dirty)
 ```
 
-Local edits to installed skill files are flagged dirty and `sync` stops (exit code 5); `--force` overwrites them.
+An artifact with local edits is flagged dirty: `sync` lists it in `failed`, installs the rest and exits with the
+worst code among the failures (5 for local edits); `--force` overwrites them.
 `skillforge outdated` shows which installed artifacts have newer versions (`sync` has no `--dry-run`).
 
 ## 7. Create a team and narrow an artifact's visibility

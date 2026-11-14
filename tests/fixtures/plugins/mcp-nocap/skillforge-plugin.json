@@ -1,0 +1,8 @@
+{
+  "name": "mcp-nocap",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Lead fixture: without the mcp capability a plugin has no ctx.mcp (plugin-mcp-tools)",
+  "main": "index.js",
+  "capabilities": []
+}

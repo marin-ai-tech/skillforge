@@ -1,4 +1,6 @@
 import { clearBadge, parseBadge, setBadge } from "./badges.ts";
+import { createMcpApi, type PluginToolHandler } from "./mcp-tools.ts";
+import { TOOL_DEFS } from "../mcp/tools.ts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   spawnIsolated,
@@ -139,6 +141,8 @@ export type PluginContext = {
       options?: SpawnIsolatedOptions,
     ) => Promise<SpawnIsolatedResult>;
   };
+  /** plugin-mcp-tools: MCP tools on /mcp, with the "mcp" capability; absent without it. */
+  mcp?: { tool: (def: unknown, handler: PluginToolHandler) => void };
   /** Model access by purpose, with the "llm" capability; the key stays in the server. */
   llm: {
     status: (purpose: string) => LlmTaskStatus;
@@ -323,6 +327,8 @@ function notificationUrl(url: string | undefined, artifact: NotificationArtifact
   return url ?? (artifact ? `/artifacts/${artifact.type}/${artifact.name}` : "/me/notifications");
 }
 
+const BUILT_IN_TOOLS: ReadonlySet<string> = new Set(TOOL_DEFS.map((t) => t.name));
+
 export function createContext(state: PluginState, deps: ContextDeps): PluginContext {
   const { db, dataDir, getConfig, configSchema } = deps;
   const name = state.name;
@@ -497,5 +503,6 @@ export function createContext(state: PluginState, deps: ContextDeps): PluginCont
     },
     process: createProcessApi(state),
     llm: createLlmApi(state, db, deps.appConfig),
+    mcp: createMcpApi(state, BUILT_IN_TOOLS),
   };
 }

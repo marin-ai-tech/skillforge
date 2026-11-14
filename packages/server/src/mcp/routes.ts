@@ -1,4 +1,11 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import {
+  findPluginTool,
+  pluginTools,
+  runPluginTool,
+  type PluginTool,
+  type PluginToolCall,
+} from "../plugins/mcp-tools.ts";
 import type { AppConfig } from "../config.ts";
 import type { Database } from "../db.ts";
 import { getUserById } from "../auth/users.ts";
@@ -31,7 +38,12 @@ function hasOrigin(request: FastifyRequest): boolean {
   return Object.prototype.hasOwnProperty.call(request.headers, "origin");
 }
 
-type McpAuth = { mcp_tags: string[]; username: string; role: import("../auth/users.ts").Role };
+type McpAuth = {
+  mcp_tags: string[];
+  username: string;
+  role: import("../auth/users.ts").Role;
+  integration: boolean;
+};
 
 function authenticateMcp(
   request: FastifyRequest,
@@ -78,7 +90,12 @@ function authenticateMcp(
     return null;
   }
 
-  return { mcp_tags: resolved.mcp_tags, username: user.username, role: user.role };
+  return {
+    mcp_tags: resolved.mcp_tags,
+    username: user.username,
+    role: user.role,
+    integration: resolved.integration,
+  };
 }
 
 type RpcReply = { status: 200 | 202; body: unknown | null };
@@ -96,13 +113,47 @@ function initializeReply(id: JsonRpcId, params: unknown, serverVersion: string):
   };
 }
 
-function toolsCallReply(
+/** plugin-mcp-tools: `call` for a plugin tool — the caller and the built-in tools as that caller. */
+function pluginCall(auth: McpAuth, db: Database, dataDir: string): PluginToolCall {
+  return {
+    caller: { username: auth.username, role: auth.role, integration: auth.integration },
+    registry: async (name, args) => {
+      if (!BUILT_IN_TOOLS.has(name)) throw new Error(`unknown built-in tool ${name}`);
+      const outcome = callTool(db, dataDir, auth, name, args);
+      if (outcome.kind === "invalid_params") throw new Error(outcome.message);
+      if (outcome.result.isError)
+        throw new Error(outcome.result.content[0]?.text ?? `${name} failed`);
+      return outcome.result.structuredContent;
+    },
+  };
+}
+
+async function pluginToolReply(
+  id: JsonRpcId,
+  tool: PluginTool,
+  args: unknown,
+  call: PluginToolCall,
+): Promise<RpcReply> {
+  if (args === null || typeof args !== "object" || Array.isArray(args)) {
+    return { status: 200, body: rpcError(id, -32602, "Tool arguments must be an object") };
+  }
+  const r = await runPluginTool(tool, args as Record<string, unknown>, call);
+  const result = r.ok
+    ? {
+        content: [{ type: "text" as const, text: JSON.stringify(r.value ?? null) }],
+        structuredContent: r.value ?? null,
+      }
+    : { content: [{ type: "text" as const, text: r.error }], isError: true };
+  return { status: 200, body: toolCallResponse(id, result) };
+}
+
+async function toolsCallReply(
   id: JsonRpcId,
   params: unknown,
   auth: McpAuth,
   db: Database,
   dataDir: string,
-): RpcReply {
+): Promise<RpcReply> {
   const p = (params && typeof params === "object" && !Array.isArray(params) ? params : null) as {
     name?: unknown;
     arguments?: unknown;
@@ -113,6 +164,8 @@ function toolsCallReply(
       body: rpcError(id, -32602, "Invalid params: tools/call requires name"),
     };
   }
+  const plugin = BUILT_IN_TOOLS.has(p.name) ? null : findPluginTool(p.name, auth.integration);
+  if (plugin) return pluginToolReply(id, plugin, p.arguments ?? {}, pluginCall(auth, db, dataDir));
   const outcome = callTool(db, dataDir, auth, p.name, p.arguments ?? {});
   if (outcome.kind === "invalid_params") {
     return { status: 200, body: rpcError(id, -32602, outcome.message) };
@@ -120,13 +173,13 @@ function toolsCallReply(
   return { status: 200, body: toolCallResponse(id, outcome.result) };
 }
 
-function handleRpc(
+async function handleRpc(
   msg: unknown,
   auth: McpAuth,
   db: Database,
   dataDir: string,
   serverVersion: string,
-): { status: 200 | 202; body: unknown | null } {
+): Promise<{ status: 200 | 202; body: unknown | null }> {
   if (Array.isArray(msg)) {
     return { status: 200, body: rpcError(null, -32600, "Invalid Request: batch not supported") };
   }
@@ -163,7 +216,7 @@ function handleRpc(
     return {
       status: 200,
       body: rpcResult(id, {
-        tools: TOOL_DEFS.map((t) => ({
+        tools: [...TOOL_DEFS, ...pluginTools(auth.integration).map((t) => t.def)].map((t) => ({
           name: t.name,
           description: t.description,
           inputSchema: t.inputSchema,
@@ -178,6 +231,8 @@ function handleRpc(
 
   return { status: 200, body: rpcError(id, -32601, `Method not found: ${method}`) };
 }
+
+const BUILT_IN_TOOLS: ReadonlySet<string> = new Set(TOOL_DEFS.map((t) => t.name));
 
 export const mcpRoutes: FastifyPluginAsync<McpPluginOpts> = async (app, opts) => {
   const { db, config, serverVersion } = opts;
@@ -214,7 +269,7 @@ export const mcpRoutes: FastifyPluginAsync<McpPluginOpts> = async (app, opts) =>
       return reply.code(400).type("application/json").send(parseErrorResponse());
     }
 
-    const out = handleRpc(parsed, auth, db, dataDir, serverVersion);
+    const out = await handleRpc(parsed, auth, db, dataDir, serverVersion);
     if (out.status === 202) {
       return reply.code(202).send();
     }

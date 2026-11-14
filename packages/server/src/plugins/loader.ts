@@ -33,14 +33,31 @@ function readStoredConfig(db: Database, name: string): Record<string, unknown> {
   return {};
 }
 
-function upsertPluginRow(db: Database, name: string, now: string): { enabled: boolean } {
+/** enabled_by_default of the manifest, read leniently: anything but an explicit false means enabled. */
+function enabledByDefault(pluginDir: string): boolean {
+  try {
+    const raw = JSON.parse(
+      fs.readFileSync(path.join(pluginDir, "skillforge-plugin.json"), "utf8"),
+    ) as { enabled_by_default?: unknown };
+    return raw.enabled_by_default !== false;
+  } catch {
+    return true;
+  }
+}
+
+function upsertPluginRow(
+  db: Database,
+  name: string,
+  now: string,
+  firstEnabled: boolean,
+): { enabled: boolean } {
   const existing = db.prepare("SELECT enabled FROM plugins WHERE name = ?").get(name) as
     { enabled: number } | undefined;
   if (!existing) {
     db.prepare(
-      "INSERT INTO plugins (name, enabled, config, first_seen, updated_at) VALUES (?, 1, '{}', ?, ?)",
-    ).run(name, now, now);
-    return { enabled: true };
+      "INSERT INTO plugins (name, enabled, config, first_seen, updated_at) VALUES (?, ?, '{}', ?, ?)",
+    ).run(name, firstEnabled ? 1 : 0, now, now);
+    return { enabled: firstEnabled };
   }
   return { enabled: existing.enabled !== 0 };
 }
@@ -77,7 +94,7 @@ async function registerPluginRoutes(app: FastifyInstance, state: PluginState): P
 async function loadOne(opts: LoadPluginsOpts, dirName: string, pluginDir: string): Promise<void> {
   const { config, db, app } = opts;
   const now = new Date().toISOString();
-  const { enabled } = upsertPluginRow(db, dirName, now);
+  const { enabled } = upsertPluginRow(db, dirName, now, enabledByDefault(pluginDir));
 
   const state: PluginState = {
     name: dirName,

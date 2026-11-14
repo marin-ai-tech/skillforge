@@ -116,7 +116,7 @@ function PluginsPage() {
               className="rounded-sf border border-line bg-surface p-4 space-y-3"
             >
               <div className="flex flex-wrap items-center gap-3">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[12rem] flex-1">
                   <div className="font-medium text-ink" translate="no">
                     {item.name} <span className="text-sm text-muted">{item.version}</span>
                   </div>
@@ -136,6 +136,7 @@ function PluginsPage() {
                       </>
                     ) : null}
                   </p>
+                  <PluginMcpTools item={item} />
                 </div>
                 <span
                   data-testid="plugin-status"
@@ -148,7 +149,9 @@ function PluginsPage() {
                     data-testid="plugin-restart-required"
                     className="rounded-sf bg-accent/10 px-2 py-0.5 text-xs text-accent"
                   >
-                    {STR.adm.plugins.restartRequired}
+                    {!item.enabled && item.contributions.mcp_tools?.length
+                      ? STR.adm.plugins.restartRequiredMcp
+                      : STR.adm.plugins.restartRequired}
                   </span>
                 ) : null}
                 <HelpTip action="plugin-toggle">
@@ -219,6 +222,43 @@ function PluginsPage() {
       )}
     </div>
   );
+}
+
+/** fix-admin-plugin-mcp-tools: the MCP tools a loaded plugin adds, or that it will add once enabled. */
+function PluginMcpTools({ item }: { item: AdminPluginItem }) {
+  const tools = item.contributions.mcp_tools ?? [];
+  if (tools.length > 0) {
+    return (
+      <p
+        data-testid="plugin-mcp-tools"
+        className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted"
+      >
+        <span>{STR.adm.plugins.mcpTools}</span>
+        {tools.map((t) => (
+          <code
+            key={t.name}
+            data-testid="plugin-mcp-tool"
+            data-audience={t.audience}
+            translate="no"
+            className="rounded-sf bg-surface-2 px-1 py-0.5 text-ink-2"
+          >
+            {t.name}
+            {t.audience === "integration" ? (
+              <span className="ml-1 font-sans text-muted">({STR.adm.plugins.mcpIntegration})</span>
+            ) : null}
+          </code>
+        ))}
+      </p>
+    );
+  }
+  if (item.status !== "loaded" && item.capabilities.includes("mcp")) {
+    return (
+      <p data-testid="plugin-mcp-capability" className="mt-1 text-xs text-muted">
+        {STR.adm.plugins.mcpCapability}
+      </p>
+    );
+  }
+  return null;
 }
 
 export function Plugins() {

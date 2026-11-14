@@ -725,6 +725,8 @@ export type AdminPluginItem = {
     nav: number;
     tabs: number;
     events: string[];
+    /** fix-admin-plugin-mcp-tools: MCP tools of a loaded plugin (absent in old servers). */
+    mcp_tools?: Array<{ name: string; audience: "agent" | "integration" }>;
   };
   config: Record<string, unknown>;
   config_schema: unknown;

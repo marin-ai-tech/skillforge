@@ -109,6 +109,14 @@ test("a clash with a built-in tool and a missing capability are load errors; the
   assert.match(String(by["mcp-clash"].error), /get_artifact/);
   assert.equal(by["mcp-nocap"].status, "error");
   assert.ok(!(await names(tokens.integration)).includes("nocap_tool"));
+  // fix-admin-plugin-mcp-tools: the admin listing names each tool and its audience; a failed plugin has none.
+  assert.deepEqual(by["mcp-probe"].contributions.mcp_tools, [
+    { name: "probe_echo", audience: "agent" },
+    { name: "probe_fail", audience: "agent" },
+    { name: "probe_find", audience: "agent" },
+    { name: "probe_report", audience: "integration" },
+  ]);
+  assert.deepEqual(by["mcp-clash"].contributions.mcp_tools, []);
 });
 
 test("a disabled plugin has no tools", async () => {

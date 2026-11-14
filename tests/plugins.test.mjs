@@ -123,7 +123,7 @@ test("loading: plugin statuses, error isolation, health, list permissions", asyn
   const leaky = pluginItem(list, "leaky");
   assert.equal(leaky.status, "error");
   assert.ok(leaky.error.includes("boom after subscribing"), leaky.error);
-  assert.deepEqual(leaky.contributions, { routes: 0, nav: 0, tabs: 0, events: [] }, "the contribution of a failed plugin is rolled back");
+  assert.deepEqual(leaky.contributions, { routes: 0, nav: 0, tabs: 0, events: [], mcp_tools: [] }, "the contribution of a failed plugin is rolled back");
   const health = await api(base, "GET", "/api/v1/health");
   assert.deepEqual(health.data.plugins, { loaded: 2, errors: 6, disabled: 0 });
 });

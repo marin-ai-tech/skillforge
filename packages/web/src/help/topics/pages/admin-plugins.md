@@ -19,7 +19,8 @@ Plugins administration is the admin-only UI for reviewing SkillForge server plug
 - The plugins directory path (`plugins-dir`) resolved from `SKILLFORGE_PLUGINS_DIR` or `<data_dir>/plugins`.
 - A short trust-model notice: plugin code runs with the same privileges as the server process.
 - A table (`plugins-table`) of rows (`plugin-row`) with name, version, description, status chip (`plugin-status` text `loaded`, `error`, or `disabled`), optional error text (`plugin-error`), and a contribution summary.
-- Per-row enable toggle (`plugin-toggle`) that shows `plugin-restart-required` after a change until the process restarts.
+- Per-row enable toggle (`plugin-toggle`) that shows `plugin-restart-required` after a change until the process restarts; for a plugin with MCP tools, disabling turns those tools off at once and the note says so.
+- MCP tools of a loaded plugin (`plugin-mcp-tools`), each marked when it is for integrations only (seen only by integration tokens); a plugin with the `mcp` capability that is not loaded shows `plugin-mcp-capability` — it adds MCP tools once enabled and restarted.
 - A JSON config editor (`plugin-config`) with Save (`plugin-config-save`), plus shared `admin-notice` / `admin-error` banners (including `config_invalid`).
 - An empty state (`plugins-empty`) when no plugins are present or the kill-switch emptied the list.
 

@@ -97,9 +97,13 @@ export default async function globalSetup() {
     throw new Error(`a build is required: npm run build (missing ${SERVER} or ${WEB_INDEX})`);
   }
   const dataDir = mkdtempSync(join(tmpdir(), "skillforge-e2e-"));
-  // Plugin stand: only the valid hello plugin from the fixtures.
+  // Plugin stand: the valid hello plugin from the fixtures.
   const pluginsDir = join(dataDir, "plugins");
   cpSync(join(ROOT, "tests", "fixtures", "plugins", "hello"), join(pluginsDir, "hello"), { recursive: true });
+  // fix-admin-plugin-mcp-tools: a plugin with MCP tools (loaded) and the built-in sdlc-registry (off by default).
+  cpSync(join(ROOT, "tests", "fixtures", "plugins", "mcp-probe"), join(pluginsDir, "mcp-probe"), { recursive: true });
+  const sdlcPlugin = join(ROOT, "plugins", "sdlc-registry");
+  if (existsSync(sdlcPlugin)) cpSync(sdlcPlugin, join(pluginsDir, "sdlc-registry"), { recursive: true });
   // Review assistant stand: the plugin from the repository (when present) + a reviewers file with mock reviewers.
   const reviewPlugin = join(ROOT, "plugins", "review-assistant");
   if (existsSync(reviewPlugin)) cpSync(reviewPlugin, join(pluginsDir, "review-assistant"), { recursive: true });

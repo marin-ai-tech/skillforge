@@ -41,6 +41,10 @@ function itemView(db: Database, state: PluginState) {
       nav: state.contributions.nav,
       tabs: state.contributions.tabs,
       events: [...state.contributions.events],
+      // fix-admin-plugin-mcp-tools: what the plugin adds to /mcp, and for whom.
+      mcp_tools: [...state.contributions.mcpTools.values()]
+        .map((t) => ({ name: t.def.name, audience: t.def.audience }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
     },
     config: applyDefaults(schema, stored),
     config_schema: schema ?? { type: "object", properties: {}, required: [] },

@@ -3,6 +3,16 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.11 — 2026-11-14
+
+### Fixed
+- `/admin/plugins` lists the MCP tools of each loaded plugin, marks the ones for integrations, says which plugins add
+  MCP tools once enabled, and after disabling says the MCP tools are already off.
+- On a narrow screen the plugin description column no longer shrinks to a sliver.
+
+### Compatibility
+- `GET /api/v1/admin/plugins` has a new `contributions.mcp_tools` list; other fields are unchanged.
+
 ## 0.5.10 — 2026-11-14
 
 ### Fixed

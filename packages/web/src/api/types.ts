@@ -225,6 +225,8 @@ export type ArtifactMetrics = {
   versions: Array<{ version: string; sessions_count: number }>;
   /** metrics-by-runtime: the same facts by agent; `runtime: null` is every other source. */
   by_runtime?: ArtifactRuntimeMetrics[];
+  /** session-fact-model: by agent and model; `model: null` is any model not shown or not reported. */
+  by_model?: Array<ArtifactRuntimeMetrics & { model: string | null }>;
   uses: number;
   helped: number;
   transfer_rate: number | null;

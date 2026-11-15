@@ -7,8 +7,8 @@ CLI command and the API.
 
 ## Privacy
 
-Session transcripts stay on your machine. The CLI parses Claude Code JSONL session logs locally and uploads four
-fields per use of a skill that is visible in the registry:
+Session transcripts stay on your machine. The CLI parses Claude Code and OpenCode session logs locally and uploads
+these fields per use of a skill that is visible in the registry:
 
 | Field | Content |
 |---|---|
@@ -16,9 +16,12 @@ fields per use of a skill that is visible in the registry:
 | `session_key` | a 32-hex hash of the session id, not the id itself |
 | `used_at` | when the skill was used |
 | `verification` | `pass`, `fail` or `none` (see below) |
+| `basis` | `invoked`, or `preloaded` when a subagent got the skill through `skills:` |
+| `model` | the model that called the skill (`message.model` in Claude Code, `modelID` in OpenCode); not sent with `--no-model` |
 
-Prompts, commands, file paths, raw session ids and the names of your private local skills are never sent or
-stored. The server table `session_facts` has no columns for text, paths, commands or raw session ids. You can
+Prompts, commands, file paths, raw session ids, providers, token counts and the names of your private local skills
+are never sent or stored. The server keeps a model only in the form `^[a-z0-9][a-z0-9._:-]{0,63}$` (lower case) and
+names it on a card only when at least two people in the registry reported it. The server table `session_facts` has no columns for text, paths, commands or raw session ids. You can
 delete everything you uploaded at any time (see API below).
 
 ## Definitions
@@ -30,6 +33,7 @@ delete everything you uploaded at any time (see API below).
 | Verification Pass Rate | `round(pass / (pass + fail), 3)`; empty (shown as "—") when pass + fail = 0 |
 | Skill Age | whole days from the first version's `published_at` to now |
 | `versions[].sessions_count` | distinct sessions attributed to that version |
+| `by_model[]` | the same metrics per agent and model; `model` is `null` for any model fewer than two people reported and for facts without one |
 | `by_runtime[]` | the same metrics per agent the facts were imported from: `runtime` and `label` from the runtime table, or `null` for every other source in one row; `verification` is `null` when the row has one user and the artifact has more |
 
 The server decides which version a fact belongs to: the newest version with `published_at <= used_at`, otherwise

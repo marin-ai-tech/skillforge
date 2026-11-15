@@ -15,6 +15,8 @@ test("questions about a skill in each agent find the metrics topic in the first 
   for (const q of [
     "How did this skill do in each agent, Claude Code or OpenCode?",
     "Which agent works better with this skill?",
+    // session-fact-model: the same topic explains the split by model.
+    "Which model works best with this skill, Opus or Sonnet?",
   ]) {
     const ids = topTopics(corpus, q, 3).map((t) => t.id);
     assert.ok(ids.includes("getting-started/reading-metrics"), `${q} -> ${ids.join(", ")}`);

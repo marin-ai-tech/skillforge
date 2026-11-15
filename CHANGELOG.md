@@ -3,6 +3,18 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.14 — 2026-11-15
+
+### Added
+- `skillforge sessions import` sends the model that called a skill (`message.model` in Claude Code, `modelID` in
+  OpenCode); `--no-model` leaves it out. The artifact card's metrics show a **By model** table (`by_model`): a model is
+  named only when at least two people in the registry reported it. Importing again fills in the model of facts
+  sent before, without counting them twice.
+
+### Compatibility
+- Session facts accept an optional `model`; a malformed one is dropped and the fact still counts. Older CLIs send
+  no model; older servers drop it. Migration `0054` adds the column `session_facts.model`.
+
 ## 0.5.13 — 2026-11-15
 
 ### Added

@@ -15,6 +15,8 @@ export type SessionsImportFlags = {
   root?: string;
   since?: string;
   dryRun?: boolean;
+  /** session-fact-model: send no model in any fact. */
+  noModel?: boolean;
 };
 
 /** Claude Code keeps transcripts in ~/.claude/projects; OpenCode has no documented store (opencode-sessions). */
@@ -82,6 +84,8 @@ function collectSessionFacts(
   },
   skillNames: Set<string>,
   sinceMs: number | null,
+  /** session-fact-model: false with --no-model. */
+  withModel: boolean,
 ): {
   sessions: number;
   invocations: number;
@@ -115,6 +119,7 @@ function collectSessionFacts(
         used_at: f.used_at,
         verification: f.verification,
         ...(f.basis ? { basis: f.basis } : {}),
+        ...(withModel && f.model ? { model: f.model } : {}),
       });
     }
   }
@@ -224,7 +229,7 @@ export async function runSessionsImport(
   }
 
   const files = adapter.findFiles(root);
-  const collected = collectSessionFacts(files, adapter, skillNames, sinceMs);
+  const collected = collectSessionFacts(files, adapter, skillNames, sinceMs, !flags.noModel);
 
   if (flags.dryRun) {
     printDryRun(ctx, files.length, collected);

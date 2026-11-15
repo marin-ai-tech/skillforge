@@ -27,36 +27,58 @@ function rowPassRate(row: ArtifactRuntimeMetrics): string {
   return `${Math.round(pass_rate * 1000) / 10}%`;
 }
 
-/** metrics-by-runtime: the session facts by the agent they came from; "other sources" last. */
-function MetricsByRuntime({ rows }: { rows: ArtifactRuntimeMetrics[] }) {
+type SplitRow = ArtifactRuntimeMetrics & { model?: string | null };
+
+/**
+ * metrics-by-runtime and session-fact-model: the session facts by the agent they came from ("other sources" last), and
+ * by agent and model ("other or not reported" last in each agent). One table frame for both.
+ */
+function UsageSplit({
+  id,
+  title,
+  rows,
+  withModel,
+}: {
+  id: "metrics-by-runtime" | "metrics-by-model";
+  title: string;
+  rows: SplitRow[];
+  withModel: boolean;
+}) {
   if (rows.length === 0) return null;
   const t = STR.art.metrics;
   const cell = "py-1 pr-3";
+  const head = `${cell} font-medium`;
   return (
-    <div data-testid="metrics-by-runtime" className="mt-5">
+    <div data-testid={id} className="mt-5">
       <h3
-        id="metrics-by-runtime-title"
+        id={`${id}-title`}
         className="mb-2 text-sm font-medium uppercase tracking-wide text-muted"
       >
-        {t.byRuntime}
+        {title}
       </h3>
-      <div className="overflow-x-auto">
-        <table aria-labelledby="metrics-by-runtime-title" className="w-full text-left text-xs">
+      {/* A narrow screen scrolls the table here; tabIndex lets the keyboard scroll it too (WCAG 2.1.1). */}
+      <div className="overflow-x-auto" role="region" aria-labelledby={`${id}-title`} tabIndex={0}>
+        <table aria-labelledby={`${id}-title`} className="w-full text-left text-xs">
           <thead className="text-muted">
             <tr>
-              <th scope="col" className={`${cell} font-medium`}>
+              <th scope="col" className={head}>
                 {t.byRuntimeCols.agent}
               </th>
-              <th scope="col" className={`${cell} font-medium`}>
+              {withModel && (
+                <th scope="col" className={head}>
+                  {t.byModelCols.model}
+                </th>
+              )}
+              <th scope="col" className={head}>
                 {t.byRuntimeCols.sessions}
               </th>
-              <th scope="col" className={`${cell} font-medium`}>
+              <th scope="col" className={head}>
                 {t.byRuntimeCols.users}
               </th>
-              <th scope="col" className={`${cell} font-medium`}>
+              <th scope="col" className={head}>
                 {t.byRuntimeCols.passRate}
               </th>
-              <th scope="col" className={`${cell} font-medium`}>
+              <th scope="col" className={head}>
                 {t.byRuntimeCols.lastUsed}
               </th>
             </tr>
@@ -64,13 +86,22 @@ function MetricsByRuntime({ rows }: { rows: ArtifactRuntimeMetrics[] }) {
           <tbody className="text-ink">
             {rows.map((r) => (
               <tr
-                key={r.runtime ?? ""}
+                key={`${r.runtime ?? ""}|${r.model ?? ""}`}
                 data-runtime={r.runtime ?? ""}
+                data-model={withModel ? (r.model ?? "") : undefined}
                 className="border-t border-line"
               >
                 <th scope="row" className={`${cell} font-normal`}>
                   {r.label ?? t.otherSources}
                 </th>
+                {withModel && (
+                  <td
+                    className={r.model ? `${cell} font-mono` : `${cell} text-muted`}
+                    translate="no"
+                  >
+                    {r.model ?? t.otherModel}
+                  </td>
+                )}
                 <td className={`${cell} font-mono`}>{r.sessions_count}</td>
                 <td className={`${cell} font-mono`}>{r.users_count}</td>
                 <td
@@ -160,7 +191,13 @@ export function MetricsPanel({ type, name }: Props) {
         </div>
       </dl>
 
-      <MetricsByRuntime rows={m.by_runtime ?? []} />
+      <UsageSplit
+        id="metrics-by-runtime"
+        title={t.byRuntime}
+        rows={m.by_runtime ?? []}
+        withModel={false}
+      />
+      <UsageSplit id="metrics-by-model" title={t.byModel} rows={m.by_model ?? []} withModel />
 
       <h3 className="mb-3 mt-5 text-sm font-medium uppercase tracking-wide text-muted">
         {t.qualitySignals}

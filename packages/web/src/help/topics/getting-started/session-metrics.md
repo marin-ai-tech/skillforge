@@ -4,7 +4,7 @@ summary: How the CLI counts registry skill usage in local agent sessions without
 section: evidence
 learn:
   - What the CLI parses locally
-  - Which four fields are uploaded
+  - Which fields are uploaded, including the model, and how to leave the model out
   - How Verification Pass Rate is computed
   - How to delete your session facts
 related: getting-started/evidence-and-usage, getting-started/cli, pages/me, pages/artifact, actions/me/sessions-delete
@@ -20,11 +20,12 @@ A skill call is a `tool_use` with `name: "Skill"` and `input.skill`. A skill pre
 
 ## What is uploaded
 
-Each fact is exactly `{ skill, session_key, used_at, verification, basis }`. `session_key` is the first 32 hex characters of `sha256(sessionId)` — the raw session id never leaves your machine. Prompts, commands, paths, cwd, and private local skill names are never sent. Private local skills are counted only as `skipped_unknown` (a number, no names).
+Each fact is exactly `{ skill, session_key, used_at, verification, basis, model }`. `model` is the model that called the skill: `message.model` of the Claude Code line with the call (never `<synthetic>`) or `modelID` of the OpenCode message; a preloaded skill has none. The provider, tokens, cost and message text are not sent. Add `--no-model` to send no model at all. `session_key` is the first 32 hex characters of `sha256(sessionId)` — the raw session id never leaves your machine. Prompts, commands, paths, cwd, and private local skill names are never sent. Private local skills are counted only as `skipped_unknown` (a number, no names).
 
 ```bash
 skillforge sessions import --dry-run --json
 skillforge sessions import --harness claude-code
+skillforge sessions import --no-model
 ```
 
 > [!TIP]
@@ -37,6 +38,7 @@ Batches are at most 1000 facts; the server also caps the body at 512 KiB and 500
 - **Skill Age** — whole days from the first published version's `published_at` to now (shown on the artifact card and metrics panel).
 - **Verification Pass Rate** — `round(pass / (pass + fail), 3)`, or "—" / null when there are no pass/fail outcomes (only `none`).
 - **sessions_count** — distinct `session_key` values across reporters; **users_count** — distinct reporters.
+- **By model** (`by_model`) — the same numbers per agent and model; a model shows by name only when at least two people in the registry reported it, otherwise it counts as **Other or not reported**.
 - **By agent** (`by_runtime`) — the same numbers per agent the facts were imported from (the `--harness` of `skillforge sessions import`); a source that is not a known agent counts as **Other sources** and is not shown. See [How to read metrics](getting-started/reading-metrics).
 
 ## Command patterns (heuristic)

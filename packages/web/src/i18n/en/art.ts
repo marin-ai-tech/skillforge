@@ -351,6 +351,9 @@ export const art = {
       lastUsed: "Last used",
     },
     otherSources: "Other sources",
+    byModel: "By model",
+    byModelCols: { model: "Model" },
+    otherModel: "Other or not reported",
     hiddenOneUser: "Hidden: one user",
   },
   ownership: {

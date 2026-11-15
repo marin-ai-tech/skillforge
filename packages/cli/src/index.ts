@@ -972,10 +972,11 @@ addGlobals(
     .option("--harness <name>", "Session harness adapter", "claude-code")
     .option("--root <dir>", "Sessions root directory")
     .option("--since <date>", "Only facts with used_at >= date (ISO)")
+    .option("--no-model", "Send no model name with the facts")
     .option("--dry-run", "Print facts without uploading", false),
 ).action(
   async (
-    opts: { harness?: string; root?: string; since?: string; dryRun?: boolean },
+    opts: { harness?: string; root?: string; since?: string; dryRun?: boolean; model?: boolean },
     cmd: Command,
   ) => {
     const ctx = createContext(globalsFrom(cmd));
@@ -985,6 +986,7 @@ addGlobals(
         root: opts.root,
         since: opts.since,
         dryRun: Boolean(opts.dryRun),
+        noModel: opts.model === false,
       });
     } catch (e) {
       handleError(ctx, e);

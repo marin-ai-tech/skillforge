@@ -251,8 +251,9 @@ Details: [Teams, visibility and ownership](11-teams-visibility-ownership.md).
 filters (q/type/status/team), pagination, CSV/JSON export (signed-in only).
 For management (admin): `/admin/report` — use by consuming team and by
 artifact over a period, the trend, a context token estimate and the artifacts
-nobody used. The artifact card's metrics show session usage **by agent**: sessions,
-users and verification pass rate per agent the sessions were imported from.
+nobody used. The artifact card's metrics show session usage **by agent** and **by model**:
+sessions, users and verification pass rate per agent the sessions were imported
+from and per model that called the skill.
 Definitions: [Metrics dashboard](15-metrics-dashboard.md); how session usage is
 collected: [Session metrics](16-session-metrics.md).
 

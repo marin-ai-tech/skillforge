@@ -19,8 +19,14 @@ type Part = {
     time?: { start?: unknown };
   };
 };
-type Message = { info?: { time?: { created?: unknown } }; parts?: unknown };
-type Window = { skill: string; used_at: string; verdict: SessionFact["verification"] };
+type Message = { info?: { time?: { created?: unknown }; modelID?: unknown }; parts?: unknown };
+/** session-fact-model: `model` is `info.modelID` of the message with the call (the provider is not sent). */
+type Window = {
+  skill: string;
+  used_at: string;
+  verdict: SessionFact["verification"];
+  model: string | null;
+};
 
 /** UTF-8 with or without BOM, or UTF-16 with BOM (a `>` redirect in Windows PowerShell 5 writes UTF-16 LE). */
 export function decodeExport(buf: Buffer): string {
@@ -40,12 +46,17 @@ function isoTime(ms: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function skillUse(part: Part, msg: Message): { skill: string; used_at: string } | null {
+function skillUse(
+  part: Part,
+  msg: Message,
+): { skill: string; used_at: string; model: string | null } | null {
   if (part.type !== "tool" || part.tool !== "skill") return null;
   const st = part.state;
   if (!st || st.status !== "completed" || typeof st.input?.name !== "string") return null;
   const used_at = isoTime(st.time?.start) ?? isoTime(msg.info?.time?.created);
-  return used_at ? { skill: st.input.name, used_at } : null;
+  const model =
+    typeof msg.info?.modelID === "string" && msg.info.modelID !== "" ? msg.info.modelID : null;
+  return used_at ? { skill: st.input.name, used_at, model } : null;
 }
 
 /** null: not a check; otherwise whether it passed. */
@@ -75,6 +86,7 @@ function sessionFacts(
         session_key: sessionKey(sessionId),
         used_at: open.used_at,
         verification: open.verdict,
+        ...(open.model ? { model: open.model } : {}),
       });
     }
   };

@@ -5,6 +5,8 @@ export type SessionFact = {
   verification: "pass" | "fail" | "none";
   /** Set when the skill was preloaded to a subagent through `skills:`, not called. */
   basis?: "preloaded";
+  /** session-fact-model: the model that called the skill, when the log names one. */
+  model?: string;
 };
 
 export type ParseResult = {

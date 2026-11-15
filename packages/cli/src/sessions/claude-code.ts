@@ -15,6 +15,8 @@ type SkillWindow = {
   skill: string;
   used_at: string;
   lastVerify: { success: boolean } | null;
+  /** session-fact-model: the model of the line with the call. */
+  model: string | null;
 };
 
 function contentBlocks(msg: unknown): unknown[] {
@@ -33,6 +35,7 @@ function flushWindow(w: SkillWindow | null, facts: SessionFact[], sessionId: str
     session_key: sessionKey(sessionId),
     used_at: w.used_at,
     verification,
+    ...(w.model ? { model: w.model } : {}),
   });
 }
 
@@ -75,6 +78,8 @@ type LineState = {
   preloaded: Map<string, PreloadedSkill>;
   called: Set<string>;
   agentId: string;
+  /** session-fact-model: `message.model` of the current line, null for `<synthetic>` and lines without one. */
+  model: string | null;
   windows: Map<string, SkillWindow | null>;
   pendingBash: Map<string, Map<string, BashPending>>;
   sessionIds: Set<string>;
@@ -83,6 +88,12 @@ type LineState = {
 };
 
 const runKey = (sid: string, agentId: string, skill: string) => `${sid}\0${agentId}\0${skill}`;
+
+/** session-fact-model: the model that wrote this line; `<synthetic>` marks lines no model wrote. */
+function callModel(rec: Record<string, unknown>): string | null {
+  const model = (rec.message as { model?: unknown } | null | undefined)?.model;
+  return typeof model === "string" && model !== "" && model !== "<synthetic>" ? model : null;
+}
 
 /** The skill name when this line is a `skills:` preload in a subagent log, else null. */
 function preloadedSkillName(rec: Record<string, unknown>): string | null {
@@ -132,12 +143,12 @@ function handleSkillBlock(
   const cur = state.windows.get(sid) ?? null;
   if (cur && cur.skill !== skill) {
     flushWindow(cur, state.facts, sid);
-    state.windows.set(sid, { skill, used_at: ts, lastVerify: null });
+    state.windows.set(sid, { skill, used_at: ts, lastVerify: null, model: state.model });
   } else if (cur && cur.skill === skill) {
     flushWindow(cur, state.facts, sid);
-    state.windows.set(sid, { skill, used_at: ts, lastVerify: null });
+    state.windows.set(sid, { skill, used_at: ts, lastVerify: null, model: state.model });
   } else {
-    state.windows.set(sid, { skill, used_at: ts, lastVerify: null });
+    state.windows.set(sid, { skill, used_at: ts, lastVerify: null, model: state.model });
   }
   state.invocations++;
 }
@@ -232,6 +243,7 @@ function processLine(state: LineState, lineBuf: Buffer): void {
       ? rec.timestamp
       : null;
   state.agentId = typeof rec.agentId === "string" ? rec.agentId : "";
+  state.model = callModel(rec);
   const preloaded = preloadedSkillName(rec);
   if (preloaded) notePreload(state, sid, preloaded, ts);
   processContentBlocks(state, sid, contentBlocks(rec.message), ts);
@@ -243,6 +255,7 @@ function parseFileSync(file: string): ParseResult {
     preloaded: new Map(),
     called: new Set(),
     agentId: "",
+    model: null,
     skipped_lines: 0,
     invocations: 0,
     sessionIds: new Set<string>(),

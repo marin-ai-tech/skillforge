@@ -1,11 +1,12 @@
 ---
 title: How to read metrics
-summary: What each metric on the board and the card measures, where its data comes from, and how a skill did in each agent (Claude Code, OpenCode). Metrics are signals, not proofs.
+summary: What each metric on the board and the card measures, where its data comes from, and how a skill did in each agent (Claude Code, OpenCode) and model (Opus, Sonnet). Metrics are signals, not proofs.
 section: evidence
 learn:
   - What Ablation Score, Skill Age, VPR and Transfer Rate mean
   - Why Token Efficiency is only an estimate
   - How a skill did in each agent (Claude Code, OpenCode) and why a pass rate can be hidden
+  - Which model a skill works best with, and why some models are not named
   - Where to find metrics in the UI and CLI
 related: pages/metrics, pages/artifact, getting-started/session-metrics, getting-started/evidence-and-usage
 ---
@@ -30,6 +31,10 @@ VPR is the share of session facts with verification `pass` among pass+fail outco
 ## By agent
 
 The card's metrics tab also splits the session facts by the agent they were imported from (`by_runtime` in the API): sessions, users, VPR and last use per agent. The agent comes from `skillforge sessions import --harness`; a fact whose source is not a known agent goes to one **Other sources** row, and the source text itself is not shown. When a row has one user and the skill has more, its VPR shows **Hidden: one user**: the share would be that person's. Different people use different agents for different tasks, so read a difference between rows as a hint to look closer, not as proof that one agent is better.
+
+## By model
+
+Under **By agent**, the **By model** table (`by_model`) splits the same sessions by agent and the model that called the skill, as `skillforge sessions import` reports it. A model is named only when at least two people in the registry reported it; any other model, and sessions without one, count as **Other or not reported**. The pass rate of a one-user row is hidden as in **By agent**. Compare models of one agent first: the same model behaves differently in another agent.
 
 ## Transfer Rate
 

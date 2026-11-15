@@ -10,7 +10,13 @@ import {
   transferRate,
 } from "../metrics/compute.ts";
 import { usageSummary } from "../evidence/usage.ts";
-import { metricsByRuntime, type RuntimeMetricsRow } from "./by-runtime.ts";
+import {
+  metricsByModel,
+  metricsByRuntime,
+  type ModelMetricsRow,
+  type RuntimeMetricsRow,
+} from "./by-runtime.ts";
+import { fillMissingModel, parseModel } from "./model.ts";
 
 export const MAX_SESSION_FACTS_BATCH = 1000;
 export const MAX_SESSION_FACTS_BODY = 512 * 1024;
@@ -29,6 +35,8 @@ export type SessionFactInput = {
   used_at: string;
   verification: Verification;
   basis: string;
+  /** session-fact-model: parsed model id, or null when absent or malformed. */
+  model: string | null;
 };
 
 export type AcceptCounters = {
@@ -61,6 +69,7 @@ export function parseFactFields(raw: unknown): SessionFactInput | null {
     used_at: o.used_at,
     verification: o.verification as Verification,
     basis: o.basis === undefined ? "invoked" : (o.basis as string),
+    model: parseModel(o.model),
   };
 }
 
@@ -134,6 +143,8 @@ export type ArtifactMetrics = {
   versions: Array<{ version: string; sessions_count: number }>;
   /** metrics-by-runtime: the same facts split by the agent they came from. */
   by_runtime: RuntimeMetricsRow[];
+  /** session-fact-model: the same facts by agent and model (a model shows when two people reported it). */
+  by_model: ModelMetricsRow[];
   ablation: {
     tasks: number;
     passed_with: number;
@@ -208,6 +219,7 @@ export function artifactMetrics(
     skill_age_days: skillAgeDays(db, artifactId, now),
     versions: versionRows.map((r) => ({ version: r.version, sessions_count: Number(r.n) })),
     by_runtime: metricsByRuntime(db, artifactId, Number(users.n)),
+    by_model: metricsByModel(db, artifactId, Number(users.n)),
     ablation: latestAblation(db, artifactId),
     uses: usage.uses,
     helped: usage.helped,
@@ -320,6 +332,7 @@ export function acceptSessionFacts(
         .get(input.reporter, artifact.id, parsed.session_key, parsed.used_at) as
         { id: number } | undefined;
       if (existing) {
+        fillMissingModel(db, existing.id, parsed.model);
         counters.duplicates++;
         continue;
       }
@@ -337,8 +350,8 @@ export function acceptSessionFacts(
 
       db.prepare(
         `INSERT INTO session_facts
-           (artifact_id, version, reporter, session_key, used_at, verification, source, created_at, basis)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (artifact_id, version, reporter, session_key, used_at, verification, source, created_at, basis, model)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         artifact.id,
         version,
@@ -349,6 +362,7 @@ export function acceptSessionFacts(
         input.source,
         createdAt,
         parsed.basis,
+        parsed.model,
       );
       counters.accepted++;
       todayNew++;

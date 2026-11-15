@@ -253,7 +253,8 @@ For management (admin): `/admin/report` — use by consuming team and by
 artifact over a period, the trend, a context token estimate and the artifacts
 nobody used. The artifact card's metrics show session usage **by agent** and **by model**:
 sessions, users and verification pass rate per agent the sessions were imported
-from and per model that called the skill.
+from and per model that called the skill. Reviewers also see, at the bottom of
+`/metrics`, how each eval runtime (agent and model) solved the eval tasks of all skills.
 Definitions: [Metrics dashboard](15-metrics-dashboard.md); how session usage is
 collected: [Session metrics](16-session-metrics.md).
 

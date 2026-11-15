@@ -1,10 +1,11 @@
 import { costMatrix } from "../evals/cost.ts";
+import { evalsSummary } from "../evals/summary.ts";
 import type { FastifyPluginAsync } from "fastify";
 import semver from "semver";
 import { isArtifactType } from "@skillforge/core";
 import type { AppConfig } from "../config.ts";
 import type { Database } from "../db.ts";
-import { requireUser } from "../auth/guard.ts";
+import { requireRole, requireUser } from "../auth/guard.ts";
 import { actorFromRequest } from "../actor.ts";
 import { getArtifactByTypeName } from "../repo.ts";
 import { canView } from "../visibility/index.ts";
@@ -236,6 +237,13 @@ export const evalsRoutes: FastifyPluginAsync<EvalsPluginOpts> = async (app, opts
       return reply.code(200).send({ run });
     },
   );
+
+  // evals-summary: one row per eval runtime across the registry, from the latest ablation of each skill (reviewer+).
+  app.get("/api/v1/evals/summary", async (request, reply) => {
+    if (!requireRole(request, reply, "reviewer")) return;
+    const runners = loadRunnersFile(config.evalRunnersFile).runners;
+    return reply.code(200).send(evalsSummary(db, runners));
+  });
 
   // cost-per-solve: runner x side cells of the latest compare and ablation runs, same rights as the runs.
   app.get<{ Params: { type: string; name: string } }>(

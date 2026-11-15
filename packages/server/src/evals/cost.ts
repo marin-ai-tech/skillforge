@@ -35,7 +35,7 @@ type RunRow = {
   finished_at: string | null;
 };
 
-type ResultRow = {
+export type ResultRow = {
   side: string;
   passed: number;
   input_tokens: number | null;
@@ -62,7 +62,8 @@ function latestRuns(db: Database, artifactId: string): RunRow[] {
   });
 }
 
-function sumOrNull(rows: ResultRow[], key: "input_tokens" | "output_tokens" | "cost_usd") {
+/** A sum, or null when any row has no value: a partial sum misleads more than none (also used by evals-summary). */
+export function sumOrNull(rows: ResultRow[], key: "input_tokens" | "output_tokens" | "cost_usd") {
   let total = 0;
   for (const r of rows) {
     const v = r[key];
@@ -72,7 +73,8 @@ function sumOrNull(rows: ResultRow[], key: "input_tokens" | "output_tokens" | "c
   return total;
 }
 
-function commonModel(rows: ResultRow[]): string | null {
+/** The model most rows reported, or null. */
+export function commonModel(rows: ResultRow[]): string | null {
   const counts = new Map<string, number>();
   for (const r of rows) if (r.model) counts.set(r.model, (counts.get(r.model) ?? 0) + 1);
   let best: string | null = null;

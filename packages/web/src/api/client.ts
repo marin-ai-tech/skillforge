@@ -1505,6 +1505,16 @@ export async function getEvalJournal(
 }
 
 /** cost-per-solve: runner x side cells, cheapest per solved task first. */
+/** evals-summary: agents and models in evals across the registry (reviewer and above). */
+export async function getEvalsSummary(): Promise<{
+  items: import("./types.ts").EvalsSummaryRow[];
+  runs: number;
+}> {
+  const res = await fetch("/api/v1/evals/summary", { credentials: "same-origin" });
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
 export async function getEvalCost(
   type: string,
   name: string,

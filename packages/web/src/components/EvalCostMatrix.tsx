@@ -3,7 +3,7 @@ import { getEvalCost } from "../api/client.ts";
 import type { EvalCostCell } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 
-function usd(v: number | null): string {
+export function usd(v: number | null): string {
   return v === null ? "—" : `$${v < 0.01 ? v.toFixed(4) : v.toFixed(2)}`;
 }
 

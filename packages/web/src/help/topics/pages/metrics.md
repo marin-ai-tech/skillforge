@@ -7,6 +7,7 @@ learn:
   - How to filter, sort and page the board
   - How to export rows as CSV or JSON
   - Which artifacts the board includes and who may export
+  - Where reviewers compare eval runtimes across the registry
 related: getting-started/reading-metrics, pages/artifact, pages/catalog, getting-started/session-metrics
 ---
 
@@ -38,3 +39,7 @@ Route `/metrics` is the registry-wide metrics board for SkillForge. It summarize
 ## Permissions
 
 The board follows the catalog public-read rule: anonymous and signed-in viewers see only artifacts allowed by `visibleClause` (team-scoped items stay hidden from outsiders). Export requires a signed-in session cookie or token; anonymous users get a sign-in prompt and MCP tokens are rejected by the API. Totals and pagination never include invisible or purged artifacts. Metrics remain advisory signals—see getting-started/reading-metrics.
+
+## Agents and models in evals
+
+Reviewers and admins see this section at the bottom of `/metrics` (`GET /api/v1/evals/summary`). It compares eval runtimes across the registry on equal terms: each row is one runtime (an agent and a model from the runners file), built from the latest finished ablation run of each skill on it — the same tasks with and without the skill. A row shows the skills and tasks counted, the share solved with and without the skill, the uplift and the cost per solved task. Compare runs of two versions and older runs of the same pair are left out. Runtimes may have evaluated different skills, so compare rows with a similar number of skills. Without eval runs the section explains how to start them: runtimes in the server's runners file (`SKILLFORGE_EVAL_RUNNERS_FILE`) and a task suite on a skill's Evals tab.

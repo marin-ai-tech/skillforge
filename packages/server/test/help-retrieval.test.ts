@@ -22,3 +22,18 @@ test("questions about a skill in each agent find the metrics topic in the first 
     assert.ok(ids.includes("getting-started/reading-metrics"), `${q} -> ${ids.join(", ")}`);
   }
 });
+
+// evals-summary: a question about agents and models in evals brings a topic that describes the registry summary.
+test("questions about agents and models in evals find a topic that describes the evals summary", () => {
+  const corpus = loadCorpus(config, "en");
+  for (const q of [
+    "Which agent and model solve eval tasks best across the registry?",
+    "Where do I compare eval runtimes across all skills?",
+  ]) {
+    const top = topTopics(corpus, q, 3);
+    assert.ok(
+      top.some((t) => t.body.includes("/api/v1/evals/summary")),
+      `${q} -> ${top.map((t) => t.id).join(", ")}`,
+    );
+  }
+});

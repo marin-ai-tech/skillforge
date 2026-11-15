@@ -1,12 +1,12 @@
 ---
 title: How to read metrics
-summary: What each metric on the board and the card measures, where its data comes from, and how a skill did in each agent (Claude Code, OpenCode) and model (Opus, Sonnet). Metrics are signals, not proofs.
+summary: What each metric on the board and the card measures, where its data comes from, and how a skill did in each agent (Claude Code, OpenCode) and model (Opus, Sonnet), in sessions and in evals. Metrics are signals, not proofs.
 section: evidence
 learn:
   - What Ablation Score, Skill Age, VPR and Transfer Rate mean
   - Why Token Efficiency is only an estimate
-  - How a skill did in each agent (Claude Code, OpenCode) and why a pass rate can be hidden
-  - Which model a skill works best with, and why some models are not named
+  - How a skill did in each agent and model (Claude Code, OpenCode; Opus, Sonnet), and why some numbers are hidden
+  - Which agent and model solve eval tasks best across the registry
   - Where to find metrics in the UI and CLI
 related: pages/metrics, pages/artifact, getting-started/session-metrics, getting-started/evidence-and-usage
 ---
@@ -35,6 +35,10 @@ The card's metrics tab also splits the session facts by the agent they were impo
 ## By model
 
 Under **By agent**, the **By model** table (`by_model`) splits the same sessions by agent and the model that called the skill, as `skillforge sessions import` reports it. A model is named only when at least two people in the registry reported it; any other model, and sessions without one, count as **Other or not reported**. The pass rate of a one-user row is hidden as in **By agent**. Compare models of one agent first: the same model behaves differently in another agent.
+
+## Agents and models in evals
+
+Reviewers and admins see this section at the bottom of `/metrics` (`GET /api/v1/evals/summary`). It compares eval runtimes across the registry on equal terms: each row is one runtime (an agent and a model from the runners file), built from the latest finished ablation run of each skill on it — the same tasks with and without the skill. A row shows the skills and tasks counted, the share solved with and without the skill, the uplift and the cost per solved task. Compare runs of two versions and older runs of the same pair are left out. Runtimes may have evaluated different skills, so compare rows with a similar number of skills. Without eval runs the section explains how to start them: runtimes in the server's runners file (`SKILLFORGE_EVAL_RUNNERS_FILE`) and a task suite on a skill's Evals tab.
 
 ## Transfer Rate
 

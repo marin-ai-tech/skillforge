@@ -14,7 +14,8 @@ import { HelpTip } from "../components/HelpTip.tsx";
 import { StickyBar } from "../components/StickyBar.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { Skeleton } from "../components/Skeleton.tsx";
-import { useMe } from "../lib/auth.tsx";
+import { roleAtLeast, useMe } from "../lib/auth.tsx";
+import { EvalsSummarySection } from "../components/EvalsSummarySection.tsx";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { FALLBACK_TYPE_IDS } from "../lib/artifact-types.ts";
@@ -106,6 +107,8 @@ function readMetricsParams(params: URLSearchParams) {
 
 export function Metrics() {
   const me = useMe();
+  // evals-summary: the registry-wide eval summary is for reviewers and above; others never ask for it.
+  const reviewer = roleAtLeast(me.data?.role, "reviewer");
   const user = me.data ?? null;
   const [params, setParams] = useSearchParams();
 
@@ -471,6 +474,7 @@ export function Metrics() {
           </div>
         </>
       )}
+      {reviewer && <EvalsSummarySection />}
     </div>
   );
 }

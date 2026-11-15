@@ -1386,3 +1386,20 @@ export type OverlayLayer = {
   updated_by: string;
   updated_at: string;
 };
+
+/** evals-summary: one eval runtime across the registry, from the latest ablation of each skill. */
+export type EvalsSummaryRow = {
+  runner: string;
+  runner_label: string;
+  agent: string | null;
+  model: string | null;
+  artifacts: number;
+  tasks: number;
+  passed_with: number;
+  passed_without: number;
+  pass_rate_with: number;
+  pass_rate_without: number;
+  uplift: number;
+  cost_usd: number | null;
+  cost_per_solve: number | null;
+};

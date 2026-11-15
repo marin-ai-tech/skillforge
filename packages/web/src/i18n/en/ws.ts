@@ -226,6 +226,26 @@ export const ws = {
     },
   },
   metrics: {
+    evals: {
+      title: "Agents and models in evals",
+      cols: {
+        runner: "Runtime",
+        agent: "Agent",
+        model: "Model",
+        skills: "Skills",
+        tasks: "Tasks",
+        withSkill: "Solved with skill",
+        withoutSkill: "Solved without",
+        uplift: "Uplift",
+        costPerSolve: "Cost per solved task",
+      },
+      caveat:
+        "From the latest ablation run of each skill on each runtime. Runtimes may have evaluated different skills: compare rows with a similar number of skills.",
+      emptyTitle: "No eval runs yet",
+      emptyHint:
+        "Evals run on the runtimes listed in the server's runners file (SKILLFORGE_EVAL_RUNNERS_FILE), with the task suite on a skill's Evals tab.",
+      emptyLink: "How to set up eval runs",
+    },
     docTitle: "Metrics · SkillForge",
     title: "Metrics",
     description:

@@ -3,6 +3,14 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.15 — 2026-11-15
+
+### Added
+- Reviewers and admins see **Agents and models in evals** at the bottom of `/metrics`
+  (`GET /api/v1/evals/summary`): one row per eval runtime across the registry, from the latest ablation run of each skill,
+  with the share solved with and without the skill, the uplift and the cost per solved task. Without eval runs the section
+  explains how to set them up.
+
 ## 0.5.14 — 2026-11-15
 
 ### Added

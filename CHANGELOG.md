@@ -3,6 +3,14 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.13 — 2026-11-15
+
+### Added
+- The artifact card's metrics tab shows session usage **by agent** (`by_runtime` in
+  `GET /api/v1/artifacts/:type/:name/metrics`): sessions, users, verification pass rate and last use per agent the
+  facts were imported from. A source that is not a known agent goes to one "Other sources" row and is not shown; a
+  row of one user hides its pass rate when the skill has more users.
+
 ## 0.5.12 — 2026-11-14
 
 ### Added

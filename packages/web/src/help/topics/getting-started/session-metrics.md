@@ -37,6 +37,7 @@ Batches are at most 1000 facts; the server also caps the body at 512 KiB and 500
 - **Skill Age** — whole days from the first published version's `published_at` to now (shown on the artifact card and metrics panel).
 - **Verification Pass Rate** — `round(pass / (pass + fail), 3)`, or "—" / null when there are no pass/fail outcomes (only `none`).
 - **sessions_count** — distinct `session_key` values across reporters; **users_count** — distinct reporters.
+- **By agent** (`by_runtime`) — the same numbers per agent the facts were imported from (the `--harness` of `skillforge sessions import`); a source that is not a known agent counts as **Other sources** and is not shown. See [How to read metrics](getting-started/reading-metrics).
 
 ## Command patterns (heuristic)
 

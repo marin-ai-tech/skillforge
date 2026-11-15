@@ -30,6 +30,7 @@ delete everything you uploaded at any time (see API below).
 | Verification Pass Rate | `round(pass / (pass + fail), 3)`; empty (shown as "—") when pass + fail = 0 |
 | Skill Age | whole days from the first version's `published_at` to now |
 | `versions[].sessions_count` | distinct sessions attributed to that version |
+| `by_runtime[]` | the same metrics per agent the facts were imported from: `runtime` and `label` from the runtime table, or `null` for every other source in one row; `verification` is `null` when the row has one user and the artifact has more |
 
 The server decides which version a fact belongs to: the newest version with `published_at <= used_at`, otherwise
 the earliest published version.
@@ -83,7 +84,9 @@ Exit codes: 0 success, 2 bad arguments, 3 no registry configured, 4 not signed i
 | `GET /api/v1/artifacts/:type/:name/metrics` | per-artifact metrics (public read, subject to visibility) |
 | `GET /api/v1/me/overview` | your overview, including `sessions` |
 
-The artifact card also shows `skill_age_days`.
+The artifact card also shows `skill_age_days` and a **By agent** table from `by_runtime`. The source text a client
+sent is never shown; read a difference between agents as a hint, since different people use different agents for
+different tasks.
 
 ## See also
 

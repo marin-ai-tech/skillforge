@@ -205,6 +205,16 @@ export type EvidenceRecord = {
 
 export type UsageStats = { uses: number; helped: number; transfer_rate: number | null };
 
+export type ArtifactRuntimeMetrics = {
+  runtime: string | null;
+  label: string | null;
+  sessions_count: number;
+  users_count: number;
+  last_used_at: string | null;
+  /** null: the row is one user while the artifact has more, so the shares are hidden. */
+  verification: { pass: number; fail: number; none: number; pass_rate: number | null } | null;
+};
+
 export type ArtifactMetrics = {
   sessions_count: number;
   preloaded_sessions_count?: number;
@@ -213,6 +223,8 @@ export type ArtifactMetrics = {
   verification: { pass: number; fail: number; none: number; pass_rate: number | null };
   skill_age_days: number;
   versions: Array<{ version: string; sessions_count: number }>;
+  /** metrics-by-runtime: the same facts by agent; `runtime: null` is every other source. */
+  by_runtime?: ArtifactRuntimeMetrics[];
   uses: number;
   helped: number;
   transfer_rate: number | null;

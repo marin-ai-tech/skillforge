@@ -342,6 +342,16 @@ export const art = {
     passRateSignal: "Verification Pass Rate",
     tokenEfficiency: "Token Efficiency",
     estimate: "(estimate)",
+    byRuntime: "By agent",
+    byRuntimeCols: {
+      agent: "Agent",
+      sessions: "Sessions",
+      users: "Users",
+      passRate: "Verification pass rate",
+      lastUsed: "Last used",
+    },
+    otherSources: "Other sources",
+    hiddenOneUser: "Hidden: one user",
   },
   ownership: {
     owner: "Owner",

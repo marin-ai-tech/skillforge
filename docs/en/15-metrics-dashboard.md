@@ -36,7 +36,7 @@ see [Quality and security](09-quality-and-security.md).
 **Metrics** in the navigation opens the board: totals for the filtered set (artifacts, sessions, transfer,
 ablation), filters by search text, type, status and team, sortable columns, pagination, and **CSV** / **JSON**
 export buttons for signed-in users. The artifact page has a metrics panel with the same per-artifact numbers, so the
-card and the board always agree. In-app help: `pages/metrics` and `getting-started/reading-metrics`.
+card and the board always agree; the panel also splits session usage by agent (the board does not). In-app help: `pages/metrics` and `getting-started/reading-metrics`.
 
 ## Who sees what
 

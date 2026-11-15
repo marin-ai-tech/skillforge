@@ -1,10 +1,11 @@
 ---
 title: How to read metrics
-summary: What each metric on the board and the card measures and where its data comes from. Metrics are signals, not proofs.
+summary: What each metric on the board and the card measures, where its data comes from, and how a skill did in each agent (Claude Code, OpenCode). Metrics are signals, not proofs.
 section: evidence
 learn:
   - What Ablation Score, Skill Age, VPR and Transfer Rate mean
   - Why Token Efficiency is only an estimate
+  - How a skill did in each agent (Claude Code, OpenCode) and why a pass rate can be hidden
   - Where to find metrics in the UI and CLI
 related: pages/metrics, pages/artifact, getting-started/session-metrics, getting-started/evidence-and-usage
 ---
@@ -26,6 +27,10 @@ Skill Age is days since the artifact first appeared in the registry (from creati
 
 VPR is the share of session facts with verification `pass` among pass+fail outcomes (`none` excluded from the rate). Source: imported session facts (`skillforge sessions import`). Empty when there are no pass/fail outcomes. It reflects local test/build heuristics in the harness window, not a formal QA gate.
 
+## By agent
+
+The card's metrics tab also splits the session facts by the agent they were imported from (`by_runtime` in the API): sessions, users, VPR and last use per agent. The agent comes from `skillforge sessions import --harness`; a fact whose source is not a known agent goes to one **Other sources** row, and the source text itself is not shown. When a row has one user and the skill has more, its VPR shows **Hidden: one user**: the share would be that person's. Different people use different agents for different tasks, so read a difference between rows as a hint to look closer, not as proof that one agent is better.
+
 ## Transfer Rate
 
 Transfer Rate is helped ÷ uses across usage reports for all versions (`null` when uses = 0). Source: usage evidence (`POST …/usage`). It answers “of reported uses, how often did it help?”—still self-reported by clients.
@@ -37,5 +42,5 @@ Token Efficiency is an **estimate**, not measured model spend. `token_cost = cei
 ## Where to look
 
 - Board: `/metrics` (filters, sort, export).
-- Card: MetricsPanel fields `metric-ablation-score`, `metric-skill-age`, `metric-verification-pass-rate`, `metric-token-efficiency`.
+- Card: MetricsPanel fields `metric-ablation-score`, `metric-skill-age`, `metric-verification-pass-rate`, `metric-token-efficiency`, and the table `metrics-by-runtime`.
 - CLI: `skillforge metrics [--json|--csv]` against the same overview and export APIs.

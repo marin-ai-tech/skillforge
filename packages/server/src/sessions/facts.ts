@@ -10,6 +10,7 @@ import {
   transferRate,
 } from "../metrics/compute.ts";
 import { usageSummary } from "../evidence/usage.ts";
+import { metricsByRuntime, type RuntimeMetricsRow } from "./by-runtime.ts";
 
 export const MAX_SESSION_FACTS_BATCH = 1000;
 export const MAX_SESSION_FACTS_BODY = 512 * 1024;
@@ -131,6 +132,8 @@ export type ArtifactMetrics = {
   verification: { pass: number; fail: number; none: number; pass_rate: number | null };
   skill_age_days: number;
   versions: Array<{ version: string; sessions_count: number }>;
+  /** metrics-by-runtime: the same facts split by the agent they came from. */
+  by_runtime: RuntimeMetricsRow[];
   ablation: {
     tasks: number;
     passed_with: number;
@@ -204,6 +207,7 @@ export function artifactMetrics(
     verification: { pass, fail, none, pass_rate },
     skill_age_days: skillAgeDays(db, artifactId, now),
     versions: versionRows.map((r) => ({ version: r.version, sessions_count: Number(r.n) })),
+    by_runtime: metricsByRuntime(db, artifactId, Number(users.n)),
     ablation: latestAblation(db, artifactId),
     uses: usage.uses,
     helped: usage.helped,

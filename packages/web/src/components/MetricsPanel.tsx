@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getArtifactMetrics } from "../api/client.ts";
-import type { ArtifactMetrics } from "../api/types.ts";
+import type { ArtifactMetrics, ArtifactRuntimeMetrics } from "../api/types.ts";
 import { Skeleton } from "./Skeleton.tsx";
 import { ErrorState } from "./ErrorState.tsx";
 import { RelativeTime } from "./RelativeTime.tsx";
@@ -18,6 +18,76 @@ function fmtMetric(v: number | null | undefined, digits = 3): string {
   if (v === null || v === undefined) return "\u2014";
   if (!Number.isFinite(v)) return "\u2014";
   return String(Number(v.toFixed(digits)));
+}
+
+function rowPassRate(row: ArtifactRuntimeMetrics): string {
+  if (row.verification === null) return STR.art.metrics.hiddenOneUser;
+  const { pass, fail, pass_rate } = row.verification;
+  if (pass + fail === 0 || pass_rate == null) return "—";
+  return `${Math.round(pass_rate * 1000) / 10}%`;
+}
+
+/** metrics-by-runtime: the session facts by the agent they came from; "other sources" last. */
+function MetricsByRuntime({ rows }: { rows: ArtifactRuntimeMetrics[] }) {
+  if (rows.length === 0) return null;
+  const t = STR.art.metrics;
+  const cell = "py-1 pr-3";
+  return (
+    <div data-testid="metrics-by-runtime" className="mt-5">
+      <h3
+        id="metrics-by-runtime-title"
+        className="mb-2 text-sm font-medium uppercase tracking-wide text-muted"
+      >
+        {t.byRuntime}
+      </h3>
+      <div className="overflow-x-auto">
+        <table aria-labelledby="metrics-by-runtime-title" className="w-full text-left text-xs">
+          <thead className="text-muted">
+            <tr>
+              <th scope="col" className={`${cell} font-medium`}>
+                {t.byRuntimeCols.agent}
+              </th>
+              <th scope="col" className={`${cell} font-medium`}>
+                {t.byRuntimeCols.sessions}
+              </th>
+              <th scope="col" className={`${cell} font-medium`}>
+                {t.byRuntimeCols.users}
+              </th>
+              <th scope="col" className={`${cell} font-medium`}>
+                {t.byRuntimeCols.passRate}
+              </th>
+              <th scope="col" className={`${cell} font-medium`}>
+                {t.byRuntimeCols.lastUsed}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="text-ink">
+            {rows.map((r) => (
+              <tr
+                key={r.runtime ?? ""}
+                data-runtime={r.runtime ?? ""}
+                className="border-t border-line"
+              >
+                <th scope="row" className={`${cell} font-normal`}>
+                  {r.label ?? t.otherSources}
+                </th>
+                <td className={`${cell} font-mono`}>{r.sessions_count}</td>
+                <td className={`${cell} font-mono`}>{r.users_count}</td>
+                <td
+                  className={r.verification === null ? `${cell} text-muted` : `${cell} font-mono`}
+                >
+                  {rowPassRate(r)}
+                </td>
+                <td className={cell}>
+                  {r.last_used_at ? <RelativeTime iso={r.last_used_at} /> : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export function MetricsPanel({ type, name }: Props) {
@@ -89,6 +159,8 @@ export function MetricsPanel({ type, name }: Props) {
           </dd>
         </div>
       </dl>
+
+      <MetricsByRuntime rows={m.by_runtime ?? []} />
 
       <h3 className="mb-3 mt-5 text-sm font-medium uppercase tracking-wide text-muted">
         {t.qualitySignals}

@@ -162,8 +162,11 @@ agent works with matching files.
 `.cursor/rules/<name>.mdc` for Cursor (project scope; `paths` become `globs`, a rule without them gets
 `alwaysApply: true`) and `.opencode/rules/<name>.md` for OpenCode (project scope; the line `.opencode/rules/*.md` is
 added once to `instructions` in the project's OpenCode config, and a rule with `paths` loads on every turn because
-OpenCode has no path rules). Codex, Gemini CLI and Qwen Code read rules from `AGENTS.md`, `GEMINI.md` and `QWEN.md`;
-SkillForge does not write into those shared files yet. A rule is not a marketplace plugin. Its context cost is the
+OpenCode has no path rules). For Codex, Gemini CLI and Qwen Code (project scope) the rule is kept
+in `.<agent>/skillforge/rules/<name>.md`, and the shared file the agent reads (`AGENTS.md`, `GEMINI.md`, `QWEN.md`)
+gets one SkillForge block between `<!-- skillforge:rules:start -->` and `<!-- skillforge:rules:end -->`, built from
+the installed rules; text outside the block stays, a hand edit inside it stops `install`, `sync` and `uninstall`
+with code 5 until `--force`, and Codex reads at most 32 KiB of `AGENTS.md` by default (`project_doc_max_bytes`). A rule is not a marketplace plugin. Its context cost is the
 whole body: every turn without `paths`, on use with them. Nobody "uses" a rule, so it ages by confirmation: a fresh
 `validate` by a reviewer or a `gate` evidence by the owner brings an aging rule back to `active`.
 

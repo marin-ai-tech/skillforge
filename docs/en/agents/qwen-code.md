@@ -37,7 +37,7 @@ Support is verified against the real client in automated tests.
 | `plugin` | not supported: "Claude Code plugins are not supported by qwen; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by qwen (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Qwen Code by hand as the artifact page shows |
-| `rule` | not installed yet: "rules are not installed into qwen yet: qwen reads its rules from QWEN.md, and writing into that shared file is planned" |
+| `rule` | a block in the project-root `QWEN.md` between `<!-- skillforge:rules:start -->` and `<!-- skillforge:rules:end -->`, built from the copies in `skillforge/rules/<name>.md`, project scope only; Qwen Code also reads `AGENTS.md`, so a rule installed for Codex as well reaches it twice (the CLI warns) |
 
 ## Install and sync
 

@@ -39,7 +39,7 @@ limitation (see below).
 | `plugin` | not supported: "Claude Code plugins are not supported by codex; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by codex (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Codex by hand as the artifact page shows |
-| `rule` | not installed yet: "rules are not installed into codex yet: codex reads its rules from AGENTS.md, and writing into that shared file is planned" |
+| `rule` | a block in the project-root `AGENTS.md` between `<!-- skillforge:rules:start -->` and `<!-- skillforge:rules:end -->`, built from the copies in `skillforge/rules/<name>.md`, project scope only; Codex reads at most 32 KiB of `AGENTS.md` by default (`project_doc_max_bytes`), and the CLI warns above that; `.codex/rules` is left to Codex command rules |
 
 An unsupported type exits with code 1 and prints this reason; the Install tab shows the same reason instead of a
 command.

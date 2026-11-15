@@ -37,8 +37,10 @@ the runtime selectors in the web interface.
   and the CLI show the reason instead of a command.
 - **Hooks, plugins and settings profiles** are Claude Code features. They install only into Claude Code: hooks and
   plugins through its plugin marketplace, settings profiles with `skillforge settings apply`.
-- **Rules** install into Claude Code, Cursor and OpenCode. Codex, Gemini CLI and Qwen Code read rules from
-  `AGENTS.md`, `GEMINI.md` and `QWEN.md`; SkillForge does not write into those files yet.
+- **Rules** install into Claude Code, Cursor and OpenCode as files. Codex, Gemini CLI and Qwen Code read rules from
+  `AGENTS.md`, `GEMINI.md` and `QWEN.md`; SkillForge writes one block of its own there and leaves the rest of the
+  file as it is. An agent that reads `AGENTS.md` and its own rules (OpenCode, Cursor, Qwen Code) sees a rule twice
+  when it is installed for Codex too; the CLI warns about it.
 - **MCP servers** (type `mcp-server`) are not installed into any agent yet. The artifact page shows what the server
   runs and which variables each person sets, and you configure it in the agent by hand.
 

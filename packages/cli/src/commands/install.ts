@@ -3,6 +3,13 @@ import { applyLayers, fetchLayers, layersDigest, type Layer } from "../overlays.
 import { fetchAssignments, keyOf, type Assignments } from "../assignments.ts";
 import { verifyBundle, type VersionMeta } from "../verify.ts";
 import { ensureOpencodeInstructions, warnPathRule } from "../opencode-rules.ts";
+import {
+  checkRulesBlock,
+  ruleCopyPath,
+  usesRulesBlock,
+  warnDoubleRule,
+  writeRulesBlock,
+} from "../rules-block.ts";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -265,6 +272,14 @@ function fileMethod(
   return method;
 }
 
+/** rules-block: the rule is kept byte for byte as skillforge/rules/<name>.md, the source of the shared-file block. */
+function ruleCopyBundle(files: UnzippedFile[], name: string): UnzippedFile[] {
+  const main = `rules/${name}.md`;
+  const file = files.find((f) => f.path === main);
+  if (!file) throw new Error(`bundle has no ${main} to translate`);
+  return [{ path: ruleCopyPath(name), content: file.content }];
+}
+
 /** rule-artifacts: a rule for Cursor becomes rules/<name>.mdc with Cursor's frontmatter. */
 function translateRuleBundle(files: UnzippedFile[], name: string): UnzippedFile[] {
   const main = `rules/${name}.md`;
@@ -282,6 +297,7 @@ function translateBundle(
 ): UnzippedFile[] {
   if (method === "files") return files;
   if (method === "cursor-rule") return translateRuleBundle(files, name);
+  if (method === "rules-block") return ruleCopyBundle(files, name);
   if (method === "opencode-rule") {
     warnPathRule(ctx, files, name);
     return files;
@@ -564,6 +580,36 @@ function commitInstall(
   return { status, key, version };
 }
 
+/** Checks that must pass before any file of a rule is written for this agent. */
+function prepareRuleTarget(
+  ctx: AppContext,
+  method: FileMethod,
+  runtime: RuntimeDef,
+  into: string,
+  force: boolean | undefined,
+  quiet: boolean,
+): void {
+  // opencode-rules: the config line first, so an unreadable config stops before any file is written.
+  if (method === "opencode-rule") ensureOpencodeInstructions(ctx, path.dirname(into), quiet);
+  // rules-block: broken markers or a hand-edited block stop before any file is written.
+  if (method === "rules-block") checkRulesBlock(runtime, into, force);
+}
+
+/** After the lock is written: the shared-file block follows it (also when up to date: a deleted block comes back). */
+function finishInstall(
+  ctx: AppContext,
+  target: ReturnType<typeof resolveTarget>,
+  method: FileMethod,
+  result: InstallResult,
+  quiet: boolean,
+): InstallResult {
+  if (method === "rules-block" && target.runtime) {
+    writeRulesBlock(ctx, target.runtime, target.base, quiet);
+  }
+  if (!quiet) warnDoubleRule(ctx, target.runtime, target.scope, target.base, result.key);
+  return result;
+}
+
 export async function installOne(
   ctx: AppContext,
   client: SkillforgeClient,
@@ -604,8 +650,7 @@ export async function installOne(
     allowRisky: flags.allowRisky,
     quiet,
   });
-  // opencode-rules: the config line first, so an unreadable config stops before any file is written.
-  if (method === "opencode-rule") ensureOpencodeInstructions(ctx, path.dirname(into), quiet);
+  prepareRuleTarget(ctx, method, runtime, into, flags.force, quiet);
 
   const runtimeField = target.runtime ? { runtime: target.runtime.id } : {};
   const pinField = pin !== undefined ? { pin } : {};
@@ -626,7 +671,7 @@ export async function installOne(
       quiet,
       ctx,
     );
-    if (same !== "continue") return same;
+    if (same !== "continue") return finishInstall(ctx, target, method, same, quiet);
   }
 
   const files = await downloadBundleFiles(
@@ -640,7 +685,7 @@ export async function installOne(
   assertUnmanagedOk(into, files, existing, flags.force);
   const stale = collectStalePaths(into, existing, files, version, digest, flags.force);
   const fileMap = writeInstalledFiles(into, files, stale);
-  return commitInstall(
+  const result = commitInstall(
     into,
     registryUrl,
     lock,
@@ -654,6 +699,7 @@ export async function installOne(
     quiet,
     ctx,
   );
+  return finishInstall(ctx, target, method, result, quiet);
 }
 
 type Declared = { runtime: string; min_version: string | null };
@@ -735,7 +781,8 @@ export async function runUninstall(
   spec: string,
   flags: TargetFlags & { force?: boolean },
 ): Promise<void> {
-  const into = resolveTarget(flags).base;
+  const target = resolveTarget(flags);
+  const into = target.base;
   const { type, name } = parseTypeName(spec);
   const key = `${type}/${name}`;
   await refuseRequired(ctx, key, flags.force);
@@ -747,11 +794,14 @@ export async function runUninstall(
 
   const absPaths = safeLockPaths(entry, into);
   assertRealPathsInside(into, [...absPaths, lockPathFor(into)]);
+  const blockRuntime = usesRulesBlock(target.runtime, target.scope, type) ? target.runtime : null;
+  if (blockRuntime) checkRulesBlock(blockRuntime, into, flags.force);
 
   removeFiles(into, absPaths);
 
   delete lock.artifacts[key];
   writeLock(into, lock);
+  if (blockRuntime) writeRulesBlock(ctx, blockRuntime, into, false);
 
   if (ctx.out.json) {
     ctx.out.printJson({ ok: true, removed: key });
@@ -1004,10 +1054,17 @@ export async function runSync(ctx: AppContext, flags: SyncFlags): Promise<void> 
     wantedKeys,
   );
 
+  // rules-block: removals below may drop rules, so the block is checked first and rebuilt after.
+  const blockRuntime =
+    (flags.prune || replaced.size > 0) && usesRulesBlock(target.runtime, target.scope, "rule")
+      ? target.runtime
+      : null;
+  if (blockRuntime) checkRulesBlock(blockRuntime, into, flags.force);
   removeReplaced(ctx, into, url, replaced, wantedKeys, summary);
   if (flags.prune) {
     pruneUnwanted(into, url, wantedKeys, summary);
   }
+  if (blockRuntime) writeRulesBlock(ctx, blockRuntime, into, true);
 
   printSyncSummary(ctx, summary);
   // The worst code among the failed artifacts; 0 when every artifact was handled.

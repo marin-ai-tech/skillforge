@@ -1,5 +1,6 @@
 // rule-artifacts: installing a rule. Claude Code gets .claude/rules/<name>.md byte for byte (project and user scope);
-// Cursor gets .cursor/rules/<name>.mdc with description/globs/alwaysApply; other agents refuse without writing files;
+// Cursor gets .cursor/rules/<name>.mdc with description/globs/alwaysApply; Codex, Gemini CLI and Qwen Code get a block in
+// their shared file (rules-block); Devin and Reckon refuse without writing files;
 // a rule never appears in the Claude Code marketplace; uninstall removes the file and the lock entry.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -165,13 +166,197 @@ test("OpenCode: an unreadable config refuses before writing; user scope refuses;
   assert.deepEqual(JSON.parse(readFileSync(join(u, "opencode.json"), "utf8")).instructions, [GLOB]);
 });
 
-test("an agent without a rules folder refuses, naming its shared file, and writes nothing", async () => {
-  for (const [runtime, dir, file] of [["codex", ".codex", "AGENTS.md"], ["gemini", ".gemini", "GEMINI.md"], ["qwen", ".qwen", "QWEN.md"]]) {
+// rules-block: Codex, Gemini CLI and Qwen Code read rules from one shared file in the project root. The rule is kept
+// in .<agent>/skillforge/rules/<name>.md (in the lock), and the shared file gets one SkillForge block between its own
+// markers, built from the installed rules. A person's text and the sdlc block outside it stay byte for byte.
+const START = "<!-- skillforge:rules:start -->";
+const END = "<!-- skillforge:rules:end -->";
+const SDLC = `<!-- sdlc:rules:start -->\n## Process rules (sdlc)\n\n- Run the tests before a commit.\n<!-- sdlc:rules:end -->\n`;
+const HUMAN = `# Project\n\nUse pnpm, not npm.\n\n${SDLC}`;
+const starts = (text) => text.split(/\r?\n/).filter((l) => l === START).length;
+const read = (...parts) => readFileSync(join(...parts), "utf8");
+
+test("Codex, no AGENTS.md: the rule copy in .codex/skillforge/rules and the lock, a new AGENTS.md with one block", async () => {
+  const p = project("codex-fresh");
+  const r = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p });
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.equal(read(p, ".codex", "skillforge", "rules", "no-secrets-in-logs.md"), ALWAYS);
+  assert.ok(lock(join(p, ".codex")).artifacts["rule/no-secrets-in-logs"].files["skillforge/rules/no-secrets-in-logs.md"]);
+  const agents = read(p, "AGENTS.md");
+  assert.equal(starts(agents), 1, agents);
+  assert.ok(agents.startsWith(START), agents);
+  assert.ok(agents.includes(`${END}\n`), agents);
+  assert.ok(agents.includes("### no-secrets-in-logs"), agents);
+  assert.ok(agents.includes("Never write secrets, tokens or passwords to logs."), agents);
+  assert.ok(!agents.includes("description: Keeps"), "frontmatter is not in the block");
+  assert.equal(existsSync(join(p, ".codex", "rules")), false, ".codex/rules belongs to Codex command rules");
+  assert.equal(existsSync(join(p, "GEMINI.md")), false);
+});
+
+test("AGENTS.md with a person's text and the sdlc block: both kept byte for byte, sync is idempotent, uninstall restores the file", async () => {
+  const p = project("codex-shared");
+  writeFileSync(join(p, "AGENTS.md"), HUMAN);
+  for (const name of ["no-secrets-in-logs", "api-style"]) {
+    const r = await cli(["install", `rule/${name}`, "--runtime", "codex"], { cwd: p });
+    assert.equal(r.code, 0, r.err + r.out);
+  }
+  const text = read(p, "AGENTS.md");
+  assert.ok(text.startsWith(HUMAN), text);
+  assert.equal(starts(text), 1, text);
+  assert.ok(text.indexOf("### api-style") > 0 && text.indexOf("### api-style") < text.indexOf("### no-secrets-in-logs"), "rules by name");
+  assert.ok(text.includes("`src/api/**/*.ts`") && text.includes("`tests/api/**`"), "a path rule names its patterns");
+  const sync = await cli(["sync", "--type", "rule", "--runtime", "codex"], { cwd: p });
+  assert.equal(sync.code, 0, sync.err + sync.out);
+  assert.equal(read(p, "AGENTS.md"), text, "sync with nothing new does not change the file");
+  for (const name of ["no-secrets-in-logs", "api-style"]) {
+    const u = await cli(["uninstall", `rule/${name}`, "--runtime", "codex"], { cwd: p });
+    assert.equal(u.code, 0, u.err + u.out);
+  }
+  assert.equal(read(p, "AGENTS.md"), HUMAN, "uninstalling every rule gives the file back");
+  assert.equal(lock(join(p, ".codex")).artifacts["rule/api-style"], undefined);
+  assert.equal(existsSync(join(p, ".codex", "skillforge", "rules", "api-style.md")), false);
+});
+
+test("a CRLF AGENTS.md gets a CRLF block and comes back byte for byte", async () => {
+  const p = project("codex-crlf");
+  const crlf = HUMAN.replace(/\n/g, "\r\n");
+  writeFileSync(join(p, "AGENTS.md"), crlf);
+  assert.equal((await cli(["install", "rule/api-style", "--runtime", "codex"], { cwd: p })).code, 0);
+  const text = read(p, "AGENTS.md");
+  assert.ok(text.startsWith(crlf));
+  assert.doesNotMatch(text, /[^\r]\n/, "a bare LF in a CRLF file");
+  const again = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p });
+  assert.equal(again.code, 0, `a CRLF block is not a hand edit: ${again.err}${again.out}`);
+  for (const name of ["api-style", "no-secrets-in-logs"]) {
+    assert.equal((await cli(["uninstall", `rule/${name}`, "--runtime", "codex"], { cwd: p })).code, 0);
+  }
+  assert.equal(read(p, "AGENTS.md"), crlf);
+});
+
+test("Gemini CLI and Qwen Code: the block goes to GEMINI.md and QWEN.md, no AGENTS.md", async () => {
+  const p = project("gemini-qwen");
+  for (const [runtime, dir, file] of [["gemini", ".gemini", "GEMINI.md"], ["qwen", ".qwen", "QWEN.md"]]) {
+    const r = await cli(["install", "rule/api-style", "--runtime", runtime], { cwd: p });
+    assert.equal(r.code, 0, `${runtime}: ${r.err}${r.out}`);
+    assert.equal(read(p, dir, "skillforge", "rules", "api-style.md"), SCOPED);
+    const text = read(p, file);
+    assert.equal(starts(text), 1, text);
+    assert.ok(text.includes("### api-style") && text.includes("Validate input at the boundary"), text);
+    assert.ok(text.includes(`--runtime ${runtime}`), "the managing note names the sync command for this agent");
+  }
+  assert.equal(existsSync(join(p, "AGENTS.md")), false);
+});
+
+test("a hand edit inside the block refuses install and uninstall with code 5 before any write; --force rebuilds the block", async () => {
+  const p = project("codex-hand-edit");
+  assert.equal((await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p })).code, 0);
+  const edited = read(p, "AGENTS.md").replace("Never write secrets", "Never ever write secrets");
+  writeFileSync(join(p, "AGENTS.md"), edited);
+  const lockBefore = read(p, ".codex", ".skillforge-lock.json");
+
+  const r = await cli(["install", "rule/api-style", "--runtime", "codex"], { cwd: p });
+  assert.equal(r.code, 5, r.err + r.out);
+  assert.match(r.err + r.out, /AGENTS\.md/);
+  assert.match(r.err + r.out, /--force/);
+  assert.equal(read(p, "AGENTS.md"), edited);
+  assert.equal(read(p, ".codex", ".skillforge-lock.json"), lockBefore);
+  assert.equal(existsSync(join(p, ".codex", "skillforge", "rules", "api-style.md")), false);
+
+  const u = await cli(["uninstall", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p });
+  assert.equal(u.code, 5, u.err + u.out);
+  assert.equal(read(p, "AGENTS.md"), edited);
+  assert.ok(existsSync(join(p, ".codex", "skillforge", "rules", "no-secrets-in-logs.md")));
+
+  const f = await cli(["install", "rule/api-style", "--runtime", "codex", "--force"], { cwd: p });
+  assert.equal(f.code, 0, f.err + f.out);
+  const text = read(p, "AGENTS.md");
+  assert.ok(!text.includes("Never ever"), "the hand edit is replaced");
+  assert.ok(text.includes("### api-style") && text.includes("### no-secrets-in-logs"), text);
+});
+
+test("a deleted block comes back on sync; the last rule uninstalled removes the AGENTS.md it created", async () => {
+  const p = project("codex-last");
+  assert.equal((await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p })).code, 0);
+  rmSync(join(p, "AGENTS.md"));
+  const sync = await cli(["sync", "--type", "rule", "--runtime", "codex"], { cwd: p });
+  assert.equal(sync.code, 0, sync.err + sync.out);
+  assert.ok(read(p, "AGENTS.md").includes("### no-secrets-in-logs"), "sync restores the block");
+  for (const name of ["api-style", "no-secrets-in-logs"]) {
+    const u = await cli(["uninstall", `rule/${name}`, "--runtime", "codex"], { cwd: p });
+    assert.equal(u.code, 0, u.err + u.out);
+  }
+  assert.equal(existsSync(join(p, "AGENTS.md")), false, "an AGENTS.md with nothing left is removed");
+  assert.equal(existsSync(join(p, ".codex", "skillforge", "rules", "no-secrets-in-logs.md")), false);
+});
+
+test("a rule for both Codex and an agent that also reads AGENTS.md warns about the double; the other agent's uninstall leaves the block", async () => {
+  const p = project("codex-double");
+  assert.equal((await cli(["install", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: p })).code, 0);
+  const codex = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p });
+  assert.equal(codex.code, 0, codex.err + codex.out);
+  assert.match(codex.err, /opencode/i);
+  assert.match(codex.err, /AGENTS\.md/);
+  assert.match(codex.err, /twice/i);
+
+  assert.equal((await cli(["install", "rule/api-style", "--runtime", "codex"], { cwd: p })).code, 0);
+  const qwen = await cli(["install", "rule/api-style", "--runtime", "qwen"], { cwd: p });
+  assert.equal(qwen.code, 0, qwen.err + qwen.out);
+  assert.match(qwen.err, /codex/i, "the warning works the other way too");
+  assert.match(qwen.err, /twice/i);
+  const lone = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "gemini"], { cwd: p });
+  assert.equal(lone.code, 0, lone.err + lone.out);
+  assert.doesNotMatch(lone.err, /twice/i, "Gemini CLI does not read AGENTS.md");
+
+  const agents = read(p, "AGENTS.md");
+  assert.equal((await cli(["uninstall", "rule/no-secrets-in-logs", "--runtime", "opencode"], { cwd: p })).code, 0);
+  assert.equal(read(p, "AGENTS.md"), agents, "uninstalling for OpenCode does not touch the Codex block");
+});
+
+test("an AGENTS.md over 32 KiB warns about the Codex limit; GEMINI.md does not", async () => {
+  const big = `# Big\n\n${"x".repeat(33 * 1024)}\n`;
+  const p = project("codex-big");
+  writeFileSync(join(p, "AGENTS.md"), big);
+  writeFileSync(join(p, "GEMINI.md"), big);
+  const codex = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p });
+  assert.equal(codex.code, 0, codex.err + codex.out);
+  assert.match(codex.err, /32 KiB/);
+  assert.match(codex.err, /project_doc_max_bytes/);
+  const gemini = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "gemini"], { cwd: p });
+  assert.equal(gemini.code, 0, gemini.err + gemini.out);
+  assert.doesNotMatch(gemini.err, /32 KiB/);
+});
+
+test("broken markers refuse with code 1 and write nothing; user scope refuses", async () => {
+  for (const [name, text] of [
+    ["codex-two-starts", `${START}\nA\n${START}\nB\n${END}\n`],
+    ["codex-no-end", `# Project\n\n${START}\nA\n`],
+  ]) {
+    const p = project(name);
+    writeFileSync(join(p, "AGENTS.md"), text);
+    const r = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex"], { cwd: p });
+    assert.equal(r.code, 1, `${name}: ${r.err}${r.out}`);
+    assert.match(r.err + r.out, /AGENTS\.md/);
+    assert.match(r.err + r.out, /marker/i, "the message is about the markers, not a refusal of the agent");
+    assert.equal(read(p, "AGENTS.md"), text);
+    assert.equal(existsSync(join(p, ".codex", "skillforge")), false, `${name}: the rule copy was written`);
+  }
+  const home = join(work, "home-codex-user");
+  mkdirSync(home, { recursive: true });
+  const p = project("codex-user");
+  const user = await cli(["install", "rule/no-secrets-in-logs", "--runtime", "codex", "--scope", "user"], { cwd: p, home });
+  assert.equal(user.code, 1, user.err + user.out);
+  assert.equal(existsSync(join(home, ".codex", "AGENTS.md")), false);
+  assert.equal(existsSync(join(home, ".codex", "skillforge")), false);
+});
+
+test("an agent without a rules file refuses and writes nothing", async () => {
+  for (const [runtime, dir] of [["devin", ".agents"], ["reckon", ".reckon"]]) {
     const p = project(`refuse-${runtime}`);
     const r = await cli(["install", "rule/api-style", "--runtime", runtime], { cwd: p });
     assert.equal(r.code, 1, `${runtime}: ${r.err}${r.out}`);
-    assert.match(r.err + r.out, new RegExp(file.replace(".", "\\.")));
+    assert.match(r.err + r.out, /rules are not supported/);
     assert.equal(existsSync(join(p, dir)), false, `${runtime}: files were written`);
+    assert.equal(existsSync(join(p, "AGENTS.md")), false, `${runtime}: AGENTS.md was written`);
   }
 });
 

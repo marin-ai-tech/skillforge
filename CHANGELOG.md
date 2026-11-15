@@ -3,6 +3,20 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.12 — 2026-11-14
+
+### Added
+- Rules for Codex, Gemini CLI and Qwen Code: `skillforge install` and `sync --type rule --runtime codex|gemini|qwen`
+  keep the rule in `.<agent>/skillforge/rules/` and write one SkillForge block into `AGENTS.md`, `GEMINI.md` or
+  `QWEN.md` in the project root. Text outside the block (including the sdlc process-rules block) is not changed; a
+  hand edit inside the block or broken markers stop the command before any write (`--force` rebuilds the block);
+  uninstalling the last rule removes the block. Warnings for the Codex 32 KiB `AGENTS.md` limit and for a rule that an
+  agent would read twice.
+
+### Compatibility
+- `install rule/... --runtime codex|gemini|qwen` used to exit with code 1 and `sync` skipped the rules; they now
+  install. The user scope is still refused.
+
 ## 0.5.11 — 2026-11-14
 
 ### Fixed

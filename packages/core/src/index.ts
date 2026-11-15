@@ -121,6 +121,12 @@ export {
   OPENCODE_RULES_GLOB,
   OPENCODE_CONFIG_FILES,
   planOpencodeInstructions,
+  RULES_BLOCK_START,
+  RULES_BLOCK_END,
+  renderRulesBlock,
+  findRulesBlock,
+  replaceRulesBlock,
+  sharedRuleFile,
 } from "./runtimes/index.ts";
 export type {
   NormalizeForeignResult,
@@ -140,6 +146,9 @@ export type {
   RuleTranslation,
   OpencodeConfigFile,
   OpencodeConfigPlan,
+  BlockRule,
+  RulesBlockFound,
+  RulesBlockSearch,
 } from "./runtimes/index.ts";
 export {
   parseVersionSpec,

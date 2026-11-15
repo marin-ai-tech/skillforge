@@ -179,7 +179,11 @@ short definition and links to the page that explains the term in full.
   [Admin](handbook/admin.md#bring-artifacts-to-repositories-and-agents).
 - **Routine.** A workflow or command run on a cron schedule on the server. See [Orchestration](18-orchestration.md).
 - **Rule.** A project instruction file `rules/<name>.md` that the agent follows always, or only for files that match its
-  `paths`. It installs into Claude Code, Cursor and OpenCode. See [Artifact types](05-artifact-types.md).
+  `paths`. It installs into Claude Code, Cursor and OpenCode as a file, and into Codex, Gemini CLI and Qwen Code
+  through the rules block. See [Artifact types](05-artifact-types.md).
+- **Rules block.** The part of `AGENTS.md`, `GEMINI.md` or `QWEN.md` between the SkillForge markers that the CLI
+  builds from the rules installed for Codex, Gemini CLI or Qwen Code; the rest of the file is left as it is. See
+  [Artifact types](05-artifact-types.md).
 
 ## S
 

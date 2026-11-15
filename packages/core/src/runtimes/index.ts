@@ -5,3 +5,4 @@ export * from "./import.ts";
 export * from "./compat.ts";
 export * from "./rules.ts";
 export * from "./opencode-config.ts";
+export * from "./rules-block.ts";

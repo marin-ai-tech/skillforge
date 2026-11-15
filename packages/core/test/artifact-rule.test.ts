@@ -139,14 +139,15 @@ test("runtimes: Claude Code as files in both scopes, Cursor translated in the pr
     method: "cursor-rule",
   });
   assert.equal(runtimeSupport(def("cursor"), "rule", "user").supported, false);
-  for (const [id, file] of [
-    ["codex", "AGENTS.md"],
-    ["gemini", "GEMINI.md"],
-    ["qwen", "QWEN.md"],
-  ] as const) {
-    const s = runtimeSupport(def(id), "rule", "project");
-    assert.equal(s.supported, false, id);
-    assert.ok(!s.supported && s.reason.includes(file), `${id}: ${JSON.stringify(s)}`);
+  // rules-block: Codex, Gemini CLI and Qwen Code get a block in their shared file, project scope only.
+  for (const id of ["codex", "gemini", "qwen"] as const) {
+    assert.deepEqual(runtimeSupport(def(id), "rule", "project"), {
+      supported: true,
+      method: "rules-block",
+    });
+    const user = runtimeSupport(def(id), "rule", "user");
+    assert.equal(user.supported, false, id);
+    assert.ok(!user.supported && user.reason.includes("--scope project"), JSON.stringify(user));
   }
   // opencode-rules: project scope only.
   assert.deepEqual(runtimeSupport(def("opencode"), "rule", "project"), {

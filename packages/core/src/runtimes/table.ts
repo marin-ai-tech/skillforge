@@ -10,6 +10,7 @@ export type RuntimeScope = "project" | "user";
  * `files` — canonical bundle paths as is; `gemini-toml` / `opencode-md` / `cursor-md` / `qwen-md` — command
  * translation; `codex-toml` / `opencode-agent` / `cursor-agent` — agent translation;
  * `cursor-rule` / `opencode-rule` — rule translation (opencode-rule also adds the rules folder to `instructions`);
+ * `rules-block` — a rule copy in `skillforge/rules/` plus the SkillForge block in the agent's shared file;
  * `plugin` — only via the Claude Code marketplace (`/plugin install`); `settings` — only `skillforge settings apply`.
  */
 export type RuntimeInstallMethod =
@@ -23,6 +24,7 @@ export type RuntimeInstallMethod =
   | "cursor-agent"
   | "cursor-rule"
   | "opencode-rule"
+  | "rules-block"
   | "plugin"
   | "settings";
 
@@ -80,20 +82,29 @@ function mcpServerNotInstalled(id: RuntimeId): RuntimeTypeSupport {
   };
 }
 
-/** Where an agent without a rules folder reads its rules (rule-artifacts: writing there is the next step). */
+/** rules-block: the file in the project root where an agent without a rules folder reads its rules. */
 const SHARED_RULE_FILES: Partial<Record<RuntimeId, string>> = {
   codex: "AGENTS.md",
   gemini: "GEMINI.md",
   qwen: "QWEN.md",
 };
 
-function rulesUnsupported(id: RuntimeId): RuntimeTypeSupport {
+export function sharedRuleFile(id: RuntimeId): string | null {
+  return SHARED_RULE_FILES[id] ?? null;
+}
+
+function defaultRuleSupport(id: RuntimeId): RuntimeTypeSupport {
   const shared = SHARED_RULE_FILES[id];
+  if (shared) {
+    return {
+      method: "rules-block",
+      scopes: ["project"],
+      scope_reason: `rules are not installed into ${id} in the user scope (SkillForge writes its block into the project's ${shared} only); use --scope project`,
+    };
+  }
   return {
     method: null,
-    reason: shared
-      ? `rules are not installed into ${id} yet: ${id} reads its rules from ${shared}, and writing into that shared file is planned`
-      : `rules are not supported by ${id} (it has no rules folder SkillForge installs into)`,
+    reason: `rules are not supported by ${id} (it has no rules folder SkillForge installs into)`,
   };
 }
 
@@ -101,7 +112,7 @@ function nonClaudeTypes(
   id: RuntimeId,
   command: RuntimeTypeSupport,
   agent: RuntimeTypeSupport = agentsUnsupported(id),
-  rule: RuntimeTypeSupport = rulesUnsupported(id),
+  rule: RuntimeTypeSupport = defaultRuleSupport(id),
 ): Readonly<Record<ArtifactType, RuntimeTypeSupport>> {
   return {
     skill: { method: "files" },

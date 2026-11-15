@@ -37,7 +37,7 @@ Support is checked against the Gemini CLI documentation.
 | `plugin` | not supported: "Claude Code plugins are not supported by gemini; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by gemini (they target Claude Code settings.json)" |
 | `mcp-server` | not installed yet; configure it in Gemini CLI by hand as the artifact page shows |
-| `rule` | not installed yet: "rules are not installed into gemini yet: gemini reads its rules from GEMINI.md, and writing into that shared file is planned" |
+| `rule` | a block in the project-root `GEMINI.md` between `<!-- skillforge:rules:start -->` and `<!-- skillforge:rules:end -->`, built from the copies in `skillforge/rules/<name>.md`, project scope only; Gemini CLI reads it only when `context.fileName` keeps the default `GEMINI.md` |
 
 ## Install and sync
 

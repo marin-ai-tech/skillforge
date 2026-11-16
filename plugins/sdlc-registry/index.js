@@ -163,8 +163,23 @@ export async function register(ctx) {
     };
   }
 
-  /** `gate.<stage>.<outcome>` or `verify.<outcome>`: the stage and whether the work was accepted. */
-  function stageOf(name) {
+  /** sdlc's stages, and the stage of each gate (GATE_STAGE in sdlc src/core/stages.ts) for events before sdlc 0.32.1. */
+  const STAGES = new Set(["plan", "design", "build", "test", "deploy"]);
+  const GATE_STAGE = new Map([
+    ["intent", "plan"],
+    ["spec", "design"],
+    ["plan", "build"],
+    ["verify", "test"],
+    ["qa", "test"],
+    ["review", "deploy"],
+    ["release", "deploy"],
+  ]);
+
+  /**
+   * `gate.<gate>.<outcome>` or `verify.<outcome>`: whether the work was accepted, and its stage — `event.stage` when
+   * sdlc sent one (it owns the layout), else the stage of the gate. The gate id itself is never a stage.
+   */
+  function stageOf(name, given) {
     const m = /^gate\.([a-z][a-z0-9-]*)\.([a-z]+)$/.exec(name) ?? /^(verify)\.([a-z]+)$/.exec(name);
     if (!m) return null;
     const helped = /^(approved|passed)$/.test(m[2])
@@ -172,7 +187,8 @@ export async function register(ctx) {
       : /^(rejected|rework|failed)$/.test(m[2])
         ? 0
         : undefined;
-    return helped === undefined ? null : { stage: m[1], helped };
+    const stage = given == null ? GATE_STAGE.get(m[1]) : given;
+    return helped === undefined || !STAGES.has(stage) ? null : { stage, helped };
   }
 
   /** Skills of the visible roles whose `stages` include the stage. */
@@ -206,7 +222,7 @@ export async function register(ctx) {
   async function reportOutcome(call, args) {
     const event = args?.event;
     const name = typeof event?.event === "string" ? event.event : "";
-    const outcome = stageOf(name);
+    const outcome = stageOf(name, event?.stage);
     if (!outcome || typeof event.id !== "string" || event.id === "")
       return { event: name, reported: [], skipped: name || "no event" };
     const reported = [];

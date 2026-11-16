@@ -202,8 +202,10 @@ does not count as review evidence; no findings does not mean the skill is safe. 
 The built-in `sdlc-registry` plugin answers the team registry of sdlc (`team.registry` in `sdlc.yaml`) on SkillForge's
 own `/mcp`: `list_roles` and `get_role` (agents tagged `sdlc-role`), `list_skills` and `get_skill` (every file of a
 skill in one call, with sdlc's checksum), `list_rules` and `get_rule`. It reads only through the built-in tools as the
-calling token. `report_outcome`, for integration tokens only, turns an approved or rejected sdlc stage into `assigned`
-usage reports for the skills of the roles of that stage; they do not change Transfer Rate. The plugin is off until an
+calling token. `report_outcome`, for integration tokens only, turns an approved or rejected sdlc gate into `assigned`
+usage reports for the skills of the roles of its stage; they do not change Transfer Rate. The stage is the event's
+`stage` field (sdlc 0.32.1 and later), or for an older event the stage of its gate (intent → plan, spec → design,
+plan → build, verify and qa → test, review and release → deploy); roles list stages, not gate names. The plugin is off until an
 administrator turns it on (`enabled_by_default: false` in its manifest). The in-app help topic
 `getting-started/sdlc-registry` describes it for users.
 

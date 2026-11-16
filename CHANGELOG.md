@@ -3,6 +3,14 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.16 — 2026-11-16
+
+### Fixed
+- The `sdlc-registry` plugin credited the wrong roles in `report_outcome`: it matched the gate id of
+  `gate.<gate>.<outcome>` (intent, spec, plan, …) against the roles' stages. It now takes the stage from the event's
+  `stage` field (sdlc 0.32.1) or maps the gate to its stage (intent → plan, spec → design, plan → build, verify and qa
+  → test, review and release → deploy); the plan gate credits the build-stage roles, not the plan-stage ones.
+
 ## 0.5.15 — 2026-11-15
 
 ### Added

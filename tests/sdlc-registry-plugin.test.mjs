@@ -20,7 +20,7 @@ const sha = (text) => `sha256:${createHash("sha256").update(text, "utf8").digest
 const b64 = (s) => Buffer.from(s).toString("base64");
 
 const ROLE_BODY = "You design the change and record decisions.\n";
-const ROLE = `---\nname: architect\ndescription: Designs the change.\ntitle: Architect\nstages: [spec, plan]\nskills: [plan-mode]\ntags: [sdlc-role]\n---\n${ROLE_BODY}`;
+const ROLE = `---\nname: architect\ndescription: Designs the change.\ntitle: Architect\nstages: [design]\nskills: [plan-mode]\ntags: [sdlc-role]\n---\n${ROLE_BODY}`;
 const HELPER = `---\nname: helper\ndescription: A helper agent that is not an sdlc role.\n---\nHelp.\n`;
 const SKILL = `---\nname: plan-mode\ndescription: Plan before code. Use when a change is planned.\n---\n\n# Plan mode\n\nWrite the plan first.\n`;
 const CHECKLIST = "- read the code\n- write the plan\n";
@@ -94,7 +94,7 @@ test("roles: only agents tagged sdlc-role; fields, body, checksum and marker by 
     version,
     title: "Architect",
     description: "Designs the change.",
-    stages: ["spec", "plan"],
+    stages: ["design"],
     tools: [],
     readonly: true,
     skills: ["plan-mode"],
@@ -142,7 +142,7 @@ test("lists are not cut at 50; rules come with tags, paths and checksum", async 
 test("report_outcome: assigned usage for the stage's role skills, safe to repeat; no outcome, no report; hidden from an agent token", async () => {
   const agentList = (await rpc(tokens.agent, "tools/list", {})).result.tools.map((t) => t.name);
   assert.ok(agentList.includes("get_skill") && !agentList.includes("report_outcome"), agentList.join(", "));
-  const ev = { event: { id: "e1", event: "gate.spec.approved" } };
+  const ev = { event: { id: "e1", event: "gate.spec.approved", stage: "design" } };
   const first = (await tool("report_outcome", ev)).structuredContent;
   assert.deepEqual(first.reported.map((r) => [r.skill, r.helped]), [["plan-mode", 1]]);
   await tool("report_outcome", ev);
@@ -150,6 +150,65 @@ test("report_outcome: assigned usage for the stage's role skills, safe to repeat
   const assigned = usage.by_source.find((x) => x.basis === "assigned");
   assert.equal(assigned?.uses, 1, JSON.stringify(usage));
   assert.equal(usage.total.uses, 0, "assigned reports stay out of the counters");
-  const none = (await tool("report_outcome", { event: { id: "e2", event: "gate.spec.opened" } })).structuredContent;
+  const none = (await tool("report_outcome", { event: { id: "e2", event: "gate.spec.awaiting", stage: "design" } })).structuredContent;
   assert.deepEqual(none.reported, []);
+});
+
+// fix-sdlc-gate-stage (F-0321-1): the oracle is sdlc's own contract, not our adapter. sdlc 0.32.1 puts the stage of the
+// gate into `event.stage` (GATE_STAGE in sdlc src/core/stages.ts); older sdlc sends the gate id only, mapped by the same
+// table. Roles carry stages (plan, design, build, test, deploy), never gate ids.
+const GATE_STAGE = { intent: "plan", spec: "design", plan: "build", verify: "test", qa: "test", review: "deploy", release: "deploy" };
+const STAGE_ROLES = [
+  ["analyst", "plan", "analyst-notes"],
+  ["developer", "build", "developer-notes"],
+  ["tester", "test", "tester-notes"],
+  ["releaser", "deploy", "release-notes"],
+];
+const SKILL_OF = { plan: "analyst-notes", design: "plan-mode", build: "developer-notes", test: "tester-notes", deploy: "release-notes" };
+
+test("report_outcome: the stage comes from event.stage, else from the gate by sdlc's table; never the gate id itself", async () => {
+  for (const [role, stage, skill] of STAGE_ROLES) {
+    await publish("skill", [[`${skill}/SKILL.md`, SKILL.replaceAll("plan-mode", skill)]]);
+    await publish("agent", [[`agents/${role}.md`, `---\nname: ${role}\ndescription: The ${role} role.\nstages: [${stage}]\nskills: [${skill}]\ntags: [sdlc-role]\n---\nWork.\n`]]);
+  }
+  let n = 0;
+  const got = async (event, stage) => {
+    const ev = { id: `g${n++}`, event, ...(stage === undefined ? {} : { stage }) };
+    const r = (await tool("report_outcome", { event: ev })).structuredContent;
+    for (const x of r.reported) assert.equal(x.error, undefined, JSON.stringify(x));
+    return r;
+  };
+  const pairs = (r) => r.reported.map((x) => [x.skill, x.helped]);
+
+  // the task's checks, with the stage (sdlc 0.32.1) and without it (sdlc before 0.32.1)
+  for (const [event, stage, want] of [
+    ["gate.intent.approved", "plan", [["analyst-notes", 1]]],
+    ["gate.plan.approved", "build", [["developer-notes", 1]]],
+    ["verify.passed", "test", [["tester-notes", 1]]],
+    ["gate.plan.rejected", "build", [["developer-notes", 0]]],
+  ]) {
+    assert.deepEqual(pairs(await got(event, stage)), want, `${event} with stage ${stage}`);
+    assert.deepEqual(pairs(await got(event)), want, `${event} without a stage`);
+  }
+  // every gate of the table without a stage; the plan gate never credits the plan-stage analyst
+  for (const [gate, stage] of Object.entries(GATE_STAGE)) {
+    assert.deepEqual(pairs(await got(`gate.${gate}.approved`)), [[SKILL_OF[stage], 1]], `gate.${gate} -> ${stage}`);
+  }
+  // event.stage wins over the table (sdlc owns the layout)
+  assert.deepEqual(pairs(await got("gate.plan.approved", "test")), [["tester-notes", 1]]);
+
+  // negative cases: waiting outcomes (they carry a stage too), an unknown gate, a stage outside the five, a gate id as
+  // the stage, events without a gate
+  for (const [event, stage] of [
+    ["gate.plan.awaiting", "build"],
+    ["gate.plan.overdue", "build"],
+    ["gate.unknown.approved", undefined],
+    ["gate.plan.approved", "staging"],
+    ["gate.spec.approved", "spec"],
+    ["change.archived", undefined],
+  ]) {
+    const r = await got(event, stage);
+    assert.deepEqual(r.reported, [], `${event} with stage ${stage}`);
+    assert.ok(r.skipped, `${event}: skipped names the reason`);
+  }
 });

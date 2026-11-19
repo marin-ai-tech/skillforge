@@ -53,7 +53,8 @@ export function randomBase62(len: number): string {
   return out;
 }
 
-function hashToken(token: string): string {
+/** sha256 hex of a secret; tokens and the news Atom key are stored only this way. */
+export function hashToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 

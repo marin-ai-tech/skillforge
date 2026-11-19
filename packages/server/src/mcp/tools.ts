@@ -2,7 +2,13 @@ import semver from "semver";
 import { readBlob, hasBlob } from "../blobs.ts";
 import { artifactTypeDef } from "@skillforge/core";
 import type { Database } from "../repo.ts";
-import { getArtifactByTypeName, getVersion, listArtifacts, type ArtifactRow } from "../repo.ts";
+import {
+  getArtifactById,
+  getArtifactByTypeName,
+  getVersion,
+  listArtifacts,
+  type ArtifactRow,
+} from "../repo.ts";
 import type { McpToolResult } from "./types.ts";
 import {
   MAX_REPORT_ID,
@@ -23,12 +29,22 @@ import {
 } from "./types.ts";
 import { canView } from "../visibility/index.ts";
 import type { Role } from "../auth/users.ts";
+import { readFeedPage, toItemView, type NewsRow } from "../news/read.ts";
+import { NEWS_KINDS, isNewsKind, type NewsKind } from "../news/rules.ts";
+import { newsItemUrl } from "../news/links.ts";
 
 export type ToolDef = {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
 };
+
+/** list_news (news-delivery) bounds. */
+const NEWS_DEFAULT_LIMIT = 20;
+const NEWS_MAX_LIMIT = 100;
+const NEWS_DEFAULT_DAYS = 7;
+const NEWS_PAGE = 100;
+const NEWS_MAX_PAGES = 20;
 
 export const TOOL_DEFS: ToolDef[] = [
   {
@@ -141,6 +157,32 @@ export const TOOL_DEFS: ToolDef[] = [
       required: ["type", "name", "uses", "helped"],
     },
   },
+  {
+    name: "list_news",
+    description:
+      "Registry news newer than since (default: the last 7 days), newest first: new artifacts, new stable versions, status changes (zombie, retired, with the replacement to use instead) and posts. Only artifacts this token may use over MCP.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        since: {
+          type: "string",
+          description: "ISO 8601 time; only news after it (default: 7 days ago)",
+        },
+        kinds: {
+          type: "array",
+          items: { type: "string", enum: [...NEWS_KINDS] },
+          description: "Only these kinds of news",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: NEWS_MAX_LIMIT,
+          description: "Max items (default 20)",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 function okResult(data: unknown): McpToolResult {
@@ -197,6 +239,19 @@ function mcpTagMatch(row: McpVisibleRow, mcpTags: string[]): boolean {
 
 function isMcpVisible(db: Database, caller: McpCaller, row: McpVisibleRow): boolean {
   if (row.status !== "active") return false;
+  if (!canView(db, { username: caller.username, role: caller.role }, row)) return false;
+  return mcpTagMatch(row, caller.mcp_tags);
+}
+
+/**
+ * news-delivery: an artifact item is news for a token when the token could use the artifact over MCP — except that
+ * a retired or fading artifact still counts (the agent must learn it is going away). Candidates never.
+ * isMcpVisible itself keeps requiring `active` for every other tool.
+ */
+const NEWS_STATUSES: ReadonlySet<string> = new Set(["active", "aging", "zombie", "retired"]);
+
+function isMcpNewsVisible(db: Database, caller: McpCaller, row: McpVisibleRow): boolean {
+  if (!NEWS_STATUSES.has(row.status)) return false;
   if (!canView(db, { username: caller.username, role: caller.role }, row)) return false;
   return mcpTagMatch(row, caller.mcp_tags);
 }
@@ -292,6 +347,7 @@ export function callTool(
   caller: McpCaller,
   name: unknown,
   args: unknown,
+  base = "",
 ): CallToolOutcome {
   if (typeof name !== "string" || !TOOL_DEFS.some((t) => t.name === name)) {
     return { kind: "invalid_params", message: `Unknown tool: ${String(name)}` };
@@ -315,6 +371,9 @@ export function callTool(
   }
   if (name === "read_artifact_files") {
     return readArtifactFiles(db, dataDir, caller, a);
+  }
+  if (name === "list_news") {
+    return listNewsTool(db, caller, a, base);
   }
   return readArtifactFile(db, dataDir, caller, a);
 }
@@ -546,4 +605,91 @@ function readArtifactFile(
     kind: "result",
     result: fileContent(path, entry.sha256, readBlob(dataDir, entry.sha256)),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// list_news (news-delivery): the feed's code (news/read.ts) by the token owner's rights, then the MCP news check.
+
+type NewsArgs = { since: string; kinds: NewsKind[] | null; limit: number };
+
+function newsLimit(raw: unknown): number | null {
+  if (raw === undefined) return NEWS_DEFAULT_LIMIT;
+  const ok = typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= NEWS_MAX_LIMIT;
+  return ok ? raw : null;
+}
+
+function newsSince(raw: unknown): string | null {
+  if (raw === undefined) return new Date(Date.now() - NEWS_DEFAULT_DAYS * 86_400_000).toISOString();
+  if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(raw)) return null;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+}
+
+function newsKinds(raw: unknown): NewsKind[] | null | false {
+  if (raw === undefined) return null;
+  if (!Array.isArray(raw) || !raw.every(isNewsKind)) return false;
+  return raw.length > 0 ? raw : null;
+}
+
+function parseNewsArgs(a: Record<string, unknown>): NewsArgs | string {
+  const limit = newsLimit(a.limit);
+  if (limit === null) return `limit must be an integer from 1 to ${NEWS_MAX_LIMIT}`;
+  const since = newsSince(a.since);
+  if (since === null) return "since must be an ISO 8601 time";
+  const kinds = newsKinds(a.kinds);
+  if (kinds === false) return `kinds must be a list of: ${NEWS_KINDS.join(", ")}`;
+  return { since, kinds, limit };
+}
+
+function newsRowVisible(db: Database, caller: McpCaller, row: NewsRow): boolean {
+  if (row.kind === "post") return true; // the rights clause already applied the owner's audience
+  const artifact = row.artifact_id ? getArtifactById(db, row.artifact_id) : undefined;
+  return artifact !== undefined && isMcpNewsVisible(db, caller, artifact);
+}
+
+function newsItem(db: Database, caller: McpCaller, row: NewsRow, now: string, base: string) {
+  const v = toItemView(db, { username: caller.username, role: caller.role }, row, now);
+  return {
+    kind: v.kind,
+    at: v.at,
+    artifact: v.artifact,
+    version: v.version,
+    from: v.from,
+    to: v.to,
+    replacement: v.replacement,
+    post: v.post ? { title: v.post.title, body: v.post.body, team: v.post.team } : null,
+    url: newsItemUrl(base, v),
+  };
+}
+
+function listNewsTool(
+  db: Database,
+  caller: McpCaller,
+  a: Record<string, unknown>,
+  base: string,
+): CallToolOutcome {
+  const args = parseNewsArgs(a);
+  if (typeof args === "string") return { kind: "invalid_params", message: args };
+  const viewer = { username: caller.username, role: caller.role };
+  const now = new Date().toISOString();
+  const items: ReturnType<typeof newsItem>[] = [];
+  let cursor: { at: string; id: number } | null = null;
+  for (let page = 0; page < NEWS_MAX_PAGES && items.length < args.limit; page++) {
+    const q = { cursor, limit: NEWS_PAGE, kinds: args.kinds, type: null, team: null, mine: false };
+    const { rows, hasMore } = readFeedPage(
+      db,
+      viewer,
+      { ...q, drafts: false, since: args.since },
+      now,
+    );
+    for (const row of rows) {
+      if (items.length < args.limit && newsRowVisible(db, caller, row)) {
+        items.push(newsItem(db, caller, row, now, base));
+      }
+    }
+    const last = rows.at(-1);
+    if (!hasMore || !last) break;
+    cursor = { at: last.at, id: last.id };
+  }
+  return { kind: "result", result: okResult({ items }) };
 }

@@ -3,6 +3,22 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.18 — 2026-11-19
+
+### Added
+- News: one feed for the whole registry on `/news`, a **News** item in the header with the count of what is new
+  since your last visit, and **What's new** on Home. The registry writes an item when an artifact first becomes
+  active, a stable version that is not the first one appears, or an artifact turns zombie, is retired or comes back;
+  beta versions, moves to aging and candidates make no news. An admin posts for everyone or any team, a team lead
+  for their own team: drafts, scheduled publication, expiry, pinned and important posts, all in the audit log.
+  Every item is shown only to those who may see its artifact or its team, checked on each read.
+- News outside the web page: a daily or weekly news summary (a notification and the `news.summary` event for
+  plugins), the `news.published` event for every item, an Atom feed (`/api/v1/news.atom`, and a personal link that
+  opens only the feed, shown once, replaced or revoked in the cabinet), `skillforge news` and `skillforge news
+  seen` in the CLI, and the MCP tool `list_news`, which also tells an agent that a skill it uses was retired and
+  what replaces it. `GET /api/v1/news` takes `since` and `unread=true` and returns `seen_at`. New setting
+  `SKILLFORGE_NEWS_TICK_MS`.
+
 ## 0.5.17 — 2026-11-18
 
 ### Fixed

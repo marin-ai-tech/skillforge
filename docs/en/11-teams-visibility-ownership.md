@@ -28,6 +28,7 @@ member, including a user with the `viewer` role, so that they can see the team's
 |---|---|
 | Create or delete a team | admin |
 | Add or remove members, change a member's role | the team's lead, or an admin |
+| Write news posts for the team (`/news`) | the team's lead, or an admin |
 | See the member list | team members and admins (other signed-in users see the team without members) |
 
 Rules the server enforces:

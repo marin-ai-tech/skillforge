@@ -7,6 +7,7 @@ import { roleAtLeast, type Role } from "../auth/users.ts";
 import { bumpMarketplaceVersion } from "../distribution/marketplace.ts";
 import { canPublishVersion, recheckManageRight } from "../ownership.ts";
 import { canView, type Viewer } from "../visibility/index.ts";
+import { recordVersionNews } from "../news/record.ts";
 import {
   channelAllowed,
   channelHeads,
@@ -371,6 +372,15 @@ function applyChannelChange(db: Database, input: ChannelChangeInput): ChannelCha
     action: "channel_change",
     reason: input.reason,
     meta: { version, from: current.channel, to },
+  });
+  // news: beta → stable of a non-candidate, non-retired artifact (news/rules.ts decides), in this transaction
+  recordVersionNews(db, {
+    artifactId: row.id,
+    status: fresh.status,
+    version,
+    channel: to,
+    actor,
+    at: new Date().toISOString(),
   });
   if (right.override) {
     appendAudit(db, {

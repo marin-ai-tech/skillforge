@@ -3,7 +3,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startServer, api as rawApi, login, createUser, loadDir, toB64, FIXTURES, ROOT, ADMIN_PASSWORD } from "./lib/client.mjs";
@@ -293,4 +293,26 @@ test("limit of 50 recipients: a mention is delivered first and is not cut off by
   const cid = r.data.comment.id;
   const zedMentions = (await notifs("zed", "?limit=200")).items.filter((n) => n.comment_id === cid && n.kind === "mention");
   assert.equal(zedMentions.length, 1, "the mentioned user got the mention despite 50 watchers ahead");
+});
+
+// fix-notification-prefs-source: every kind the server reports in the preferences can be switched off and on, and the
+// panel in the cabinet offers exactly those kinds. `source` (tracked-sources) was in the route and the panel, but not
+// in the table's CHECK, so turning it off failed with a server error. The oracle is the server's own list.
+test("every notification kind the server lists can be turned off and on; the panel offers exactly those kinds", async () => {
+  const listed = (await api("GET", "/api/v1/me/notification-prefs", undefined, "carol")).data;
+  const kinds = Object.keys(listed).sort();
+  assert.ok(kinds.includes("source"), kinds.join(", "));
+  for (const kind of kinds.filter((k) => k !== "mention")) {
+    const off = await api("PUT", "/api/v1/me/notification-prefs", { [kind]: false }, "carol");
+    assert.equal(off.status, 200, `${kind} off: ${JSON.stringify(off.data)}`);
+    assert.equal(off.data[kind], false, `${kind} stays on`);
+    const on = await api("PUT", "/api/v1/me/notification-prefs", { [kind]: true }, "carol");
+    assert.equal(on.status, 200, `${kind} on: ${JSON.stringify(on.data)}`);
+  }
+  // negative cases: an unknown kind and mention stay refused
+  assert.equal((await api("PUT", "/api/v1/me/notification-prefs", { news_of_the_world: false }, "carol")).status, 400);
+  assert.equal((await api("PUT", "/api/v1/me/notification-prefs", { mention: false }, "carol")).status, 400);
+  const panel = readFileSync(join(ROOT, "packages", "web", "src", "pages", "me", "Notifications.tsx"), "utf8");
+  const offered = [...(/const PREF_KINDS = \[([^\]]*)\]/.exec(panel)?.[1] ?? "").matchAll(/"([a-z_]+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(offered, kinds, "the panel offers other kinds than the server lists");
 });

@@ -18,7 +18,19 @@ type Row = {
   url: string;
   created_at: string;
   read_at: string | null;
+  meta: string | null;
 };
+
+/** The stored item count of a news summary, so the client can build its title with plurals in the reader's language. */
+function summaryItems(n: Row): number | null {
+  if (n.kind !== "news_summary" || !n.meta) return null;
+  try {
+    const items = (JSON.parse(n.meta) as { items?: unknown }).items;
+    return typeof items === "number" && Number.isInteger(items) && items >= 0 ? items : null;
+  } catch {
+    return null;
+  }
+}
 
 type Reader = { viewer: Parameters<typeof canView>[1]; username: string };
 
@@ -103,6 +115,7 @@ export const notificationsRoutes: FastifyPluginAsync<{ db: Database }> = async (
           url: n.url,
           created_at: n.created_at,
           read: n.read_at !== null,
+          summary_items: summaryItems(n),
         };
       });
       return reply.send({

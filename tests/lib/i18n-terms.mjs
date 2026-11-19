@@ -5,7 +5,7 @@
 export const TERMS = [
   // product, protocols and formats
   "SkillForge", "MCP", "CLI", "API", "SSO", "OIDC", "LDAP", "URL", "HTTP", "HTTPS", "stdio", "JSON", "YAML", "Markdown",
-  "Authorization", "Bearer", "README", "SKILL", "md", "git", "GitHub", "zip", "tar", "gz", "tgz", "semver", "UTC", "KiB", "MiB", "GiB",
+  "Authorization", "Bearer", "README", "SKILL", "md", "git", "GitHub", "zip", "tar", "gz", "tgz", "semver", "UTC", "KiB", "MiB", "GiB", "Atom",
   // agents and clients
   "Claude", "Code", "Codex", "Cursor", "OpenCode", "Qwen", "Gemini", "Devin", "Reckon",
   // API and CLI values: statuses, roles, visibility, channels

@@ -13,7 +13,7 @@ let srv;
 let work;
 const who = {};
 const tokens = {};
-const BUILT_IN = ["get_artifact", "read_artifact_file", "read_artifact_files", "record_usage", "search_artifacts"];
+const BUILT_IN = ["get_artifact", "list_news", "read_artifact_file", "read_artifact_files", "record_usage", "search_artifacts"];
 const call = (method, path, body, user = who.admin) => api(srv.base, method, path, body, { cookie: user.cookie });
 const md = (name) => `---\nname: ${name}\ndescription: Plugin MCP probe ${name}. Use when testing plugin tools.\n---\n\n# ${name}\n\nBody.\n`;
 

@@ -136,6 +136,15 @@ short definition and links to the page that explains the term in full.
 - **Model compatibility.** Tags a reviewer merges into a version when validating it against target models. See
   [Reviewer](handbook/reviewer.md#validate-a-version).
 
+## N
+
+- **News.** The registry-wide feed on `/news`: new artifacts, new stable versions, status changes, and posts by
+  admins and team leads, each shown only to those who may see it. See [User guide](02-user-guide.md#12-news).
+- **News Atom key.** A personal link to your news in a feed reader; it opens only the feed, is shown once and can be
+  replaced or revoked. See [User guide](02-user-guide.md#12-news).
+- **News summary.** The news of a day or a week you may see, sent as a notification and to plugins. See
+  [User guide](02-user-guide.md#12-news).
+
 ## O
 
 - **Orphan.** An artifact whose owner was disabled or no longer exists; admins hand it over on the Users page. See

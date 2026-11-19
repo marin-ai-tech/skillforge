@@ -164,6 +164,8 @@ Remove your facts in **My workspace** under **My sessions**. See [Session metric
   automatically; `skillforge watch skill/pdf-tools --off` stops it.
 - The bell in the header counts unread notifications; `/me/notifications` lists them and lets you turn off every
   kind except mentions.
+- **News** (`/news`) is the registry-wide feed: new artifacts, new stable versions, status changes and posts by
+  admins and team leads. You see only what you may see; the header item counts what is new since your last visit.
 
 ## Look after your account
 

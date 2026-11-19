@@ -123,7 +123,7 @@ function appendTeamAudit(
 }
 
 /** Whether `actor` is a lead of the team, or admin. */
-function isTeamLead(db: Database, teamId: string, username: string, role: Role): boolean {
+export function isTeamLead(db: Database, teamId: string, username: string, role: Role): boolean {
   if (roleAtLeast(role, "admin")) return true;
   return memberRole(db, teamId, username) === "lead";
 }

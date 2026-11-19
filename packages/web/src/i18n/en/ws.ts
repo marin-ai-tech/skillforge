@@ -110,6 +110,7 @@ export const ws = {
       ownership: "Ownership",
       plugin: "Plugin",
       source: "Source",
+      news_summary: "News summary",
     },
     /** Titles built in the reader's language from the kind and the artifact (fix-readable-codes). */
     titles: {
@@ -119,6 +120,8 @@ export const ws = {
       status_change: (ref: string) => `Status changed: ${ref}`,
       source: (ref: string) => `Source check: ${ref}`,
     } as Record<string, ((ref: string) => string) | undefined>,
+    /** The `news_summary` title from the stored item count (news-delivery). */
+    summaryTitle: (n: number) => `News summary: ${n} ${n === 1 ? "item" : "items"}`,
     alwaysOn: " (always on)",
     saveFailed: "Failed to save prefs",
     unread: "Unread:",

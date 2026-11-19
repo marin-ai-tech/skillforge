@@ -13,6 +13,7 @@ import { appendProvenance } from "../provenance/ledger.ts";
 import { bumpMarketplaceVersion } from "../distribution/marketplace.ts";
 import { emitPluginEvent } from "../plugins/events.ts";
 import { notify, emitNotifications } from "../notifications/notify.ts";
+import { recordVersionNews } from "../news/record.ts";
 import { actorFromUsername } from "../plugins/actor.ts";
 import {
   appendAudit,
@@ -313,7 +314,7 @@ function commitRowsInTx(
     return { kind: "content_purged" };
   }
 
-  return writeVersionRows(db, {
+  const tx = writeVersionRows(db, {
     existing,
     artifact,
     type,
@@ -325,6 +326,18 @@ function commitRowsInTx(
     now,
     versionId,
   });
+  if (!("kind" in tx)) {
+    // news: a new stable version, in the publication's own transaction (news/rules.ts decides)
+    recordVersionNews(db, {
+      artifactId: tx.artifactId,
+      status: existing?.status ?? "candidate",
+      version,
+      channel,
+      actor,
+      at: now,
+    });
+  }
+  return tx;
 }
 
 function isCommittable(prepared: PrepareOk): prepared is PrepareOk & {

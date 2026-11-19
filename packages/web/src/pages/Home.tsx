@@ -18,6 +18,7 @@ import { CopyButton } from "../components/CopyButton.tsx";
 import { STR } from "../lib/strings.ts";
 import { roleAtLeast, useMe } from "../lib/auth.tsx";
 import { FALLBACK_TYPE_IDS } from "../lib/artifact-types.ts";
+import { NewsTile } from "../components/NewsTile.tsx";
 
 type ArtifactListResult = Awaited<ReturnType<typeof listArtifacts>>;
 
@@ -264,6 +265,8 @@ export function Home() {
       ) : null}
 
       <CountsSection counts={counts} typeIds={typeIds} pluralOf={pluralOf} />
+
+      <NewsTile />
 
       <RecentSection recent={recent} emptyRegistry={emptyRegistry} />
 

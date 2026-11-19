@@ -1,10 +1,24 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getVersionDiff } from "../api/client.ts";
 import type { VersionDetail } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
 import { errorText } from "../i18n/index.ts";
 import { HelpTip } from "./HelpTip.tsx";
+
+/** The version asked by `?compare=` and the newest older stable version (else the next older one). */
+function compareTarget(
+  versions: VersionDetail[],
+  asked: string | null,
+): { from: string; to: string } | null {
+  const live = versions.filter((v) => !v.purged);
+  const i = live.findIndex((v) => v.version === asked);
+  if (i < 0) return null;
+  const older = live.slice(i + 1);
+  const prev = older.find((v) => v.channel === "stable") ?? older[0];
+  return prev ? { from: prev.version, to: live[i]!.version } : null;
+}
 
 /** What changed between two versions (version-diff): file statuses and a line diff of each changed file. */
 export function VersionCompare({
@@ -17,8 +31,11 @@ export function VersionCompare({
   versions: VersionDetail[];
 }) {
   const live = versions.filter((v) => !v.purged).map((v) => v.version);
-  const [from, setFrom] = useState(live[1] ?? "");
-  const [to, setTo] = useState(live[0] ?? "");
+  // `?compare=<version>` (a news link): that version against the previous stable one, the block open.
+  const [params] = useSearchParams();
+  const asked = compareTarget(versions, params.get("compare"));
+  const [from, setFrom] = useState(asked?.from ?? live[1] ?? "");
+  const [to, setTo] = useState(asked?.to ?? live[0] ?? "");
   const q = useQuery({
     queryKey: ["version-diff", type, name, from, to],
     queryFn: () => getVersionDiff(type, name, from, to),
@@ -40,7 +57,11 @@ export function VersionCompare({
     </select>
   );
   return (
-    <details data-testid="version-compare" className="rounded-sf border border-line bg-surface p-3">
+    <details
+      data-testid="version-compare"
+      open={asked ? true : undefined}
+      className="rounded-sf border border-line bg-surface p-3"
+    >
       <summary className="cursor-pointer text-sm font-semibold text-ink">
         {STR.art.versions.compareTitle}
       </summary>

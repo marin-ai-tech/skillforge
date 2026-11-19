@@ -283,6 +283,23 @@ const actionTips = {
   "start-batch-promote":
     "Promote all candidate artifacts to active in one batch; each success is audited.",
   "start-copy-connect": "Copy the marketplace add command that includes this registry URL.",
+  "nav-news":
+    "Open the News page: what changed in the registry since your last visit. The count is unread news.",
+  "home-news": "Open all news: the full feed with filters by kind and artifact type.",
+  "news-new": "Write a post for everyone (admin) or for a team you lead.",
+  "news-filter":
+    "Show only one kind of news or one artifact type; the filter is kept in the page address.",
+  "news-more": "Load the next page of older news; focus moves to the first new item.",
+  "news-form-submit": "Publish the post now, or at the chosen publication time.",
+  "news-form-draft": "Save the post as a draft that only you and admins see; publish it later.",
+  "news-summary-period":
+    "How often the news summary comes: off, daily or weekly, at 09:00 server time. It arrives as a notification here and to the plugins your admin installed; Off stops it everywhere.",
+  "news-atom-issue":
+    "Create a personal Atom link for a feed reader, or replace it: the old link stops working at once.",
+  "news-atom-copy": "Copy the Atom link to paste into your feed reader; it is shown only now.",
+  "news-atom-revoke": "Revoke the Atom link: feed readers that use it stop getting news at once.",
+  "news-subscribe":
+    "Read the news in a feed reader: create your personal Atom link in the cabinet.",
 } satisfies Record<Action, string>;
 
 /** Interface strings: help tips, help panel and help center chrome. */
@@ -334,6 +351,7 @@ export const tips = {
       "actions-metrics": "Metrics",
       "actions-navigation": "Navigation",
       "actions-notifications": "Notifications",
+      "actions-news": "News",
       "actions-plugins": "Plugins",
       "actions-publish": "Publish",
       "actions-quality": "Quality",

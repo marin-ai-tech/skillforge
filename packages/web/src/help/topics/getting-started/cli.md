@@ -104,6 +104,7 @@ skillforge agent rm --name laptop
 - `skillforge pack list` shows team method packs; `skillforge pack install <name[@version]> --role <role>` installs a pack, or one role of it, at its pinned versions.
 - `skillforge evals push|run|runs|batch|batches|journal` manages eval suites and runs; `batch` runs one kind of eval across several runners.
 - `skillforge runs list|show|watch`, `skillforge workflows list|save|run|trace` and `skillforge routines list|save|run|runs|disable` work with recorded runs, workflows and scheduled routines.
+- `skillforge news [--since <date>] [--unread] [--kind <kinds>] [--limit <n>]` prints the registry news you can see: date, kind, text and link, or the API answer with `--json`. `skillforge news seen` marks the feed seen, so `--unread` then shows only newer news. It needs a personal API token: with an MCP token the command exits with code 4.
 - `skillforge teams list|show|create|add|remove` manages teams; `skillforge scope` changes an artifact's visibility scope and `skillforge labels` its registry labels.
 
 ## Exit codes and JSON

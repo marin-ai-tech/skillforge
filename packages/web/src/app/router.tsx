@@ -34,6 +34,7 @@ import { Teams } from "../pages/Teams.tsx";
 import { Notifications } from "../pages/me/Notifications.tsx";
 import { TeamDetail } from "../pages/TeamDetail.tsx";
 import { Start } from "../pages/Start.tsx";
+import { News } from "../pages/News.tsx";
 
 function Root() {
   return (
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
       { path: "me/notifications", element: <Notifications /> },
       { path: "teams", element: <Teams /> },
       { path: "teams/:name", element: <TeamDetail /> },
+      { path: "news", element: <News /> },
       { path: "help", element: <Help /> },
       { path: "help/*", element: <Help /> },
       { path: "*", element: <NotFound /> },

@@ -1,6 +1,18 @@
 import { pluginRegistry } from "./registry.ts";
+import type { NewsItemView } from "../news/read.ts";
 
 export type PluginActor = { id: string; username: string } | null;
+
+/** news-delivery: the item of `news.published`; `artifact.team` is the owner team name or null. */
+export type NewsPublishedItem = {
+  id: string;
+  kind: string;
+  artifact: { type: string; name: string; visibility: string; team: string | null } | null;
+  version: string | null;
+  from: string | null;
+  to: string | null;
+  post: { title: string; team: string | null; important: boolean } | null;
+};
 
 export type PluginEvent =
   | {
@@ -69,6 +81,22 @@ export type PluginEvent =
       type: "auth.login";
       at: string;
       user: { id: string; username: string; role: string };
+    }
+  | {
+      /** news-delivery: once per item, after COMMIT; `url` is the artifact page or the post on the feed. */
+      type: "news.published";
+      at: string;
+      item: NewsPublishedItem;
+      url: string;
+    }
+  | {
+      /** news-delivery: one reader's summary of a passed period (`[from, to)`), never empty. */
+      type: "news.summary";
+      at: string;
+      username: string;
+      email: string | null;
+      period: { from: string; to: string };
+      items: NewsItemView[];
     }
   | {
       type: "server.started";

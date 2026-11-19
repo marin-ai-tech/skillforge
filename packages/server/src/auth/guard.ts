@@ -60,6 +60,11 @@ export function bearerToken(request: FastifyRequest): string | null {
   return m?.[1]?.trim() ? m[1].trim() : null;
 }
 
+/** news-delivery: the Atom key opens only its feed (in the path); as a bearer token it opens nothing. */
+function isAtomKeyBearer(request: FastifyRequest): boolean {
+  return bearerToken(request)?.startsWith("sfa_") === true;
+}
+
 export function userFromRow(row: UserRow): RequestUser {
   return meUser(row);
 }
@@ -157,6 +162,7 @@ export function createAuthenticateHook(db: Database, config: AppConfig) {
     if (isMcpTokenDenied(request, url)) {
       return reply.code(403).send({ error: "mcp_token_forbidden" });
     }
+    if (isAtomKeyBearer(request)) return reply.code(401).send({ error: "unauthorized" });
 
     if (isOpenAuthEndpoint(request.method, url)) return;
     if (request.user) return;

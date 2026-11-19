@@ -19,6 +19,7 @@ import { runLogin } from "./commands/login.ts";
 import { runLogout } from "./commands/logout.ts";
 import { runPublish, runValidate } from "./commands/publish.ts";
 import { runWhoami } from "./commands/whoami.ts";
+import { runNews, runNewsSeen } from "./commands/news.ts";
 import { runSessionsImport } from "./commands/sessions.ts";
 import {
   runTeamsList,
@@ -845,6 +846,49 @@ addGlobals(
   const ctx = createContext(globalsFrom(cmd));
   try {
     await runAgentRm(ctx, { name: opts.name });
+  } catch (e) {
+    handleError(ctx, e);
+  }
+});
+
+const news = addGlobals(
+  program
+    .command("news")
+    .description(
+      "Show registry news you can see (date, kind, text, link); --json prints the API answer. Needs a personal API token",
+    )
+    .option("--since <date>", "Only news after this ISO 8601 date or date-time")
+    .option("--unread", "Only news newer than your seen mark (see skillforge news seen)", false)
+    .option(
+      "--kind <kinds>",
+      "Comma-separated kinds: new_artifact, new_version, status_change, post",
+    )
+    .option("--limit <n>", "Page size"),
+).action(
+  async (
+    opts: { since?: string; unread?: boolean; kind?: string; limit?: string },
+    cmd: Command,
+  ) => {
+    const ctx = createContext(globalsFrom(cmd));
+    try {
+      await runNews(ctx, {
+        since: opts.since,
+        unread: Boolean(opts.unread),
+        kind: opts.kind,
+        limit: opts.limit,
+      });
+    } catch (e) {
+      handleError(ctx, e);
+    }
+  },
+);
+
+addGlobals(
+  news.command("seen").description("Mark the news feed seen: --unread then shows only newer news"),
+).action(async (_opts: unknown, cmd: Command) => {
+  const ctx = createContext(globalsFrom(cmd));
+  try {
+    await runNewsSeen(ctx);
   } catch (e) {
     handleError(ctx, e);
   }

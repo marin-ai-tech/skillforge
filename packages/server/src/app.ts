@@ -46,6 +46,11 @@ import { adminAgentsRoutes } from "./routes/admin-agents.ts";
 import { meOverviewRoutes } from "./routes/me-overview.ts";
 import { commentsRoutes } from "./routes/comments.ts";
 import { notificationsRoutes } from "./routes/notifications.ts";
+import { newsRoutes } from "./routes/news.ts";
+import { pruneAutomaticNews } from "./news/record.ts";
+import { newsTickMs, startNewsDelivery } from "./news/delivery.ts";
+import { linkBase } from "./news/links.ts";
+import { newsDeliveryRoutes } from "./routes/news-delivery.ts";
 import { sessionFactsRoutes } from "./routes/session-facts.ts";
 import { metricsRoutes } from "./routes/metrics.ts";
 import { evalsRoutes } from "./routes/evals.ts";
@@ -208,11 +213,16 @@ export async function buildApp(config: AppConfig) {
   }
 
   // Aging sweep at startup (after seed); hourly timer does not keep the process alive.
-  runAgingSweep(db, policyFromConfig(config));
+  // news: the same hourly pass removes automatic news older than a year (posts stay).
+  const hourlySweep = () => {
+    runAgingSweep(db, policyFromConfig(config));
+    pruneAutomaticNews(db, new Date());
+  };
+  hourlySweep();
   const sweepTimer = setInterval(
     () => {
       try {
-        runAgingSweep(db, policyFromConfig(config));
+        hourlySweep();
       } catch {
         /* ignore sweep errors on timer */
       }
@@ -284,8 +294,15 @@ export async function buildApp(config: AppConfig) {
 
   const version = serverVersion();
   await loadPlugins({ config, db, app, serverVersion: version });
+  // news-delivery: announcing and summaries, after the plugins are loaded (the first pass catches up on a restart).
+  const newsDelivery = startNewsDelivery(db, {
+    base: linkBase(config),
+    tickMs: newsTickMs(process.env.SKILLFORGE_NEWS_TICK_MS),
+    log: logger.error,
+  });
 
   app.addHook("onClose", async () => {
+    newsDelivery.stop();
     stopBatchPump();
     stopRoutinesScheduler();
     clearInterval(sweepTimer);
@@ -350,6 +367,8 @@ export async function buildApp(config: AppConfig) {
   await app.register(meOverviewRoutes, { db, config });
   await app.register(commentsRoutes, { db });
   await app.register(notificationsRoutes, { db });
+  await app.register(newsRoutes, { db, config });
+  await app.register(newsDeliveryRoutes, { db, config });
   await app.register(sessionFactsRoutes, { db, config });
   await app.register(metricsRoutes, { db });
   await app.register(evalsRoutes, { db, config });

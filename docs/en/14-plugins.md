@@ -110,9 +110,25 @@ original request. The events are:
 - `agent.scanned` — a snapshot was saved, with its status summary;
 - `comment.created` — with an excerpt of at most 200 characters and the mentions;
 - `notification.created`;
+- `news.published` — a news item: kind, artifact with its `visibility` and owner `team`, version, statuses, the
+  post's title, team and `important` flag, and a link; once per item, a scheduled post when its time comes;
+- `news.summary` — a user's news summary for the period: `username`, `email` (or null), `period`, `items`;
 - `auth.login`, `server.started`.
 
 A plugin that stores content derived from a version must delete it when it receives `artifact.purged`.
+
+A plugin that forwards news decides what leaves the registry: `news.published` carries the artifact's visibility and
+team, so a webhook can drop the news of teams it should not reach. A minimal forwarder:
+
+```js
+export function register(ctx) {
+  ctx.events.on("news.published", async (evt) => {
+    const { url, team } = ctx.config.get();
+    if (!url || (evt.item.artifact?.team && evt.item.artifact.team !== team)) return;
+    await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(evt) });
+  });
+}
+```
 
 ### MCP tools
 

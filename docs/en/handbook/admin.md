@@ -81,6 +81,9 @@ skillforge teams show payments
   `skillforge scope skill/pdf-tools --visibility team --team payments`.
 - **Availability for teams**, on the artifact page: not available, available, installed by default, or required.
   `skillforge sync` follows it. Availability guides installation; it does not hide anything.
+- **News posts** (`/news`, **New post**): you write for everyone or for any team, a lead only for their own team.
+  Pin what must stay on top, mark **Important**, schedule a publication or set an expiry. Every post you create,
+  change or delete is in the audit log (`news_post_create`, `news_post_update`, `news_post_delete`).
 
 See [Teams, visibility and ownership](../11-teams-visibility-ownership.md).
 

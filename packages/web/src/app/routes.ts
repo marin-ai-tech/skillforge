@@ -30,6 +30,7 @@ export const ROUTES = [
   "/me/notifications",
   "/teams",
   "/teams/:name",
+  "/news",
   "/help",
   "/help/*",
   "*",

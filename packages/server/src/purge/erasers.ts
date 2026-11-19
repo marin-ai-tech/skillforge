@@ -450,6 +450,14 @@ const registry: PurgeEraser[] = [
       "tombstone ownership and the audit of ownership transitions need the maintainer list; usernames are not leaked content",
   },
   {
+    // news: an item holds only references; after a purge the feed shows it to admins only (rights at read time)
+    table: "news_items",
+    strategy: "keep",
+    scopes: ["artifact"],
+    reason:
+      "news items hold only references and event fields; the feed shows a purged artifact to admins only",
+  },
+  {
     table: "artifact_versions",
     strategy: "tombstone",
     scopes: ["artifact", "version"],

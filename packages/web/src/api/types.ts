@@ -1045,6 +1045,8 @@ export type NotificationDto = {
   url: string;
   created_at: string;
   read: boolean;
+  /** `news_summary` only: the stored item count, for a title in the reader's language; null otherwise. */
+  summary_items?: number | null;
 };
 
 export type NotificationsListResponse = {
@@ -1402,4 +1404,74 @@ export type EvalsSummaryRow = {
   uplift: number;
   cost_usd: number | null;
   cost_per_solve: number | null;
+};
+
+/** news: the kind of a news item; the text is built in the reader's language from its fields. */
+export type NewsKind = "new_artifact" | "new_version" | "status_change" | "post";
+
+export type NewsPost = {
+  title: string;
+  body: string;
+  team: string | null;
+  pinned: boolean;
+  important: boolean;
+  publish_at: string | null;
+  expires_at: string | null;
+  draft: boolean;
+  scheduled: boolean;
+  author: string;
+  can_edit: boolean;
+};
+
+export type NewsItem = {
+  id: string;
+  kind: NewsKind | string;
+  at: string;
+  actor: string | null;
+  artifact: { type: string; name: string } | null;
+  version: string | null;
+  from: string | null;
+  to: string | null;
+  replacement: { type: string; name: string } | null;
+  post: NewsPost | null;
+};
+
+export type NewsListResponse = {
+  items: NewsItem[];
+  pinned: NewsItem[];
+  unread_count: number;
+  next_cursor: string | null;
+};
+
+export type NewsSummaryPeriod = "off" | "daily" | "weekly";
+
+export type NewsSummarySetting = { period: NewsSummaryPeriod };
+
+export type NewsAtomKeyState = {
+  exists: boolean;
+  prefix: string | null;
+  created_at: string | null;
+};
+
+export type IssuedNewsAtomKey = { key: string; url: string; prefix: string; created_at: string };
+
+export type NewsListParams = {
+  cursor?: string;
+  limit?: number;
+  kind?: string;
+  type?: string;
+  team?: string;
+  mine?: boolean;
+  drafts?: boolean;
+};
+
+export type NewsPostInput = {
+  title: string;
+  body: string;
+  team?: string | null;
+  pinned?: boolean;
+  important?: boolean;
+  draft?: boolean;
+  publish_at?: string | null;
+  expires_at?: string | null;
 };

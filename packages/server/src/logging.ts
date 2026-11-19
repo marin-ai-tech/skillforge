@@ -54,6 +54,8 @@ const URL_USERINFO_RE = /([a-z][a-z0-9+.-]*:\/\/)[^\s/"'@]*:[^\s/"'@]*@/gi;
 const BEARER_RE = /\b(bearer\s+)[A-Za-z0-9._~+/=-]{8,}/gi;
 /** Agent Space task budget grants (llm-budget-broker), with or without the `.<grant id>` suffix. */
 const BUDGET_GRANT_RE = /\bas_sf_[A-Za-z0-9_-]{43}(?:\.[0-9a-f-]{36})?/g;
+/** news-delivery: the Atom key `sfa_<prefix>_<secret>` (in a feed URL path) keeps only its prefix. */
+const ATOM_KEY_RE = /\b(sfa_[A-Za-z0-9]+_)[A-Za-z0-9_-]+/g;
 const KV_SECRET_RE =
   /(password|passwd|pwd|token|secret|api[_-]?key|authorization|cookie|client_secret|bind_password)(\s*[=:]\s*)([^\s"'&,;\\]{4,})/gi;
 
@@ -63,6 +65,7 @@ export function redactString(s: string): string {
   out = out.replace(URL_USERINFO_RE, "$1[REDACTED]@");
   out = out.replace(BEARER_RE, "$1[REDACTED]");
   out = out.replace(BUDGET_GRANT_RE, "[REDACTED]");
+  out = out.replace(ATOM_KEY_RE, "$1***");
   out = out.replace(KV_SECRET_RE, "$1$2[REDACTED]");
   for (const secret of SECRET_VALUES) {
     if (out.includes(secret)) out = out.split(secret).join("[REDACTED]");

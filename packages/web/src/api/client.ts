@@ -2003,3 +2003,169 @@ export async function getOverlays(
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as { layers: import("./types.ts").OverlayLayer[] };
 }
+
+/** news: field errors of a rejected post (400), by field name; "" holds errors without a field. */
+export class NewsPostError extends Error {
+  fields: Record<string, string>;
+  status: number;
+  constructor(status: number, fields: Record<string, string>, message: string) {
+    super(message);
+    this.name = "NewsPostError";
+    this.status = status;
+    this.fields = fields;
+  }
+}
+
+function newsQuery(params: import("./types.ts").NewsListParams): string {
+  const sp = new URLSearchParams();
+  if (params.cursor) sp.set("cursor", params.cursor);
+  if (params.limit !== undefined) sp.set("limit", String(params.limit));
+  if (params.kind) sp.set("kind", params.kind);
+  if (params.type) sp.set("type", params.type);
+  if (params.team) sp.set("team", params.team);
+  if (params.mine) sp.set("mine", "true");
+  if (params.drafts) sp.set("drafts", "true");
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+}
+
+/** The news feed by the reader's rights: always `/api/v1/news`, the query is optional. */
+export async function listNews(
+  params: import("./types.ts").NewsListParams = {},
+): Promise<import("./types.ts").NewsListResponse> {
+  const res = await fetch(`/api/v1/news${newsQuery(params)}`);
+  if (!res.ok) throw await parseError(res, { redirect: false });
+  const body = (await res.json()) as Partial<import("./types.ts").NewsListResponse>;
+  return {
+    items: body.items ?? [],
+    pinned: body.pinned ?? [],
+    unread_count: body.unread_count ?? 0,
+    next_cursor: body.next_cursor ?? null,
+  };
+}
+
+/** Marks the feed seen up to `at` (default: now; the server caps it at the newest visible item). */
+export async function markNewsSeen(at?: string): Promise<void> {
+  const res = await fetch("/api/v1/news/seen", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(at ? { at } : {}),
+  });
+  if (!res.ok) throw await parseError(res, { redirect: false });
+}
+
+/** How often the news summary comes (news-delivery); the server default is weekly. */
+export async function getNewsSummary(): Promise<import("./types.ts").NewsSummarySetting> {
+  const res = await fetch("/api/v1/me/news-summary");
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as import("./types.ts").NewsSummarySetting;
+}
+
+export async function putNewsSummary(
+  period: import("./types.ts").NewsSummaryPeriod,
+): Promise<import("./types.ts").NewsSummarySetting> {
+  const res = await fetch("/api/v1/me/news-summary", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ period }),
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as import("./types.ts").NewsSummarySetting;
+}
+
+/** Whether a personal Atom key exists: its prefix and date, never the key itself. */
+export async function getNewsAtomKey(): Promise<import("./types.ts").NewsAtomKeyState> {
+  const res = await fetch("/api/v1/me/news-atom-key");
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as import("./types.ts").NewsAtomKeyState;
+}
+
+/** Issues a personal Atom key or replaces the current one (the old link stops at once); the key is returned once. */
+export async function issueNewsAtomKey(): Promise<import("./types.ts").IssuedNewsAtomKey> {
+  const res = await fetch("/api/v1/me/news-atom-key", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as import("./types.ts").IssuedNewsAtomKey;
+}
+
+export async function revokeNewsAtomKey(): Promise<void> {
+  const res = await fetch("/api/v1/me/news-atom-key", { method: "DELETE" });
+  if (!res.ok && res.status !== 204) throw await parseError(res);
+}
+
+type NewsErrorBody = {
+  error?: string;
+  message?: string;
+  field?: string;
+  fields?: Record<string, unknown>;
+  errors?: unknown;
+};
+
+/** One entry of an `errors` array: a plain string (no field) or `{ field | path, message }`. */
+function addErrorEntry(fields: Record<string, string>, e: unknown, fallback: string): void {
+  if (typeof e === "string") {
+    fields[""] = fields[""] ? `${fields[""]}\n${e}` : e;
+    return;
+  }
+  if (!e || typeof e !== "object") return;
+  const o = e as { field?: unknown; path?: unknown; message?: unknown };
+  const key = typeof o.field === "string" ? o.field : typeof o.path === "string" ? o.path : "";
+  fields[key] = typeof o.message === "string" ? o.message : fallback;
+}
+
+/** Field errors of a 400 body in any of the server's shapes: `field`, `fields` or `errors`. */
+function newsFieldErrors(body: NewsErrorBody, message: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (typeof body.field === "string") fields[body.field] = message;
+  for (const [k, v] of Object.entries(body.fields ?? {})) fields[k] = String(v);
+  if (Array.isArray(body.errors)) {
+    for (const e of body.errors as unknown[]) addErrorEntry(fields, e, message);
+  }
+  if (Object.keys(fields).length === 0) fields[""] = message;
+  return fields;
+}
+
+async function newsPostError(res: Response): Promise<Error> {
+  if (res.status !== 400) return parseError(res);
+  let body: NewsErrorBody = {};
+  try {
+    body = (await res.json()) as NewsErrorBody;
+  } catch {
+    /* no JSON body */
+  }
+  const message = body.message ?? body.error ?? "bad_request";
+  return new NewsPostError(400, newsFieldErrors(body, message), message);
+}
+
+export async function createNewsPost(
+  body: import("./types.ts").NewsPostInput,
+): Promise<import("./types.ts").NewsItem> {
+  const res = await fetch("/api/v1/news/posts", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await newsPostError(res);
+  return (await res.json()) as import("./types.ts").NewsItem;
+}
+
+export async function patchNewsPost(
+  id: string,
+  body: Partial<import("./types.ts").NewsPostInput>,
+): Promise<import("./types.ts").NewsItem> {
+  const res = await fetch(`/api/v1/news/posts/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await newsPostError(res);
+  return (await res.json()) as import("./types.ts").NewsItem;
+}
+
+export async function deleteNewsPost(id: string): Promise<void> {
+  const res = await fetch(`/api/v1/news/posts/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!res.ok) throw await parseError(res);
+}

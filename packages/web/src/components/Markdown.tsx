@@ -1,11 +1,54 @@
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { stripFrontmatter } from "../lib/markdown.ts";
 import { remarkCallouts, slugify } from "../help/markdown.ts";
 import { Callout, type CalloutKind } from "./Callout.tsx";
 
-/** `help`: GitHub-alert callouts and anchor ids on `##` headings (help topics). */
-type Props = { source: string; className?: string; help?: boolean };
+/**
+ * `help`: GitHub-alert callouts and anchor ids on `##` headings (help topics). `headingOffset`: shifts the levels of
+ * the source's headings down (2: `#` renders as h3), so a body nested under page headings does not outrank them; the
+ * visual size stays that of the source level. Default 0 — the levels as written.
+ */
+type Props = { source: string; className?: string; help?: boolean; headingOffset?: number };
+
+type Level = 1 | 2 | 3 | 4 | 5 | 6;
+const HEADING_CLASS: Record<Level, string> = {
+  1: "text-xl font-semibold text-ink",
+  2: "text-lg font-semibold text-ink",
+  3: "text-base font-semibold text-ink",
+  4: "text-sm font-semibold text-ink",
+  5: "text-sm font-semibold text-ink",
+  6: "text-sm font-semibold text-ink",
+};
+
+/** A source heading of level `level` rendered `offset` levels lower (at most h6), with the source level's look. */
+function Shifted({
+  level,
+  offset,
+  children,
+}: {
+  level: Level;
+  offset: number;
+  children?: ReactNode;
+}) {
+  const Tag = `h${Math.min(6, level + offset)}` as "h1";
+  return <Tag className={HEADING_CLASS[level]}>{children}</Tag>;
+}
+
+function shiftedHeadings(offset: number) {
+  const levels: Level[] = [1, 2, 3, 4, 5, 6];
+  return Object.fromEntries(
+    levels.map((level) => [
+      `h${level}`,
+      ({ children }: { children?: ReactNode }) => (
+        <Shifted level={level} offset={offset}>
+          {children}
+        </Shifted>
+      ),
+    ]),
+  );
+}
 
 type HastNode = {
   type: string;
@@ -20,7 +63,7 @@ function textOf(node: HastNode | undefined): string {
   return (node.children ?? []).map(textOf).join("");
 }
 
-export function Markdown({ source, className = "", help = false }: Props) {
+export function Markdown({ source, className = "", help = false, headingOffset = 0 }: Props) {
   const body = stripFrontmatter(source);
   return (
     <div className={`prose-sf space-y-3 text-sm leading-relaxed ${className}`}>
@@ -72,6 +115,7 @@ export function Markdown({ source, className = "", help = false }: Props) {
           ul: ({ children }) => <ul className="list-disc space-y-1 pl-5">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal space-y-1 pl-5">{children}</ol>,
           p: ({ children }) => <p className="text-ink-2">{children}</p>,
+          ...(headingOffset > 0 ? shiftedHeadings(headingOffset) : {}),
         }}
       >
         {body}

@@ -10,7 +10,7 @@ Second, the registry describes the other MCP servers your company approves, as a
 ### What an agent can do
 
 The endpoint is `POST /mcp` (JSON-RPC 2.0, Streamable HTTP), also reachable through the `skillforge mcp`
-stdio bridge. It offers five tools:
+stdio bridge. It offers six tools:
 
 | Tool | What it does |
 |---|---|
@@ -19,8 +19,11 @@ stdio bridge. It offers five tools:
 | `read_artifact_file` | Return one file: UTF-8 text up to 256 KiB, other files up to 4 MiB as base64 |
 | `read_artifact_files` | Return all files of a version in one call, each as `read_artifact_file` does; files over 4 MiB or past 8 MiB in one answer are listed in `omitted` with a reason |
 | `record_usage` | Report that an artifact was applied and whether it helped, optionally with `basis` `loaded` or `assigned` |
+| `list_news` | Registry news since `since` (7 days by default), at most `limit` (20, up to 100), optionally of `kinds`: new artifacts, stable versions, status changes with the replacement, and posts for the token owner's audience |
 
-The first four only read. Through MCP an agent cannot publish, change a lifecycle status or install files;
+All but `record_usage` only read. `list_news` follows the same consent as search (the owner's rights and the token's
+tags), except that a retired, zombie or aging artifact still gives its news, so an agent learns that a skill it uses
+was retired and what replaces it; candidates never appear. Through MCP an agent cannot publish, change a lifecycle status or install files;
 that stays with `skillforge install` and the web interface.
 
 Enabled plugins with the `mcp` capability add their own tools to the same list ([Plugins](14-plugins.md)). A tool a

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Outlet, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Moon, Sun, Monitor, Bell } from "lucide-react";
 import { cycleTheme, initTheme, type Theme } from "../lib/theme.ts";
@@ -10,7 +10,51 @@ import { UserMenu } from "../components/UserMenu.tsx";
 import { HelpPanel } from "../components/HelpPanel.tsx";
 import { HelpTip } from "../components/HelpTip.tsx";
 import { useHeightVar } from "../components/StickyBar.tsx";
-import { ApiError, getPluginsUi, listNotifications } from "../api/client.ts";
+import { ApiError, getPluginsUi, listNews, listNotifications } from "../api/client.ts";
+
+/**
+ * The unread news count for the header item. Off on `/news` itself: the page marks the feed seen and its own request
+ * is the only feed request there; the count is read again when another page shows the header.
+ */
+function useNewsUnread(signedIn: boolean): number {
+  const { pathname } = useLocation();
+  const onNews = pathname === "/news";
+  const q = useQuery({
+    queryKey: ["news-unread"],
+    queryFn: async () => (await listNews({ limit: 1 })).unread_count,
+    enabled: signedIn && !onNews,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  return signedIn && !onNews ? (q.data ?? 0) : 0;
+}
+
+/** Header item News: the unread count is part of its accessible name («News, 3 unread»). */
+function NewsNav({ signedIn }: { signedIn: boolean }) {
+  const unread = useNewsUnread(signedIn);
+  return (
+    <HelpTip action="nav-news">
+      <Link
+        to="/news"
+        data-testid="nav-news"
+        aria-label={unread > 0 ? STR.news.navUnread(unread) : undefined}
+        className="inline-flex min-h-6 items-center gap-1 text-sm text-ink-2 no-underline hover:text-accent"
+      >
+        {STR.news.nav}
+        {unread > 0 ? (
+          <span
+            data-testid="nav-news-count"
+            aria-hidden
+            className="rounded-sf bg-accent px-1.5 py-0.5 text-xs font-medium text-bg"
+          >
+            {unread}
+          </span>
+        ) : null}
+      </Link>
+    </HelpTip>
+  );
+}
 
 function ThemeIcon({ theme }: { theme: Theme }) {
   if (theme === "dark") return <Moon className="h-4 w-4" aria-hidden />;
@@ -121,6 +165,7 @@ export function Layout() {
           >
             {STR.nav.help}
           </Link>
+          <NewsNav signedIn={!!user} />
           {roleAtLeast(user?.role, "reviewer") ? (
             <Link
               to="/start"

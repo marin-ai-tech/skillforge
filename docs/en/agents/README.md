@@ -91,8 +91,9 @@ such as `skillforge install skill/pdf-tools --runtime cursor`, or the reason the
 
 ## Connect an agent over MCP
 
-SkillForge is itself an MCP server. An agent connected to it can call five tools: `search_artifacts`, `get_artifact`,
-`read_artifact_file`, `read_artifact_files` and `record_usage`. It sees only `active` artifacts and cannot publish, change status or install
+SkillForge is itself an MCP server. An agent connected to it can call six tools: `search_artifacts`, `get_artifact`,
+`read_artifact_file`, `read_artifact_files`, `record_usage` and `list_news`. It sees only `active` artifacts (`list_news` also
+reports that a skill was retired and what replaces it) and cannot publish, change status or install
 files.
 
 1. Sign in to the web interface and open **API tokens** (`/me/tokens`).

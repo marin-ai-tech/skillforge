@@ -8,7 +8,8 @@ import { adm } from "./en/adm.ts";
 import { tips } from "./en/tips.ts";
 import { flow } from "./en/flow.ts";
 import { codes, apiErrors } from "./en/codes.ts";
+import { news } from "./en/news.ts";
 
-export const en = { ...base, ui, art, ws, flow, adm, tips, codes, apiErrors };
+export const en = { ...base, ui, art, ws, flow, adm, tips, codes, apiErrors, news };
 
 export type Messages = typeof en;

@@ -217,6 +217,18 @@ export const ACTIONS = [
   "start-install-pack",
   "start-batch-promote",
   "start-copy-connect",
+  "nav-news",
+  "home-news",
+  "news-new",
+  "news-filter",
+  "news-more",
+  "news-form-submit",
+  "news-form-draft",
+  "news-summary-period",
+  "news-atom-issue",
+  "news-atom-copy",
+  "news-atom-revoke",
+  "news-subscribe",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -254,6 +266,7 @@ export const PAGE_HELP: Record<string, string> = {
   "/me/notifications": "pages/notifications",
   "/teams": "pages/teams",
   "/teams/:name": "pages/teams",
+  "/news": "pages/news",
   "/help": "pages/help",
   "/help/*": "pages/help",
   "*": "pages/not-found",
@@ -475,6 +488,18 @@ const ACTION_TOPICS: Record<Action, string> = {
   "start-install-pack": "pages/start",
   "start-batch-promote": "pages/start",
   "start-copy-connect": "pages/start",
+  "nav-news": "pages/news",
+  "home-news": "pages/news",
+  "news-new": "actions/news/news-new",
+  "news-filter": "actions/news/news-filter",
+  "news-more": "actions/news/news-more",
+  "news-form-submit": "actions/news/news-publish",
+  "news-form-draft": "actions/news/news-publish",
+  "news-summary-period": "pages/notifications",
+  "news-atom-issue": "pages/notifications",
+  "news-atom-copy": "pages/notifications",
+  "news-atom-revoke": "pages/notifications",
+  "news-subscribe": "pages/notifications",
 };
 
 /** The tip is read on access from the current-language dictionary: the language can change at runtime. */

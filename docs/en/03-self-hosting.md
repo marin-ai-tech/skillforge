@@ -151,6 +151,7 @@ configuration error that names the variable, and the process does not start.
 | `SKILLFORGE_SAFE_ERRORS` | `false` | `true`/`1`: a 500 answer has no internal error text (`internal_error` + `request_id`); always on with `NODE_ENV=production` |
 | `SKILLFORGE_HOOK_TIMEOUT_S` | `10` | Hook entry timeout in seconds when the entry has no own `timeout` (integer 1–600) |
 | `SKILLFORGE_PLUGINS_DIR` | `<data_dir>/plugins` | Server plugins folder |
+| `SKILLFORGE_NEWS_TICK_MS` | `60000` | How often the server announces scheduled news posts that are due and sends the news summaries that are due, in milliseconds; each post is announced once and each summary sent once per period, also across restarts |
 | `SKILLFORGE_MIRROR_INTERVAL_HOURS` | `24` | How often to check mirrors of external catalogs and the tracked sources of artifacts, in hours: what was last checked longer ago, or never, is checked; the server looks 5 minutes after it starts and then every hour, and a restart does not reset the interval; `0` turns the background check off (Check now still works) |
 | `SKILLFORGE_BUNDLED_PLUGINS_DIR` | `packages/server/bundled-plugins` | Folder of the plugins shipped with a release (`review-assistant`); an empty value disables it |
 | `SKILLFORGE_PLUGINS_DISABLED` | `false` | Do not load server plugins |

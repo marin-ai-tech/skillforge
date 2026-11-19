@@ -15,6 +15,7 @@ import { bumpMarketplaceVersion } from "../distribution/marketplace.ts";
 import { emitPluginEvent } from "../plugins/events.ts";
 import { actorFromUsername } from "../plugins/actor.ts";
 import { notify, emitNotifications } from "../notifications/notify.ts";
+import { recordTransitionNews } from "../news/record.ts";
 import type { Role } from "../auth/users.ts";
 
 export type TransitionOk = {
@@ -141,6 +142,9 @@ export function transitionArtifact(db: Database, input: TransitionInput): Transi
       input.reason !== undefined && input.reason !== null && input.reason !== ""
         ? input.reason
         : null;
+
+    // news: decided before this transition's own audit row ("first time active" reads the journal)
+    recordTransitionNews(db, { artifactId: row.id, from, to, actor: input.actor, at: now });
 
     appendAudit(db, {
       ts: now,

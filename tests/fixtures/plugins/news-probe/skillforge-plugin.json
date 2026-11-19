@@ -1,0 +1,14 @@
+{
+  "name": "news-probe",
+  "version": "0.1.0",
+  "api": 1,
+  "description": "Posts news events (news.published, news.summary) to a configured URL; the contract fixture of news-delivery.",
+  "capabilities": ["events"],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "url": { "type": "string", "description": "Where to POST news events" }
+    },
+    "required": []
+  }
+}

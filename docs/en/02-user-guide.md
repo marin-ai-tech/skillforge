@@ -291,6 +291,39 @@ collected: [Session metrics](16-session-metrics.md).
 next to controls open the matching topic. Error codes are documented under
 `help/codes/`.
 
+## 12. News
+
+`/news` — one feed for the whole registry; the **News** item in the header says how many items are new since your
+last visit, and **What's new** on Home shows the latest five.
+
+- Automatic news: a new artifact (the first time it becomes `active`), a new stable version (not the first one, and
+  not of a candidate or a retired artifact), and a status change to `zombie` or `retired` or back to `active`. Beta
+  versions, moves to `aging` and anything about candidates make no news. Automatic news is kept for a year.
+- Posts: an admin writes for everyone or for any team, a team lead for their own team. A post can be a draft, wait
+  for a publication time, end at an expiry time, be pinned to the top or marked **Important**. The text is Markdown
+  without HTML.
+- You see an item only while you may see what it is about: news of a team artifact goes to that team (and to
+  reviewers, admins, the owner and co-authors), a post for a team to its members and admins. When an artifact's
+  visibility changes, its old news follows at once.
+- Filters by kind and artifact type stay in the address, so a filtered feed can be bookmarked. Opening the page marks
+  the feed seen; your own actions never count as new.
+- API: `GET /api/v1/news` (`kind`, `type`, `team`, `mine`, `drafts`, `since`, `unread`, `cursor`, `limit`; flags
+  take `true`; the answer has your `seen_at`), `POST /api/v1/news/seen`, `POST/GET/PATCH/DELETE
+  /api/v1/news/posts[/:id]`. Creating, changing and deleting a post is in the audit log.
+- **News summary** (`/me/notifications`, **News delivery**): off, daily or weekly (the default), at 09:00 server time
+  (weekly on Mondays). It is the news of the past day or week you may see, without your own actions, as a
+  notification and as the `news.summary` event for plugins your admin installed (for example, to send it by e-mail
+  or to a chat). The server itself sends no e-mail; an empty summary is not sent. The period is the summary's only
+  setting: **Off** stops both the notification and the plugin event. In `GET /api/v1/me/notifications` a summary
+  carries `summary_items`, the number of its news.
+- **Feed reader (Atom)**: `GET /api/v1/news.atom` with a personal token in the `Authorization` header, or without
+  one for the public part when the registry is open for reading. For readers that cannot send headers, create a
+  personal link on `/me/notifications`: it is shown once, works without a password and opens only your news feed.
+  Treat it as a secret; if it leaks, **Replace** it (the old link stops at once) or **Revoke** it.
+- **Terminal**: `skillforge news [--since <date>] [--unread] [--kind <kinds>] [--limit <n>] [--json]` and
+  `skillforge news seen` (a personal token; an MCP token is refused). Agents read news over MCP with `list_news`
+  ([MCP](13-mcp.md)).
+
 ## See also
 
 - [Why SkillForge](01-why-skillforge.md)

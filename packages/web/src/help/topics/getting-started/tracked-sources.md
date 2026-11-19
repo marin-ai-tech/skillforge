@@ -18,7 +18,7 @@ The registry creates a source when the latest version came from git: an import f
 
 ## How a check works
 
-The server checks every enabled source together with the upstream mirrors, every `SKILLFORGE_MIRROR_INTERVAL_HOURS` hours, one source at a time. The owner, a maintainer or an admin can also click **Check now** in the panel. A check:
+The server checks an enabled source together with the upstream mirrors when its last check is older than `SKILLFORGE_MIRROR_INTERVAL_HOURS` hours or it was never checked, one source at a time. It looks for due sources 5 minutes after it starts and then every hour, so a restart does not put the next check off. The owner, a maintainer or an admin can also click **Check now** in the panel. A check:
 
 1. finds the commit of the branch or tag, or of the default branch when none is set;
 2. stops as `unchanged` when this commit was already taken;
@@ -43,7 +43,7 @@ The panel starts with one line that answers whether the skill is up to date: whe
 | `edits_outdated` | an edit rule found nothing in the new upstream version; the panel shows the rule | update or remove the rule |
 | `path_missing` | the commit has no files in the folder | the folder moved upstream: import it again from the new place, or turn tracking off |
 
-Common reasons of `failed`: `github_unreachable` (no network or the GitHub limit is reached), `ref_not_found` (the branch or tag is gone), `import_source_not_allowed` (the source policy does not allow the address), `transport_unavailable` (git is off or missing on the server and the source is not on GitHub), `archive_unsafe_path` (the archive points outside the folder) and `publish_blocked` (a hook or the security policy refused the version).
+Common reasons of `failed`: `github_unreachable` (no network or the GitHub limit is reached), `ref_not_found` (the branch or tag is gone), `import_source_not_allowed` (the source policy does not allow the address), `transport_unavailable` (git is off or missing on the server and the source is not on GitHub), `archive_unsafe_path` (the archive points outside the folder), `archive_unsafe_entry` (a link or another special file inside the folder), `archive_too_large` (the folder is over the import limits of 5000 files and 64 MB, or the whole repository is over 64 MB: turn `git` on for such a repository), `archive_broken` (the archive cannot be unpacked), `github_bad_answer` (GitHub answered with something other than a commit) and `publish_blocked` (a hook or the security policy refused the version). Only the source's folder is read from the archive; files and links elsewhere in the repository are skipped. `check_failed` means an error the check did not foresee: the server log has it as `source_check_failed` with the address and the error.
 
 ## Edit rules
 

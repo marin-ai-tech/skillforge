@@ -3,6 +3,20 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.17 — 2026-11-18
+
+### Fixed
+- Tracked sources from a large GitHub repository never updated without `git` on the server: the archive transport
+  counted the import limits over the whole repository (here 2354 files) instead of the source's folder (36), and
+  refused a link anywhere in it. Now only the folder is read and counted (5000 files, 64 MB); a link outside the
+  folder is skipped, an unsafe path anywhere still fails the check.
+- A stalled download, an archive over 64 MB unpacked or a broken one failed as an unnamed `check_failed` with nothing
+  in the log. They are now `github_unreachable`, `archive_too_large` and `archive_broken`; the download may take 5
+  minutes; an unforeseen error is logged as `source_check_failed` or `mirror_check_failed`.
+- The background check of mirrors and tracked sources ran a full `SKILLFORGE_MIRROR_INTERVAL_HOURS` after start,
+  so every restart put it off. It now goes by due date: 5 minutes after start and then hourly, it checks what was
+  last checked longer ago than the interval, and passes never overlap.
+
 ## 0.5.16 — 2026-11-16
 
 ### Fixed

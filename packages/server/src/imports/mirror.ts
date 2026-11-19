@@ -255,14 +255,24 @@ export async function syncMirror(
 }
 
 /** The background check of every mirror; failures are kept in each mirror's last result. */
-export async function syncAllMirrors(db: Database, config: AppConfig): Promise<void> {
-  for (const mirror of listMirrors(db)) {
+/** The background check of the mirrors that are due; an unexpected error goes to the log, the next pass tries again. */
+export async function syncAllMirrors(
+  db: Database,
+  config: AppConfig,
+  log?: (msg: string, fields: Record<string, unknown>) => void,
+  due: (mirror: Mirror) => boolean = () => true,
+): Promise<void> {
+  for (const mirror of listMirrors(db).filter(due)) {
     const owner = getUserByUsername(db, mirror.created_by);
     if (!owner || owner.role !== "admin") continue;
     try {
       await syncMirror(db, config, mirror, { username: owner.username, role: owner.role });
-    } catch {
-      /* the next run tries again */
+    } catch (e) {
+      log?.("mirror_check_failed", {
+        mirror: mirror.id,
+        url: mirror.url,
+        error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+      });
     }
   }
 }

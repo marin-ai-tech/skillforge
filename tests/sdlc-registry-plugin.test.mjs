@@ -1,11 +1,12 @@
 // sdlc-registry-plugin: the built-in plugin answers sdlc's team-registry tools on /mcp. The expected answers are built
-// here by the rules of the field-test adapter (sdlc 0.32.0), not by the plugin. Negative cases: the plugin is off until
+// here by the rules of the field-test adapter (sdlc 0.32.0), not by the plugin; the checksums also against sdlc's own
+// contract fixture (tests/fixtures/sdlc/registry-contract.json). Negative cases: the plugin is off until
 // an admin turns it on; an agent without the sdlc-role tag is not a role; a binary file refuses the skill; an event
 // without a known outcome reports nothing; an agent token does not see report_outcome.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startServer, api, login, createUser, ROOT, ADMIN_PASSWORD } from "./lib/client.mjs";
@@ -211,4 +212,32 @@ test("report_outcome: the stage comes from event.stage, else from the gate by sd
     assert.deepEqual(r.reported, [], `${event} with stage ${stage}`);
     assert.ok(r.skipped, `${event}: skipped names the reason`);
   }
+});
+
+// #167: the checksums of get_role, get_skill and get_rule against sdlc's own contract fixture — computed by sdlc 0.32.1
+// (src/team/vetting.ts roleChecksum, skillChecksum; src/team/rules.ts ruleChecksum), copied unchanged from the sdlc
+// session's e2e-sf-opencode/protocol/registry-contract-fixture.json. The skills cover the locale order of paths (not
+// bytes), nested paths with punctuation, a file without a final newline, CRLF and non-ASCII text.
+test("checksums match sdlc's contract fixture: role, rule and skills with locale order, CRLF and Unicode", async () => {
+  const fx = JSON.parse(readFileSync(join(ROOT, "tests", "fixtures", "sdlc", "registry-contract.json"), "utf8"));
+  // the role under its own name (`developer` is taken above) and without stages, so it credits nothing
+  await publish("agent", [["agents/contract-role.md", `---\nname: contract-role\ndescription: The contract role.\ntags: [sdlc-role]\n---\n${fx.role.body}`]]);
+  const role = (await tool("get_role", { id: "contract-role" })).structuredContent;
+  assert.equal(role.body, fx.role.body);
+  assert.equal(role.checksum, fx.role.checksum, "role checksum");
+
+  await publish("rule", [[`rules/${fx.rule.id}.md`, `---\nname: ${fx.rule.id}\ndescription: The contract rule.\n---\n${fx.rule.body}`]]);
+  const rule = (await tool("get_rule", { id: fx.rule.id })).structuredContent;
+  assert.equal(rule.body, fx.rule.body);
+  assert.equal(rule.checksum, fx.rule.checksum, "rule checksum");
+
+  for (const s of fx.skills) {
+    await publish("skill", s.files.map((f) => [`${s.id}/${f.path}`, f.content]));
+    const got = (await tool("get_skill", { id: s.id })).structuredContent;
+    assert.ok(got, `${s.id}: ${JSON.stringify(await tool("get_skill", { id: s.id }))}`);
+    assert.deepEqual(Object.fromEntries(got.files.map((f) => [f.path, f.content])), Object.fromEntries(s.files.map((f) => [f.path, f.content])), `${s.id}: files as published`);
+    assert.deepEqual(got.files.map((f) => f.path).sort((a, b) => a.localeCompare(b, "en")), s.sortedPaths, `${s.id}: locale order`);
+    assert.equal(got.checksum, s.checksum, `${s.id}: checksum`);
+  }
+  assert.equal(fx.skills.length, 4);
 });

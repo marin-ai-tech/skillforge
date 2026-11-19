@@ -1,5 +1,6 @@
 import { sourceRoutes } from "./routes/sources.ts";
 import { checkAllSources } from "./tracked/check.ts";
+import { isDue, startSourceSchedule } from "./tracked/schedule.ts";
 import { backfillSources } from "./tracked/store.ts";
 import { backfillSignatures, loadSigner, setSigner } from "./signing/signer.ts";
 import Fastify from "fastify";
@@ -313,16 +314,19 @@ export async function buildApp(config: AppConfig) {
   await app.register(harvestRoutes, { db, config });
   await app.register(packRoutes, { db });
   await app.register(overlayRoutes, { db });
-  await app.register(sourceRoutes, { db, config });
+  await app.register(sourceRoutes, { db, config, log: logger.error });
   backfillSources(db);
-  if (config.mirrorIntervalHours > 0) {
-    const timer = setInterval(
-      () => void syncAllMirrors(db, config).then(() => checkAllSources(db, config)),
-      config.mirrorIntervalHours * 3_600_000,
-    );
-    timer.unref();
-    app.addHook("onClose", async () => clearInterval(timer));
-  }
+  // Mirrors and tracked sources by due date: a restart does not reset the interval (fix-tracked-source-archive).
+  const sourceSchedule = startSourceSchedule(
+    async () => {
+      const due = (x: { last_checked_at: string | null }) =>
+        isDue(x.last_checked_at, config.mirrorIntervalHours, Date.now());
+      await syncAllMirrors(db, config, logger.error, due);
+      await checkAllSources(db, config, logger.error, due);
+    },
+    { intervalHours: config.mirrorIntervalHours },
+  );
+  app.addHook("onClose", async () => sourceSchedule.stop());
   await app.register(assistantRoutes, { db, config });
   await app.register(diagnosticsBundleRoutes, {
     db,

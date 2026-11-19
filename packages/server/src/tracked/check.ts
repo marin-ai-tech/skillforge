@@ -48,6 +48,12 @@ export type CheckResult = {
 
 const PROBLEMS = new Set<SourceState>(["failed", "edits_outdated", "path_missing"]);
 
+/** Where an unexpected error of a check goes: the server log (`logger.error`). */
+export type CheckLog = (msg: string, fields: Record<string, unknown>) => void;
+
+const errorText = (e: unknown): string =>
+  e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+
 let gitChecked: boolean | null = null;
 function gitAvailable(): boolean {
   gitChecked ??= spawnSync("git", ["--version"], { stdio: "ignore" }).status === 0;
@@ -213,10 +219,22 @@ function inRepository(files: SourceFile[], folder: string): SourceFile[] {
   return files.map((f) => ({ path: prefix + f.path, content: f.content }));
 }
 
+/** A failure the check did not foresee: `check_failed`, and the error goes to the log — never silently. */
+function unexpected(db: Database, source: TrackedSource, e: unknown, log?: CheckLog): CheckResult {
+  const artifact = getArtifactById(db, source.artifact_id);
+  log?.("source_check_failed", {
+    artifact: artifact ? `${artifact.type}/${artifact.name}` : source.artifact_id,
+    url: source.url,
+    error: errorText(e),
+  });
+  return { state: "failed", detail: "check_failed" };
+}
+
 export async function checkSource(
   db: Database,
   config: AppConfig,
   artifactId: string,
+  log?: CheckLog,
 ): Promise<CheckResult> {
   const source = getSource(db, artifactId);
   if (!source) return { state: "failed", detail: "no_source" };
@@ -224,7 +242,10 @@ export async function checkSource(
   try {
     result = await runCheck(db, config, source);
   } catch (e) {
-    result = { state: "failed", detail: e instanceof SourceFetchError ? e.code : "check_failed" };
+    result =
+      e instanceof SourceFetchError
+        ? { state: "failed", detail: e.code }
+        : unexpected(db, source, e, log);
   }
   saveCheck(db, artifactId, {
     state: result.state,
@@ -236,13 +257,19 @@ export async function checkSource(
   return result;
 }
 
-/** The background check of every enabled source, one at a time. */
-export async function checkAllSources(db: Database, config: AppConfig): Promise<void> {
-  for (const source of listEnabledSources(db)) {
+/** The background check of the enabled sources that are due, one at a time. */
+export async function checkAllSources(
+  db: Database,
+  config: AppConfig,
+  log?: CheckLog,
+  due: (source: TrackedSource) => boolean = () => true,
+): Promise<void> {
+  for (const source of listEnabledSources(db).filter(due)) {
     try {
-      await checkSource(db, config, source.artifact_id);
-    } catch {
-      /* the next run tries again */
+      await checkSource(db, config, source.artifact_id, log);
+    } catch (e) {
+      // saving the result failed; the next pass tries again
+      unexpected(db, source, e, log);
     }
   }
 }

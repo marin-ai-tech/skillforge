@@ -1,0 +1,131 @@
+{
+  "about": [
+    "Expected checksums of the sdlc team-registry contract, computed by sdlc 0.32.1.",
+    "role and rule: sha256 of the body as UTF-8, written \"sha256:<64 hex>\".",
+    "skill: files sorted by path with localeCompare(other, \"en\"); each contributes \"<path>\\n<content>\\n\";",
+    "the concatenation is hashed as UTF-8 and written \"sha256:<64 hex>\". Content is never normalized."
+  ],
+  "sdlc": "0.32.1",
+  "role": {
+    "id": "developer",
+    "version": "1.0.0",
+    "title": "Developer",
+    "stages": [
+      "build"
+    ],
+    "body": "---\nname: developer\ndescription: Implements the approved plan\n---\n\n# Developer\n\nWork task by task; run the checks after each one.\n",
+    "checksum": "sha256:7995c7d00b10eee0452dfdeb62735aa3075ed73f26bf6e4ccf2517c3073261b7"
+  },
+  "skills": [
+    {
+      "id": "plain-two-files",
+      "note": "two files, both ending with a newline: each file adds <path>\\n<content>\\n, so the hashed text has a blank line",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "content": "---\nname: plain-two-files\ndescription: Two files\n---\n\nBody.\n"
+        },
+        {
+          "path": "reference.md",
+          "content": "Reference.\n"
+        }
+      ],
+      "version": "1.0.0",
+      "title": "plain-two-files",
+      "sortedPaths": [
+        "reference.md",
+        "SKILL.md"
+      ],
+      "checksum": "sha256:d937b9547fccb437deb84f9a5cad991ac27ffff344913ad5f65f73aa2ea04668"
+    },
+    {
+      "id": "order-is-locale-not-bytes",
+      "note": "sorted by path.localeCompare(other, \"en\"), not by code points: \"a.md\" < \"B.md\" < \"c.md\" < \"SKILL.md\"",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "content": "---\nname: order-is-locale-not-bytes\ndescription: Order\n---\nOrder.\n"
+        },
+        {
+          "path": "c.md",
+          "content": "c"
+        },
+        {
+          "path": "B.md",
+          "content": "b"
+        },
+        {
+          "path": "a.md",
+          "content": "a"
+        }
+      ],
+      "version": "1.0.0",
+      "title": "order-is-locale-not-bytes",
+      "sortedPaths": [
+        "a.md",
+        "B.md",
+        "c.md",
+        "SKILL.md"
+      ],
+      "checksum": "sha256:9e7ae3864ebdaf4d4fc81efeebc8a39d4abf97a68c5411defc3b4313f432e9f5"
+    },
+    {
+      "id": "nested-and-punctuation",
+      "note": "nested folders and punctuation: \"_x.md\", \"docs/a.md\", \"docs-b.md\", \"scripts/run.sh\"; content without a final newline",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "content": "---\nname: nested-and-punctuation\ndescription: Nested\n---\nBody without a final newline"
+        },
+        {
+          "path": "scripts/run.sh",
+          "content": "#!/bin/sh\necho ok\n"
+        },
+        {
+          "path": "docs-b.md",
+          "content": "dash"
+        },
+        {
+          "path": "docs/a.md",
+          "content": "slash"
+        },
+        {
+          "path": "_x.md",
+          "content": "underscore"
+        }
+      ],
+      "version": "1.0.0",
+      "title": "nested-and-punctuation",
+      "sortedPaths": [
+        "_x.md",
+        "docs-b.md",
+        "docs/a.md",
+        "scripts/run.sh",
+        "SKILL.md"
+      ],
+      "checksum": "sha256:33a5de78aaf169d3bd9d5e2a2ca6b32fef477ebf8e57283a2e744cb541095d3b"
+    },
+    {
+      "id": "crlf-and-unicode",
+      "note": "content is hashed as given: CRLF stays CRLF, UTF-8 for non-ASCII text",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "content": "---\r\nname: crlf-and-unicode\r\ndescription: CRLF\r\n---\r\nCafé, naïve, 你好, emoji 🚀\r\n"
+        }
+      ],
+      "version": "1.0.0",
+      "title": "crlf-and-unicode",
+      "sortedPaths": [
+        "SKILL.md"
+      ],
+      "checksum": "sha256:fba4296e49e92ed7f7c60f8cf50f52e8df0df2c5f678e7455d93343ba4068b3b"
+    }
+  ],
+  "rule": {
+    "id": "commit-messages",
+    "version": "1.0.0",
+    "body": "# Commit messages\n\nName the why in one sentence.\n",
+    "checksum": "sha256:4021ceb30a7b70ba931529cd31b38f7c2b4b50ffecd1817641f7d849ec30d012"
+  }
+}

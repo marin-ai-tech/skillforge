@@ -7,7 +7,7 @@ import type { Database } from "../db.ts";
 import { isMaintainer } from "../ownership.ts";
 import { getArtifactByTypeName } from "../repo.ts";
 import { canView } from "../visibility/index.ts";
-import { checkSource } from "../tracked/check.ts";
+import { checkSource, type CheckLog } from "../tracked/check.ts";
 import { parseEdits, type SourceEdit } from "../tracked/edits.ts";
 import { getSource, updateSource, type TrackedSource } from "../tracked/store.ts";
 
@@ -51,11 +51,12 @@ function parsePatch(body: unknown): Patch | null {
   return patch;
 }
 
-export const sourceRoutes: FastifyPluginAsync<{ db: Database; config: AppConfig }> = async (
-  app,
-  opts,
-) => {
-  const { db, config } = opts;
+export const sourceRoutes: FastifyPluginAsync<{
+  db: Database;
+  config: AppConfig;
+  log?: CheckLog;
+}> = async (app, opts) => {
+  const { db, config, log } = opts;
 
   /** The artifact and its source, or the reply already sent (404 / 403). */
   function load(request: FastifyRequest<{ Params: Params }>, reply: FastifyReply, manage: boolean) {
@@ -112,7 +113,7 @@ export const sourceRoutes: FastifyPluginAsync<{ db: Database; config: AppConfig 
       const found = load(request, reply, true);
       if (!found) return;
       if (!found.source.enabled) return reply.code(409).send({ error: "source_disabled" });
-      return reply.send(await checkSource(db, config, found.row.id));
+      return reply.send(await checkSource(db, config, found.row.id, log));
     },
   );
 };

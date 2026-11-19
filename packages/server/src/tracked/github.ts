@@ -1,16 +1,19 @@
 import { gunzipSync } from "node:zlib";
+import { IMPORT_MAX_BYTES, IMPORT_MAX_FILES } from "../imports/sources.ts";
 
 /**
  * GitHub archive transport (tracked-sources): the head commit of a branch or tag and the tarball of a commit through
  * the REST API at SKILLFORGE_GITHUB_API_URL — no git needed on the server. The token, when set, goes only to that
- * address. The archive is untrusted input: entries are parsed here, with the import limits and the path check.
+ * address. The archive is untrusted input: every entry's path is checked, and only the source's folder is read, with
+ * the import limits (fix-tracked-source-archive: the limits counted the whole repository). Every foreseen failure is a
+ * named SourceFetchError.
  */
 export type GithubRepo = { owner: string; repo: string };
 export type SourceFile = { path: string; content: Buffer };
 
+/** The whole archive in memory, packed or unpacked; bigger repositories need the git transport. */
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
-const MAX_FILES = 1000;
-const MAX_FILES_BYTES = 32 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT_MS = 300_000;
 const NAME_RE = /^[A-Za-z0-9_.-]{1,100}$/;
 
 export class SourceFetchError extends Error {
@@ -67,7 +70,8 @@ export async function githubCommit(
   ).catch(() => null);
   if (!res?.ok)
     throw new SourceFetchError(res?.status === 404 ? "ref_not_found" : "github_unreachable");
-  const sha = ((await res.json()) as { sha?: unknown }).sha;
+  const body = (await res.json().catch(() => null)) as { sha?: unknown } | null;
+  const sha = body?.sha;
   if (typeof sha !== "string" || !/^[0-9a-f]{40}$/.test(sha))
     throw new SourceFetchError("github_bad_answer");
   return sha;
@@ -107,18 +111,36 @@ function header(block: Buffer): Header {
   };
 }
 
-/** A regular file entry as a file of the folder; directories are skipped, every other entry type is refused. */
-function fileOf(h: Header, name: string, data: Buffer): SourceFile | null {
+/**
+ * An entry of the archive as a file of the folder, or null when it is not one: a directory, or anything outside the
+ * folder (skipped unread, whatever its type). Every path is checked; inside the folder only regular files are taken.
+ */
+function fileOf(h: Header, name: string, data: Buffer, prefix: string): SourceFile | null {
   if (h.type === "5") return null;
-  if (h.type !== "0") throw new SourceFetchError("archive_unsafe_entry");
   const rel = insidePath(name);
   if (rel === null) throw new SourceFetchError("archive_unsafe_path");
-  return { path: rel, content: Buffer.from(data) };
+  if (!rel.startsWith(prefix)) return null;
+  if (h.type !== "0") throw new SourceFetchError("archive_unsafe_entry");
+  return { path: rel.slice(prefix.length), content: Buffer.from(data) };
 }
 
-/** Regular files of a ustar/pax tarball, top folder stripped. Throws on an unsafe path or a broken archive. */
-export function untarFiles(gz: Buffer): SourceFile[] {
-  const tar = gunzipSync(gz, { maxOutputLength: MAX_ARCHIVE_BYTES });
+/** The unpacked archive, at most MAX_ARCHIVE_BYTES; a bigger or broken one is a named failure. */
+function gunzip(gz: Buffer): Buffer {
+  try {
+    return gunzipSync(gz, { maxOutputLength: MAX_ARCHIVE_BYTES });
+  } catch (e) {
+    throw new SourceFetchError(e instanceof RangeError ? "archive_too_large" : "archive_broken");
+  }
+}
+
+/**
+ * Regular files under `folder` of a ustar/pax tarball, relative to that folder (the top folder of the archive is
+ * stripped). The import limits count only these files. Throws on an unsafe path anywhere, an unsafe entry in the
+ * folder, a folder over the limits, or a broken archive.
+ */
+export function untarFiles(gz: Buffer, folder = ""): SourceFile[] {
+  const tar = gunzip(gz);
+  const prefix = folder ? `${folder.replace(/\/$/, "")}/` : "";
   const files: SourceFile[] = [];
   let pending: string | null = null;
   let total = 0;
@@ -130,15 +152,30 @@ export function untarFiles(gz: Buffer): SourceFile[] {
     off += 512 + Math.ceil(h.size / 512) * 512;
     if (h.type === "x") pending = paxPath(data);
     if (h.type === "x" || h.type === "g") continue;
-    const file = fileOf(h, pending ?? h.name, data);
+    const file = fileOf(h, pending ?? h.name, data, prefix);
     pending = null;
     if (!file) continue;
     total += h.size;
-    if (files.length >= MAX_FILES || total > MAX_FILES_BYTES)
+    if (files.length >= IMPORT_MAX_FILES || total > IMPORT_MAX_BYTES)
       throw new SourceFetchError("archive_too_large");
     files.push(file);
   }
   return files;
+}
+
+/** The tarball of a commit; a failed, stalled or broken-off download is `github_unreachable`. */
+async function download(url: string, token: string | null, timeoutMs: number): Promise<Buffer> {
+  try {
+    const res = await fetch(url, {
+      headers: headers(token),
+      redirect: "follow",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw new SourceFetchError("github_unreachable");
+    return Buffer.from(await res.arrayBuffer());
+  } catch (e) {
+    throw e instanceof SourceFetchError ? e : new SourceFetchError("github_unreachable");
+  }
 }
 
 /** Files under `path` of a commit, relative to that folder. */
@@ -148,17 +185,13 @@ export async function githubFolder(
   repo: GithubRepo,
   sha: string,
   path: string,
+  opts: { timeoutMs?: number } = {},
 ): Promise<SourceFile[]> {
-  const res = await fetch(`${api}/repos/${repo.owner}/${repo.repo}/tarball/${sha}`, {
-    headers: headers(token),
-    redirect: "follow",
-    signal: AbortSignal.timeout(120_000),
-  }).catch(() => null);
-  if (!res?.ok) throw new SourceFetchError("github_unreachable");
-  const buf = Buffer.from(await res.arrayBuffer());
+  const buf = await download(
+    `${api}/repos/${repo.owner}/${repo.repo}/tarball/${sha}`,
+    token,
+    opts.timeoutMs ?? DOWNLOAD_TIMEOUT_MS,
+  );
   if (buf.length > MAX_ARCHIVE_BYTES) throw new SourceFetchError("archive_too_large");
-  const prefix = path ? `${path.replace(/\/$/, "")}/` : "";
-  return untarFiles(buf)
-    .filter((f) => f.path.startsWith(prefix))
-    .map((f) => ({ path: f.path.slice(prefix.length), content: f.content }));
+  return untarFiles(buf, path);
 }

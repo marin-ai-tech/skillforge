@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { startServer, api, login, createUser, ADMIN_PASSWORD } from "./lib/client.mjs";
-import { startFakeGithub } from "./lib/fake-github.mjs";
+import { startFakeGithub, symlink } from "./lib/fake-github.mjs";
 
 const TOKEN = "ghp_test-TRACKED-SOURCE-token-0123456789";
 const skill = (body) => `---\nname: pdf\ndescription: Works with PDF files. Use when a PDF must be read or filled.\n---\n\n# pdf\n\n${body}\n`;
@@ -167,4 +167,56 @@ test("dangerous content fails the check without a version", async () => {
   const r = await check();
   assert.equal(r.data.state, "failed", JSON.stringify(r.data));
   assert.equal((await card()).versions.length, before);
+});
+
+// fix-tracked-source-archive: the import limits count only the files of the source's folder; the rest of the repository
+// is skipped unread (found on Agent Space, 18.11.2026: CodeAlive-AI/ai-driven-development has 2354 files, the skill
+// folders 36). Every foreseen failure has its own code, never the unnamed `check_failed`.
+const many = (folder, n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`${folder}/f${String(i).padStart(4, "0")}.md`, `# ${i}\n`]));
+const versionFiles = async (version) => (await call("GET", `/api/v1/artifacts/skill/pdf/versions/${version}`)).data.files.map((f) => f.path).sort();
+const failure = (r) => [r.data.state, r.data.detail];
+
+test("a big repository with a small folder: the folder's files become the version, nothing from outside", async () => {
+  await call("PUT", "/api/v1/admin/security-policy", { block_publish_on: "none" });
+  gh.commit({
+    ...many("other", 1500),
+    "README.md": "# skills\n",
+    "skills/pdf/SKILL.md": skill("Big repository, small folder."),
+    "skills/pdf/references/a.md": "# A\n",
+    "skills/pdf/scripts/run.sh": "echo ok\n",
+  });
+  const r = await check();
+  assert.equal(r.data.state, "ok", JSON.stringify(r.data));
+  // negative case: nothing outside the folder (README.md, other/…) is in the version
+  assert.deepEqual(await versionFiles(r.data.version), ["skills/pdf/SKILL.md", "skills/pdf/references/a.md", "skills/pdf/scripts/run.sh"]);
+});
+
+test("a symbolic link outside the folder is skipped; inside the folder it refuses the check", async () => {
+  gh.commit({ "AGENTS.md": "# agents\n", "CLAUDE.md": symlink("AGENTS.md"), "skills/pdf/SKILL.md": skill("A link beside the folder.") });
+  const outside = await check();
+  assert.equal(outside.data.state, "ok", JSON.stringify(outside.data));
+  assert.deepEqual(await versionFiles(outside.data.version), ["skills/pdf/SKILL.md"]);
+  const before = (await card()).versions.length;
+  gh.commit({ "skills/pdf/SKILL.md": skill("A link inside."), "skills/pdf/notes.md": symlink("../../AGENTS.md") });
+  assert.deepEqual(failure(await check()), ["failed", "archive_unsafe_entry"]);
+  assert.equal((await card()).versions.length, before);
+});
+
+test("a folder over the import file limit fails with archive_too_large and no version", async () => {
+  const before = (await card()).versions.length;
+  gh.commit({ "skills/pdf/SKILL.md": skill("Too many files."), ...many("skills/pdf/refs", 5000) });
+  assert.deepEqual(failure(await check()), ["failed", "archive_too_large"]);
+  assert.equal((await card()).versions.length, before);
+});
+
+test("an archive broken off mid-download is github_unreachable; an answer that is not JSON is github_bad_answer", async () => {
+  gh.commit({ "skills/pdf/SKILL.md": skill("A broken download.") });
+  gh.fault = "truncate";
+  try {
+    assert.deepEqual(failure(await check()), ["failed", "github_unreachable"]);
+    gh.fault = "bad-json";
+    assert.deepEqual(failure(await check()), ["failed", "github_bad_answer"]);
+  } finally {
+    gh.fault = null;
+  }
 });

@@ -70,8 +70,8 @@ qwen mcp add -s user -t http -H "Authorization: Bearer <token>" skillforge <serv
 qwen mcp add -s user skillforge skillforge mcp
 ```
 
-The second command runs the `skillforge mcp` stdio bridge, which uses the address and token saved by
-`skillforge login`.
+The second command runs the `skillforge mcp` stdio bridge, which uses the MCP token saved once with
+`skillforge login --url <server> --mcp-token-stdin`.
 
 ## Scan the agent folder
 

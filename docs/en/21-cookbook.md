@@ -76,8 +76,8 @@ claude mcp list   # skillforge: … Connected
 ```
 
 Or over stdio through the CLI bridge: `claude mcp add skillforge -e SKILLFORGE_URL=<url> -e SKILLFORGE_TOKEN=<MCP token> -- skillforge mcp`;
-the same bridge in Codex: `codex mcp add skillforge --env SKILLFORGE_URL=<url> -- skillforge mcp` (token from
-`skillforge login`). Any other MCP client connects over HTTP `<url>/mcp` with `Authorization: Bearer <MCP token>`;
+the same bridge in Codex: `codex mcp add skillforge --env SKILLFORGE_URL=<url> -- skillforge mcp` after saving the
+MCP token once with `skillforge login --url <url> --mcp-token-stdin`. Any other MCP client connects over HTTP `<url>/mcp` with `Authorization: Bearer <MCP token>`;
 commands for every client — help topics `getting-started/mcp` and `getting-started/agent-support`, and [MCP](13-mcp.md).
 `skillforge mcp` is the stdio bridge itself, not a config printer. A regular API token is refused with
 `mcp_not_allowed`. The agent can search and read `active` artifacts only.

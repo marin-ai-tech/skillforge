@@ -102,10 +102,14 @@ files.
 3. Copy the secret. Under it, pick your client in the switch (Claude Code, Codex, Cursor, OpenCode or Qwen Code) and
    copy the HTTP command or the stdio command.
 
-The stdio commands run the `skillforge mcp` bridge, which takes the server address and token saved by
-`skillforge login`. An MCP token works only for agents: the REST API refuses it with `403 mcp_token_forbidden`, so
-use a separate regular token for `install`, `sync` and `publish`. Any other MCP client connects over HTTP to
-`<server>/mcp` with the header `Authorization: Bearer <token>`. See [MCP](../13-mcp.md).
+The HTTP command carries the MCP token and needs nothing else. The stdio commands run the `skillforge mcp` bridge,
+which uses the MCP token saved once with `skillforge login --url <server> --mcp-token-stdin`, next to your regular
+login. An MCP token works only for
+agents: the REST API refuses it with `403 mcp_token_forbidden`, so use a separate regular token for `install`, `sync`
+and `publish`. Any other MCP client connects over HTTP to `<server>/mcp` with the header
+`Authorization: Bearer <token>`. See [MCP](../13-mcp.md).
+
+To let the agent set all of this up itself, paste the prompt from [Connect with a prompt](../13-mcp.md#connect-with-a-prompt).
 
 ## Scan an agent folder
 

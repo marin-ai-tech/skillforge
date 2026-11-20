@@ -2,7 +2,9 @@
 // clients in isolated home directories against a dedicated SkillForge server:
 //   OpenCode, Qwen Code — `mcp list` shows the server as connected (HTTP and stdio in separate sandboxes: one name);
 //   Codex — `mcp add` writes the expected config.toml (Codex does not check the connection without a model).
-// stdio bridge: `skillforge` is an npm-like `.cmd` wrapper on the sandbox PATH plus the CLI configuration in its home directory
+// stdio bridge: `skillforge` is an npm-like `.cmd` wrapper on the sandbox PATH plus the CLI configuration in its home directory,
+// prepared the way a person does it (mcp-bridge-token): a regular token as the login, the MCP token saved with
+// `skillforge login --mcp-token-stdin` — never the MCP token in place of the regular one, a state login does not create.
 // (clients pass a trimmed environment to the MCP process). Negative case: a revoked token — HTTP is not connected.
 // Binary: SKILLFORGE_<CLIENT>_BIN or an npm wrapper `<client>.cmd` on PATH; if absent, the test is skipped with a reason. Every test has a kill timeout.
 import { test, before, after } from "node:test";
@@ -107,6 +109,25 @@ async function mcpToken(name) {
   return r.data;
 }
 
+async function regularToken(name) {
+  const r = await api(base, "POST", "/api/v1/me/tokens", { name }, { cookie: admin.cookie });
+  assert.equal(r.status, 201, JSON.stringify(r.data));
+  return r.data;
+}
+
+/** A stdio sandbox as a person leaves it: a regular login, then the MCP token saved from stdin. */
+async function stdioSandbox(name, mcpTok) {
+  const ctx = sandbox(name, (await regularToken(`${name}-login`)).token);
+  const r = spawnSync(process.execPath, [CLI, "login", "--url", base, "--mcp-token-stdin"], {
+    env: { ...ctx.env, SKILLFORGE_CONFIG: join(ctx.home, ".skillforge", "config.json") },
+    input: `${mcpTok}\n`,
+    encoding: "utf8",
+    timeout: CALL_TIMEOUT_MS,
+  });
+  assert.equal(r.status, 0, `login --mcp-token-stdin: ${r.stderr}`);
+  return ctx;
+}
+
 async function revoke(id) {
   const r = await api(base, "DELETE", `/api/v1/me/tokens/${id}`, undefined, { cookie: admin.cookie });
   assert.ok(r.status === 204 || r.status === 200, `revoke: ${r.status}`);
@@ -145,7 +166,7 @@ for (const client of ["opencode", "qwen"]) {
 
   test(`${client}: the stdio command (skillforge mcp) connects`, { skip: CLIENTS[client] ? false : `${client} not found` }, async () => {
     const tok = await mcpToken(`${client}-stdio`);
-    const ctx = sandbox(`${client}-stdio`, tok.token);
+    const ctx = await stdioSandbox(`${client}-stdio`, tok.token);
     const add = runSnippet(client, mcpConnectSnippets(client, { baseUrl: base, token: tok.token }).stdio, ctx);
     assert.equal(add.code, 0, add.out);
     const list = runClient(client, ["mcp", "list"], ctx);
@@ -162,7 +183,7 @@ test("codex: the HTTP and stdio commands write the expected config.toml", { skip
   assert.deepEqual(h.mcp_servers.skillforge, { url: `${base}/mcp`, bearer_token_env_var: "SKILLFORGE_TOKEN" });
   assert.ok(!readFileSync(join(http.home, ".codex", "config.toml"), "utf8").includes(tok.token), "the token is not written to config.toml");
 
-  const stdio = sandbox("codex-stdio", tok.token);
+  const stdio = await stdioSandbox("codex-stdio", tok.token);
   assert.equal(runSnippet("codex", s.stdio, stdio).code, 0);
   const st = parseToml(readFileSync(join(stdio.home, ".codex", "config.toml"), "utf8"));
   assert.equal(st.mcp_servers.skillforge.command, "skillforge");

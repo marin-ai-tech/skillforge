@@ -120,7 +120,8 @@ claude mcp add --transport http skillforge <server>/mcp --header "Authorization:
 claude mcp add skillforge -- skillforge mcp
 ```
 
-The second one runs the `skillforge mcp` stdio bridge, which uses the address and token saved by `skillforge login`.
+The second one runs the `skillforge mcp` stdio bridge and keeps the token out of Claude Code's configuration. Save
+the MCP token for it once with `skillforge login --url <server> --mcp-token-stdin`; your regular login stays.
 Claude Code then sees only `active` artifacts, narrowed by the token's MCP tags if it has any.
 
 ## Scan the agent folder

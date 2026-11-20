@@ -184,8 +184,9 @@ skillforge harvest sessions --out <dir> --name <name>
 - `skillforge settings apply` — settings profiles (Claude Code only).
 - `mcp-server` — an approved MCP server: not installed into agents yet; configure it
   by hand as its artifact page shows. Admins set the MCP policy on `/admin/lifecycle`.
-- MCP server: `skillforge mcp` — a stdio bridge that gives the agent read access
-  to the registry ([MCP](13-mcp.md)).
+- MCP server: `<server>/mcp` over HTTP, or the `skillforge mcp` stdio bridge, with an
+  MCP token — gives the agent read access to the registry. A ready prompt lets the
+  agent connect itself ([Connect with a prompt](13-mcp.md#connect-with-a-prompt)).
 
 ## 6. Teams and visibility
 

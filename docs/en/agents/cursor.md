@@ -65,7 +65,7 @@ prints `warning: agent <name>: dropped <fields> (not supported by cursor)` to st
 
 Cursor is configured with JSON in the user-level `~/.cursor/mcp.json`. Create an MCP-enabled token on `/me/tokens`
 and pick Cursor in the client switch. The recommended entry is stdio, which keeps the token out of the file: the
-`skillforge mcp` bridge uses the address and token saved by `skillforge login`.
+`skillforge mcp` bridge uses the MCP token saved once with `skillforge login --url <server> --mcp-token-stdin`.
 
 ```json
 {

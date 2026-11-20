@@ -21,6 +21,7 @@ Install the CLI from your registry: `npm i -g <registry>/downloads/skillforge-cl
 Authenticate with a Bearer token or an interactive password flow:
 
 - `skillforge login --url <base> --token <sf_...>` verifies the token with `GET /api/v1/me` and stores it.
+- `skillforge login --url <base> --mcp-token-stdin` saves an MCP token for the `skillforge mcp` bridge next to the regular one: it reads the first line of stdin, checks it against `/mcp` and refuses a token without MCP consent (exit code 4, nothing saved). Other commands never send it, and a new login to the same address keeps it; `logout` removes it from the config but does not revoke it.
 - `skillforge login --url <base> --username <user> --password-stdin` reads the password from stdin (first line), creates a session cookie, then creates an API token named `cli <hostname>`. The password is never written to disk.
 
 Credentials live in `~/.skillforge/config.json` (mode `0600` on POSIX) or the path in `SKILLFORGE_CONFIG`. Override the registry with `--url` / `SKILLFORGE_URL` and the token with `--token` / `SKILLFORGE_TOKEN` (flags win over env over config). A stored token is sent only when the selected registry URL matches that entry (trailing slash stripped, host compared case-insensitively); a mismatched `--url` or `SKILLFORGE_URL` does not reuse another registry's token. Use `skillforge whoami` and `skillforge logout` to inspect or revoke the stored token.

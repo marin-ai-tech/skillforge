@@ -68,8 +68,8 @@ opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer <t
 opencode mcp add skillforge -- skillforge mcp
 ```
 
-The second command runs the `skillforge mcp` stdio bridge, which uses the address and token saved by
-`skillforge login`. Note the `Authorization=Bearer` form of the header that OpenCode expects.
+The second command runs the `skillforge mcp` stdio bridge, which uses the MCP token saved once with
+`skillforge login --url <server> --mcp-token-stdin`. Note the `Authorization=Bearer` form of the header that OpenCode expects.
 
 ## Scan the agent folder
 

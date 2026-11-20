@@ -5,12 +5,49 @@ section: start
 learn:
   - What the six MCP tools do
   - How token consent and MCP tags limit what an agent sees
+  - How to let the agent connect itself with a ready prompt
   - How to connect Claude Code, Codex, Cursor, OpenCode and Qwen Code
   - How to revoke access and why skill text is untrusted
 related: pages/tokens, actions/tokens/mcp, actions/tokens/mcp-snippet, actions/tokens/mcp-client, getting-started/cli, getting-started/lifecycle, getting-started/agent-support
 ---
 
 Model Context Protocol (MCP) lets coding agents talk to SkillForge over JSON-RPC 2.0. Instead of scraping the catalog UI, an agent calls `POST /mcp` (or the `skillforge mcp` stdio bridge) to search approved artifacts and read their files. This page explains consent, visibility, how to connect, and the safety limits that keep candidate drafts hidden.
+
+## Connect with a prompt
+
+The quickest way to connect is to let the agent do it. Use a coding agent that can run commands, such as Claude Code, Codex, Cursor, OpenCode or Qwen Code; a chat-only tool cannot. Open it in your project, paste the prompt below and replace `<server>` with the address of this registry. The agent installs the CLI, asks you to sign in, installs the active artifacts your teams use and connects itself over MCP. It never asks for a password or a token in the chat: you run the commands with secrets yourself, so they stay out of the agent's transcript.
+
+```text
+This prompt needs a coding agent that can run commands, such as Claude Code, Codex, Cursor, OpenCode or Qwen Code.
+
+Connect yourself to our SkillForge registry at <server>. Never ask me for a password or a token in this chat: when
+a step needs one, tell me the exact command to run in my own terminal and wait until I say it is done.
+1. Check that Node.js 24 or later is installed, then install the SkillForge CLI:
+   npm i -g <server>/downloads/skillforge-cli.tgz
+   (if that address is not found: npm i -g https://github.com/marin-ai-tech/skillforge/releases/latest/download/skillforge-cli.tgz)
+2. Ask me to create an API token on <server>/me/tokens and to run: skillforge login --url <server> --token <my token>
+   Then check with: skillforge whoami
+3. Install the active artifacts my teams use into your own folders:
+   skillforge sync --status active --runtime <your runtime: claude-code, codex, cursor, opencode, qwen or gemini>
+   Tell me what was installed and what was skipped, with the reasons.
+4. Ask me to create a second token on <server>/me/tokens with "Allow agents to load active skills via MCP" checked,
+   to pick you in the client switch under it and to run the HTTP command the page shows. If your client is not in the
+   switch, tell me how to add an HTTP MCP server named skillforge at <server>/mcp with the header
+   "Authorization: Bearer <token>". Then check that the skillforge MCP server answers by calling search_artifacts;
+   if you only see it after a restart, tell me so.
+5. Finish with two lines: how to update (skillforge sync) and how to cut access (revoke the tokens on <server>/me/tokens).
+```
+
+If the agent only needs to search and read approved skills, the short prompt connects MCP alone, without the CLI:
+
+```text
+Connect yourself to the SkillForge MCP server at <server>/mcp. Do not ask me for the token in this chat: ask me to
+create a token on <server>/me/tokens with "Allow agents to load active skills via MCP" checked, to pick you in the
+client switch under it and to run the HTTP command the page shows. Then call search_artifacts and show me what you
+can see.
+```
+
+Two tokens are needed because an MCP token works only for agents, while `install` and `sync` need a regular one. Read what the agent proposes to run before you run it.
 
 ## What MCP access means
 
@@ -29,14 +66,14 @@ Only artifacts in status `active` are visible, matching `marketplace.json`. Cand
 
 ## Connecting over HTTP and stdio
 
-After you create an MCP-enabled token, the tokens page shows two snippets: one for Streamable HTTP and one for the `skillforge mcp` stdio bridge (URL and token from `skillforge login` config or flags). A client switch above them picks the client (Claude Code by default); your choice is remembered in the browser. [Agent support](getting-started/agent-support) shows the connect method of every runtime; any other MCP client connects over HTTP `<server>/mcp` with `Authorization: Bearer`.
+After you create an MCP-enabled token, the tokens page shows two snippets: one for Streamable HTTP and one for the `skillforge mcp` stdio bridge. HTTP is the main way: the command carries the MCP token and needs nothing else. The bridge keeps the token out of the agent's configuration: it uses the MCP token that the CLI keeps next to your regular login. Save it once with `skillforge login --url <server> --mcp-token-stdin`, which reads the first line of stdin (paste the token and press Enter, or pipe it from the clipboard) and checks it against `/mcp`; a token without MCP consent is refused with `mcp_not_allowed` and nothing is saved. The bridge sends `--token`, then `SKILLFORGE_TOKEN`, then the saved MCP token, then the regular one; a regular token gets `403 mcp_not_allowed`, and the bridge prints the command to save the MCP token. A client switch above them picks the client (Claude Code by default); your choice is remembered in the browser. [Agent support](getting-started/agent-support) shows the connect method of every runtime; any other MCP client connects over HTTP `<server>/mcp` with `Authorization: Bearer`.
 
 Claude Code:
 
 - HTTP: `claude mcp add --transport http skillforge <server>/mcp --header "Authorization: Bearer <token>"`
 - stdio: `claude mcp add skillforge -- skillforge mcp`
 
-Codex never takes the token on its command line, because it does not accept custom headers. The HTTP entry reads the token from an environment variable: set `SKILLFORGE_TOKEN=<token>` in the environment Codex starts from. The recommended option for Codex is stdio: the token comes from `skillforge login` and the server URL is passed with `--env SKILLFORGE_URL`.
+Codex never takes the token on its command line, because it does not accept custom headers. The HTTP entry reads the token from an environment variable: set `SKILLFORGE_TOKEN=<token>` in the environment Codex starts from. The recommended option for Codex is stdio: the bridge uses the saved MCP token and the server URL is passed with `--env SKILLFORGE_URL`.
 
 - HTTP: `codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN`
 - stdio (recommended): `codex mcp add skillforge --env SKILLFORGE_URL=<server> -- skillforge mcp`

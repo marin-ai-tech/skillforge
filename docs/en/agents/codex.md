@@ -96,15 +96,15 @@ User-level installs that were under `~/.agents/skills` were never visible to Cod
 Create an MCP-enabled token on `/me/tokens` and pick Codex in the client switch. Codex does not accept custom
 headers, so the token never appears in a Codex command.
 
-The recommended way is stdio. The token comes from `skillforge login`, and the server address is passed with
-`--env SKILLFORGE_URL`:
+The recommended way is stdio. Save the MCP token once with `skillforge login --url <server> --mcp-token-stdin` (your
+regular login stays), and pass the server address with `--env SKILLFORGE_URL`:
 
 ```bash
 codex mcp add skillforge --env SKILLFORGE_URL=<server> -- skillforge mcp
 ```
 
-Over HTTP, the entry reads the token from an environment variable. Set `SKILLFORGE_TOKEN=<token>` in the environment
-Codex starts from:
+Over HTTP, the entry reads the token from an environment variable. Set `SKILLFORGE_TOKEN=<token>` (the MCP token) in
+the environment Codex starts from:
 
 ```bash
 codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN

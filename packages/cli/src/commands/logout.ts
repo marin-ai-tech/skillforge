@@ -9,7 +9,8 @@ export async function runLogout(ctx: AppContext): Promise<void> {
   const name = cfg.default;
   const entry = name ? cfg.registries[name] : undefined;
 
-  const keptExternalToken = Boolean(entry && !entry.token_id);
+  const keptExternalToken = Boolean(entry?.token && !entry.token_id);
+  const keptMcpToken = Boolean(entry?.mcp_token);
 
   if (entry?.token_id && entry.url && entry.token) {
     const client = new SkillforgeClient({ url: entry.url, token: entry.token });
@@ -22,6 +23,9 @@ export async function runLogout(ctx: AppContext): Promise<void> {
 
   if (keptExternalToken && !ctx.out.json) {
     ctx.out.write("Token was not created by the CLI and is kept; revoke it on the API tokens page");
+  }
+  if (keptMcpToken && !ctx.out.json) {
+    ctx.out.write("The MCP token is kept; revoke it on the API tokens page");
   }
 
   if (ctx.out.json) {

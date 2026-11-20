@@ -20,4 +20,4 @@ Use immediately after token creation while the secret is still on screen. Paste 
 
 ## Requires
 
-An MCP-enabled token just created on `/me/tokens`. Ordinary tokens omit the snippet block. The stdio bridge needs the SkillForge CLI with a saved login (`skillforge login`).
+An MCP-enabled token just created on `/me/tokens`. Ordinary tokens omit the snippet block. The stdio bridge needs the SkillForge CLI with the MCP token saved once: `skillforge login --url <server> --mcp-token-stdin`. The token of a regular login is refused with `403 mcp_not_allowed`.

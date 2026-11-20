@@ -174,12 +174,18 @@ addGlobals(
     .description("Log in and store credentials in the local config")
     .option("--username <user>", "Username for password login")
     .option("--password-stdin", "Read password from stdin", false)
+    .option(
+      "--mcp-token-stdin",
+      "Read a token with MCP consent from stdin and save it for the stdio bridge (skillforge mcp)",
+      false,
+    )
     .option("--name <name>", "Config entry name (default: host[:port])"),
 ).action(
   async (
     opts: {
       username?: string;
       passwordStdin?: boolean;
+      mcpTokenStdin?: boolean;
       name?: string;
     },
     cmd: Command,
@@ -197,6 +203,7 @@ addGlobals(
         token: ctx.globals.token,
         username: opts.username,
         passwordStdin: Boolean(opts.passwordStdin),
+        mcpTokenStdin: Boolean(opts.mcpTokenStdin),
         name: opts.name,
       });
     } catch (e) {

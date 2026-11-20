@@ -3,6 +3,15 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.19 — 2026-11-19
+
+### Fixed
+- The `skillforge mcp` stdio bridge works after a regular `skillforge login`. The CLI now keeps a separate MCP token:
+  save it once with `skillforge login --url <server> --mcp-token-stdin` (the first line of stdin, checked against
+  `/mcp`). The bridge uses it, while `install`, `sync` and other commands keep the regular token. Before, the bridge
+  sent the regular token and got `mcp_not_allowed`, and logging in with the MCP token broke `install` and `sync`.
+- The tokens page names that command in the stdio note for every client.
+
 ## 0.5.18 — 2026-11-19
 
 ### Added

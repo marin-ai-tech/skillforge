@@ -106,6 +106,22 @@ skillforge install skill/my-skill --runtime codex
 skillforge sync --status active --runtime claude-code
 ```
 
+**Or let your agent connect itself.** Paste this into a coding agent that can run commands (Claude Code, Codex,
+Cursor, OpenCode, Qwen Code), with `<server>` replaced by your registry address:
+
+```text
+Connect yourself to our SkillForge registry at <server>. Never ask me for a password or a token in this chat: when
+a step needs one, tell me the exact command to run in my own terminal and wait until I say it is done.
+1. Check that Node.js 24 or later is installed, then install the SkillForge CLI:
+   npm i -g <server>/downloads/skillforge-cli.tgz
+2. Ask me to create an API token on <server>/me/tokens and to run: skillforge login --url <server> --token <my token>
+3. Install the active artifacts my teams use: skillforge sync --status active --runtime <your runtime id>
+4. Ask me to create a second token on <server>/me/tokens with "Allow agents to load active skills via MCP" checked
+   and to run the HTTP command the page shows for you. Then call search_artifacts to check the connection.
+```
+
+The full prompt, a short MCP-only one and why there are two tokens: [Connect with a prompt](docs/en/13-mcp.md#connect-with-a-prompt).
+
 ## Supported agents
 
 | Agent | `--runtime` | Skills | Commands | Agents | Rules | MCP |

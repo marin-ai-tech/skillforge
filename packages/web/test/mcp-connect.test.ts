@@ -98,3 +98,21 @@ test("attack: shell metacharacters in base URL or token are rejected", () => {
     }
   }
 });
+
+test("the bridge note names the command that saves the MCP token, never the token itself (mcp-bridge-token)", () => {
+  for (const client of MCP_CLIENTS) {
+    const s = mcpConnectSnippets(client, { baseUrl: BASE, token: TOKEN });
+    assert.ok(
+      s.notes.some((n) => n.includes(`skillforge login --url ${BASE} --mcp-token-stdin`)),
+      `${client}: ${JSON.stringify(s.notes)}`,
+    );
+    assert.ok(!s.notes.some((n) => n.includes(TOKEN)), `${client}: the token is in a note`);
+    // a regular login saves a regular token, which /mcp refuses: the note must not send people there
+    assert.ok(
+      !s.notes.some((n) =>
+        /token saved by skillforge login|token comes from skillforge login/i.test(n),
+      ),
+      `${client}: ${JSON.stringify(s.notes)}`,
+    );
+  }
+});

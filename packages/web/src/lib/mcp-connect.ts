@@ -44,8 +44,14 @@ function safeToken(raw: unknown): string {
   return raw;
 }
 
-const STDIO_NOTE =
-  "The stdio bridge (skillforge mcp) uses the server URL and token saved by skillforge login.";
+/** The command that saves a token with MCP consent for the stdio bridge (no token in it). */
+export function mcpTokenSaveCommand(base: string): string {
+  return `skillforge login --url ${base} --mcp-token-stdin`;
+}
+
+function stdioNote(base: string): string {
+  return `The stdio bridge (skillforge mcp) uses the MCP token saved by: ${mcpTokenSaveCommand(base)}`;
+}
 
 /**
  * Commands that connect `client` to the SkillForge MCP endpoint at `baseUrl` with `token`.
@@ -56,6 +62,7 @@ export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): M
   const base = safeBaseUrl(input?.baseUrl);
   const token = safeToken(input?.token);
   const url = `${base}/mcp`;
+  const STDIO_NOTE = stdioNote(base);
   switch (client) {
     case "claude-code":
       return {
@@ -69,7 +76,7 @@ export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): M
         stdio: `codex mcp add skillforge --env SKILLFORGE_URL=${base} -- skillforge mcp`,
         notes: [
           "Set SKILLFORGE_TOKEN=<token> in the environment Codex starts from",
-          "Recommended: stdio. The token comes from skillforge login; the server URL is passed with --env SKILLFORGE_URL.",
+          `Recommended: stdio. Save the MCP token with ${mcpTokenSaveCommand(base)}; the server URL is passed with --env SKILLFORGE_URL.`,
         ],
       };
     case "cursor":

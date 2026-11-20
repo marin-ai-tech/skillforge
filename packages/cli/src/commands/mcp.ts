@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import { resolveRegistry } from "../config.ts";
+import { resolveBridgeToken } from "../config.ts";
 import type { AppContext } from "../context.ts";
 import { EXIT } from "../exit.ts";
 
@@ -40,10 +40,27 @@ function writeFetchError(hasId: boolean, id: unknown, msg: string): void {
   }
 }
 
-async function writeHttpResult(res: Response, hasId: boolean, id: unknown): Promise<void> {
+let mcpHintShown = false;
+
+/** Once per run: a token without MCP consent gets a hint how to save an MCP token (never the token). */
+function hintMcpNotAllowed(baseUrl: string, status: number, text: string): void {
+  if (mcpHintShown || status !== 403 || !text.includes("mcp_not_allowed")) return;
+  mcpHintShown = true;
+  process.stderr.write(
+    `skillforge mcp: the token is not allowed for MCP; save an MCP token: skillforge login --url ${baseUrl} --mcp-token-stdin\n`,
+  );
+}
+
+async function writeHttpResult(
+  res: Response,
+  hasId: boolean,
+  id: unknown,
+  baseUrl: string,
+): Promise<void> {
   if (res.status === 202) return;
 
   const text = await res.text();
+  hintMcpNotAllowed(baseUrl, res.status, text);
 
   if (res.status === 200) {
     if (!text.trim()) return;
@@ -90,11 +107,11 @@ async function forwardLine(baseUrl: string, token: string, line: string): Promis
     return;
   }
 
-  await writeHttpResult(res, hasId, id);
+  await writeHttpResult(res, hasId, id, baseUrl);
 }
 
 export async function runMcp(ctx: AppContext): Promise<void> {
-  const resolved = resolveRegistry({
+  const resolved = resolveBridgeToken({
     url: ctx.globals.url,
     token: ctx.globals.token,
   });
@@ -108,7 +125,9 @@ export async function runMcp(ctx: AppContext): Promise<void> {
   }
 
   if (!resolved.token) {
-    ctx.out.error("No API token. Set --token, SKILLFORGE_TOKEN, or run skillforge login");
+    ctx.out.error(
+      "No API token. Set --token, SKILLFORGE_TOKEN, or run skillforge login --url <base> --mcp-token-stdin",
+    );
     process.exitCode = EXIT.UNAUTHORIZED;
     return;
   }

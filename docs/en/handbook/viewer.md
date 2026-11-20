@@ -115,11 +115,13 @@ Pack versions pin exact artifact versions; `sync` does not move them, a newer pa
 
 1. On `/me/tokens`, create a token and select **Allow agents to load active skills via MCP**. Add MCP tags to limit
    what the agent sees, or leave them empty for every active artifact.
-2. Under the secret, pick your client and copy the HTTP or stdio command, for example:
+2. Under the secret, pick your client and run the HTTP command, for example:
 
    ```bash
-   claude mcp add skillforge -- skillforge mcp
+   claude mcp add --transport http skillforge <server>/mcp --header "Authorization: Bearer <token>"
    ```
+
+   Or paste the prompt from [Connect with a prompt](../13-mcp.md#connect-with-a-prompt) and let the agent guide you.
 
 3. Revoke the token on the same page when a laptop is lost or a job ends.
 

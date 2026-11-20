@@ -120,9 +120,12 @@ test("the Atom key: stored as a hash, a new one replaces the old", () => {
        VALUES ('u-unit', ?, 'x', 'viewer', 'now', 'now')`,
     ).run(username);
     const first = issueAtomKey(db, username, new Date().toISOString());
-    assert.match(first.key, /^sfa_[A-Za-z0-9]{8}_[A-Za-z0-9_-]{43}$/);
+    const parts = /^sfa_([A-Za-z0-9]{8})_([A-Za-z0-9_-]{43})$/.exec(first.key);
+    assert.ok(parts, first.key);
+    // The secret may itself contain "_": take it whole, never split the key on "_".
+    const secret = parts[2]!;
     const stored = db.prepare("SELECT key_hash FROM news_atom_keys").get() as { key_hash: string };
-    assert.ok(!stored.key_hash.includes(first.key.split("_")[2]!), "the key is stored in clear");
+    assert.ok(!stored.key_hash.includes(secret), "the key is stored in clear");
     assert.equal(resolveAtomKey(db, first.key)?.username, username);
     const second = issueAtomKey(db, username, new Date().toISOString());
     assert.equal(resolveAtomKey(db, first.key), null, "the replaced key still resolves");

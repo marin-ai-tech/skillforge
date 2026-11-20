@@ -4,8 +4,11 @@ import path from "node:path";
 
 export type RegistryEntry = {
   url: string;
-  token: string;
+  /** The regular API token; absent when the entry holds only the MCP token. */
+  token?: string;
   token_id?: string;
+  /** A token with MCP consent, used only by the stdio bridge (skillforge mcp). */
+  mcp_token?: string;
   /** release-signing: the registry's key id seen at login; a different key later is refused. */
   signing_key_id?: string;
 };
@@ -131,6 +134,33 @@ export function resolveRegistry(opts: {
   };
 }
 
+/**
+ * Resolve registry URL/token for the stdio bridge only:
+ * --token, then SKILLFORGE_TOKEN, then mcp_token of the entry with the same url, then its token.
+ */
+export function resolveBridgeToken(opts: {
+  url?: string;
+  token?: string;
+  configPath?: string;
+}): ResolvedRegistry | null {
+  const cfg = loadConfig(opts.configPath ?? defaultConfigPath());
+  const defaultName = cfg.default;
+  const defaultEntry = defaultName ? cfg.registries[defaultName] : undefined;
+
+  const url = envOrOpt(opts.url, "SKILLFORGE_URL") ?? defaultEntry?.url;
+  if (!url || url.length === 0) return null;
+
+  const normalizedUrl = normalizeRegistryUrl(url);
+  const explicitToken = envOrOpt(opts.token, "SKILLFORGE_TOKEN");
+  const match = findEntryByUrl(cfg, normalizedUrl);
+
+  return {
+    url: normalizedUrl,
+    token: explicitToken ?? nonEmpty(match?.entry.mcp_token) ?? nonEmpty(match?.entry.token),
+    name: match?.name ?? defaultName,
+  };
+}
+
 /** The signing key id remembered at login for this registry address, if any. */
 export function storedSigningKeyId(url: string, configPath?: string): string | undefined {
   const cfg = loadConfig(configPath ?? defaultConfigPath());
@@ -144,10 +174,41 @@ export function upsertRegistry(
 ): SkillforgeConfig {
   const p = configPath ?? defaultConfigPath();
   const cfg = loadConfig(p);
-  cfg.registries[name] = entry;
+  const previous = cfg.registries[name];
+  // The MCP token belongs to its host: keep it only when the entry keeps the same address.
+  const keepMcp =
+    entry.mcp_token === undefined &&
+    previous?.mcp_token !== undefined &&
+    normalizeRegistryUrl(previous.url) === normalizeRegistryUrl(entry.url);
+  cfg.registries[name] = keepMcp ? { ...entry, mcp_token: previous.mcp_token } : entry;
   cfg.default = name;
   saveConfig(cfg, p);
   return cfg;
+}
+
+/**
+ * Save an MCP token for the entry with this url (or the named entry), keeping its regular token.
+ * Creates the entry when missing; it becomes the default like any login. Returns the entry name.
+ */
+export function saveMcpToken(
+  url: string,
+  mcpToken: string,
+  name?: string,
+  configPath?: string,
+): string {
+  const p = configPath ?? defaultConfigPath();
+  const cfg = loadConfig(p);
+  const target = normalizeRegistryUrl(url);
+  const entryName =
+    name && name.length > 0 ? name : (findEntryByUrl(cfg, target)?.name ?? entryNameFromUrl(url));
+  const previous = cfg.registries[entryName];
+  const sameHost = previous !== undefined && normalizeRegistryUrl(previous.url) === target;
+  cfg.registries[entryName] = sameHost
+    ? { ...previous, mcp_token: mcpToken }
+    : { url, mcp_token: mcpToken };
+  cfg.default = entryName;
+  saveConfig(cfg, p);
+  return entryName;
 }
 
 export function removeRegistry(name: string | undefined, configPath?: string): SkillforgeConfig {

@@ -32,11 +32,11 @@ The version number is the `version` from the frontmatter when it is above the la
 
 ## States
 
-The panel starts with one line that answers whether the skill is up to date: when the source was last checked and in what state, that it was never checked, or that tracking is off. The state below it is a badge: ✓ for a new beta version, ⏳ for a commit in quarantine, ⚠ for a problem.
+The panel starts with one line that answers whether the skill is up to date: when the source was last checked and in what state, that it was never checked, or that tracking is off. The state below it is a badge: ✓ for a new version from the source, ⏳ for a commit in quarantine, ⚠ for a problem. For a new version the note under the badge names its channel as it is now, so it changes when a reviewer moves the version to stable or it is deleted.
 
 | State | Meaning | What to do |
 |---|---|---|
-| `ok` | a new version was published in `beta` | compare it with stable on the Versions tab and review it |
+| `ok` | a new version was published in `beta`; the note says where it is now | while it is in `beta`, compare it with stable on the Versions tab and review it; once it is in `stable`, nothing |
 | `unchanged` | no new commit, or the commit did not touch the folder | nothing |
 | `quarantined` | the commit is younger than the minimum release age | wait; the result of Check now says when it can be taken |
 | `failed` | the check stopped; the panel names the reason | see the reasons below |

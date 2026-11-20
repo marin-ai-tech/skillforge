@@ -3,6 +3,13 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.20 — 2026-11-19
+
+### Fixed
+- The Source panel of an artifact kept saying "New beta version for review" after that version was moved to stable
+  (or deleted), until the next check of the source. The badge now says "New version from the source", and the note
+  names the version's channel as it is now: in beta for review, stable, or deleted.
+
 ## 0.5.19 — 2026-11-19
 
 ### Fixed

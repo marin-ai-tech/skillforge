@@ -447,7 +447,7 @@ export const art = {
     summaryOff: "Tracking is off: the registry does not check this source.",
     summaryChecked: (time: string, state: string) => `Checked ${time}: ${state}.`,
     states: {
-      ok: "New beta version for review",
+      ok: "New version from the source",
       unchanged: "Up to date",
       quarantined: "Waiting in quarantine",
       failed: "Check failed",
@@ -456,6 +456,8 @@ export const art = {
     },
     readyAt: (time: string) => `The commit can be taken after ${time}.`,
     newVersion: (version: string) => `Version ${version} is in the beta channel for review.`,
+    versionStable: (version: string) => `Version ${version} is stable now.`,
+    versionDeleted: (version: string) => `Version ${version} was deleted from the registry.`,
     pathMissing: "The commit has no files in this folder: it was moved or deleted upstream.",
     outdatedRule: "This rule found nothing in the new upstream version:",
     nextStep: {

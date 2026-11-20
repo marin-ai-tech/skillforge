@@ -94,6 +94,64 @@ test.describe.serial("source panel", () => {
     await expect(box).not.toBeChecked();
   });
 
+  // fix-source-state-stale: the check stored `ok` with its version when the version was beta; the panel must name the
+  // version's channel now (from the artifact's version list), not the snapshot. The artifact detail is the real answer
+  // with the channel of that version replaced, so other specs moving pdf-tools versions do not matter.
+  test("the ok note follows the version's current channel", async ({ page }) => {
+    await serve(page, () => base({ state: "ok", state_detail: "0.2.0" }));
+    let override: { channel: string; purged: boolean } | null = null;
+    await page.route("**/api/v1/artifacts/skill/pdf-tools", async (route) => {
+      if (route.request().method() !== "GET" || !override) return route.fallback();
+      const res = await route.fetch();
+      const body = (await res.json()) as { versions: Array<Record<string, unknown>> };
+      const set = override;
+      const known = body.versions.some((v) => v.version === "0.2.0");
+      body.versions = known
+        ? body.versions.map((v) => (v.version === "0.2.0" ? { ...v, channel: set.channel, purged: set.purged } : v))
+        : [{ ...body.versions[0], version: "0.2.0", channel: set.channel, purged: set.purged }, ...body.versions];
+      await route.fulfill({ response: res, json: body });
+    });
+    const badge = page.locator(tid("source-state-badge"));
+    const note = page.locator(tid("source-state-detail"));
+    const summary = page.locator(tid("source-summary"));
+    const noChannelClaim = async () => {
+      for (const el of [summary, badge, note]) {
+        await expect(el).not.toContainText(/beta/i);
+        await expect(el).not.toContainText(/review/i);
+      }
+    };
+
+    // Stable now: the panel must not send anyone to review it.
+    override = { channel: "stable", purged: false };
+    await page.goto("/artifacts/skill/pdf-tools");
+    await expect(badge).toHaveAttribute("data-tone", "success");
+    await expect(note).toContainText("0.2.0");
+    await expect(note).toContainText(/stable/i);
+    await noChannelClaim();
+
+    // Still beta: the note asks for review; the badge itself names no channel.
+    override = { channel: "beta", purged: false };
+    await page.reload();
+    await expect(note).toContainText("0.2.0");
+    await expect(note).toContainText(/beta/i);
+    await expect(note).toContainText(/review/i);
+    await expect(badge).not.toContainText(/beta/i);
+
+    // Deleted: said so, no call to review.
+    override = { channel: "stable", purged: true };
+    await page.reload();
+    await expect(note).toContainText(/deleted/i);
+    await noChannelClaim();
+
+    // A version the list does not have: no note at all, the badge stays.
+    override = null;
+    await page.unroute(SOURCE_URL);
+    await serve(page, () => base({ state: "ok", state_detail: "0.9.9" }));
+    await page.reload();
+    await expect(badge).toHaveAttribute("data-tone", "success");
+    await expect(note).toHaveCount(0);
+  });
+
   test("320px: no horizontal scroll in the panel", async ({ page }) => {
     await serve(page, () =>
       base({

@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
   checkArtifactSource,
+  getArtifact,
   getArtifactSource,
   putArtifactSource,
 } from "../api/client.ts";
-import type { SourceEdit, SourceState, TrackedSource } from "../api/types.ts";
+import type { SourceEdit, SourceState, TrackedSource, VersionListItem } from "../api/types.ts";
 import { HelpTip } from "./HelpTip.tsx";
 import { STR } from "../lib/strings.ts";
+import { sourceVersionChannel, type SourceVersionChannel } from "../lib/source-channel.ts";
 import { apiErrorMessage, errorText, formatDateTime } from "../i18n/index.ts";
 
 /**
@@ -23,6 +25,11 @@ type Outcome = {
   detail?: string | null;
   readyAt?: string;
   version?: string;
+  /**
+   * Where the new version of an ok check is now (stored state only). A fresh check result has none: the check has
+   * just put that version in beta.
+   */
+  channel?: SourceVersionChannel | null;
 };
 
 const REF_RE = /^[A-Za-z0-9._/-]{1,200}$/;
@@ -79,11 +86,20 @@ function detailText(code: string): string {
 function outcomeNote(o: Outcome): string | null {
   const t = STR.art.source;
   if (o.state === "quarantined") return o.readyAt ? t.readyAt(formatDateTime(o.readyAt)) : null;
-  if (o.state === "ok") return o.version ? t.newVersion(o.version) : null;
+  if (o.state === "ok") return o.version ? okNote(o.version, o.channel) : null;
   const next = t.nextStep[o.state] ?? null;
   if (o.state === "path_missing") return `${t.pathMissing} ${next}`;
   if (o.state === "failed") return o.detail ? `${detailText(o.detail)} ${next}` : next;
   return next;
+}
+
+/** The note of a new version names its channel as it is now; a version the list does not have gets no note. */
+function okNote(version: string, channel: SourceVersionChannel | null | undefined): string | null {
+  const t = STR.art.source;
+  if (channel === undefined || channel === "beta") return t.newVersion(version);
+  if (channel === "stable") return t.versionStable(version);
+  if (channel === "deleted") return t.versionDeleted(version);
+  return null;
 }
 
 /** Readable state; a state this interface does not know yet is shown as its code. */
@@ -97,15 +113,23 @@ function outcomeSentence(o: Outcome): string {
   return note ? `${label}. ${note}` : label;
 }
 
-/** The stored state: the server keeps the ready time of a quarantined commit and the new version of an ok check in the detail. */
-function currentOutcome(source: TrackedSource): Outcome | null {
+/**
+ * The stored state: the server keeps the ready time of a quarantined commit and the new version of an ok check in the
+ * detail. The channel of that version is looked up in the artifact's version list on every render.
+ */
+function currentOutcome(
+  source: TrackedSource,
+  versions: readonly VersionListItem[],
+): Outcome | null {
   if (!source.state) return null;
   const detail = source.state_detail;
   return {
     state: source.state,
     detail,
     ...(source.state === "quarantined" && detail ? { readyAt: detail } : {}),
-    ...(source.state === "ok" && detail ? { version: detail } : {}),
+    ...(source.state === "ok" && detail
+      ? { version: detail, channel: sourceVersionChannel(detail, versions) }
+      : {}),
   };
 }
 
@@ -156,6 +180,15 @@ function SourceLoadError({ onRetry }: { onRetry: () => void }) {
 function SourceView({ source, type, name, canManage }: { source: TrackedSource } & Props) {
   const headingId = useId();
   const t = STR.art.source;
+  // The artifact page already holds this query (same key, shared cache): no second request. A channel change on the
+  // Versions tab invalidates it, so the note follows.
+  const artifact = useQuery({
+    queryKey: ["artifact", type, name],
+    queryFn: () => getArtifact(type, name),
+    staleTime: 30_000,
+    retry: false,
+  });
+  const versions = artifact.data?.versions ?? [];
   return (
     <section
       data-testid="source-panel"
@@ -169,7 +202,7 @@ function SourceView({ source, type, name, canManage }: { source: TrackedSource }
         {summaryText(source)}
       </p>
       <p className="text-xs text-ink-2">{t.hint}</p>
-      <SourceFacts source={source} outcome={currentOutcome(source)} />
+      <SourceFacts source={source} outcome={currentOutcome(source, versions)} />
       <EditRules edits={source.edits} />
       {canManage ? <SourceControls source={source} type={type} name={name} /> : null}
     </section>

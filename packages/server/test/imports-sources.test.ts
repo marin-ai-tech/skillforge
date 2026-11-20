@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -107,6 +115,106 @@ test("git: files come as in the repository whatever the host's core.autocrlf", a
     }
     rmSync(work, { recursive: true, force: true });
   }
+});
+
+// import-folder-checkout: a git import of one folder wrote the whole repository to disk, so any file elsewhere (a path
+// over 260 characters on Windows, a name Windows refuses) failed the import. Only the folder may reach the disk.
+async function withFolderRepo(
+  folders: Record<string, string>,
+  run: (url: string, work: string) => Promise<void>,
+): Promise<void> {
+  const work = mkdtempSync(join(tmpdir(), "sf-sparse-"));
+  const repo = join(work, "repo");
+  for (const [file, text] of Object.entries(folders)) {
+    mkdirSync(dirname(join(repo, file)), { recursive: true });
+    writeFileSync(join(repo, file), text);
+  }
+  const clean = join(work, "clean.gitconfig");
+  writeFileSync(clean, "[user]\n\tname = t\n\temail = t@example.com\n[core]\n\tautocrlf = false\n");
+  const saved = {
+    global: process.env.GIT_CONFIG_GLOBAL,
+    nosystem: process.env.GIT_CONFIG_NOSYSTEM,
+  };
+  process.env.GIT_CONFIG_GLOBAL = clean;
+  process.env.GIT_CONFIG_NOSYSTEM = "1";
+  try {
+    for (const args of [
+      ["init", "-q"],
+      ["add", "."],
+      ["commit", "-q", "-m", "x"],
+    ])
+      execFileSync("git", args, { cwd: repo, stdio: "pipe" });
+    await run(pathToFileURL(repo).href, work);
+  } finally {
+    for (const [k, v] of [
+      ["GIT_CONFIG_GLOBAL", saved.global],
+      ["GIT_CONFIG_NOSYSTEM", saved.nosystem],
+    ] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+const skill = (name: string) =>
+  `---\nname: ${name}\ndescription: Folder checkout test.\n---\n\nBody.\n`;
+
+test("git with path: only the folder is written to disk", async () => {
+  await withFolderRepo(
+    {
+      "skills/a/SKILL.md": skill("a"),
+      "skills/a/references/r.md": "r\n",
+      "other/deep/x.md": "x\n",
+      "README.md": "readme\n",
+    },
+    async (url, work) => {
+      const workRoot = join(work, "w");
+      const r = await materialize(
+        { kind: "git", url, path: "skills/a" },
+        { ...baseConfig, importAllowFileUrls: true },
+        workRoot,
+        DEFAULT_IMPORT_POLICY,
+      );
+      assert.equal(r.ok, true, JSON.stringify(r));
+      if (!r.ok) return;
+      assert.deepEqual(r.files.map((f) => f.path).sort(), ["SKILL.md", "references/r.md"]);
+      // Negative: the other folder never reached the disk (checked before cleanup removes the clone).
+      assert.equal(existsSync(join(workRoot, "clone", "other")), false, "the clone wrote other/");
+      r.cleanup();
+    },
+  );
+});
+
+test("git with path: a folder named like an option or a pattern is taken literally", async () => {
+  await withFolderRepo(
+    {
+      "-dash/SKILL.md": skill("dash"),
+      "[x]/SKILL.md": skill("bracket"),
+      "x/SKILL.md": skill("x"),
+    },
+    async (url, work) => {
+      for (const [p, name] of [
+        ["-dash", "dash"],
+        ["[x]", "bracket"],
+      ] as const) {
+        const workRoot = join(work, `w-${name}`);
+        const r = await materialize(
+          { kind: "git", url, path: p },
+          { ...baseConfig, importAllowFileUrls: true },
+          workRoot,
+          DEFAULT_IMPORT_POLICY,
+        );
+        assert.equal(r.ok, true, `${p}: ${JSON.stringify(r)}`);
+        if (!r.ok) continue;
+        const main = r.files.find((f) => f.path === "SKILL.md");
+        assert.match(Buffer.from(main!.content).toString("utf8"), new RegExp(`name: ${name}\\n`));
+        // `[x]` is not a pattern matching `x`, and `-dash` is not an option: only the named folder is written.
+        assert.equal(existsSync(join(workRoot, "clone", "x")), false, `${p}: the clone wrote x/`);
+        r.cleanup();
+      }
+    },
+  );
 });
 
 test("URL allowlist", () => {

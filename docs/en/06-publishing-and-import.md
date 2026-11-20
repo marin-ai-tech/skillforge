@@ -119,7 +119,9 @@ Limits and rules:
 - An import holds at most 5000 files and 64 MB (`import_too_large`); set a folder inside the repository or split it.
 - The server clones git itself, with its own git setup and network access: a shallow clone of the latest commit,
   with a two-minute limit. Files come exactly as they are in the repository, whatever the server's git line-end
-  settings. A private repository needs the server's own access.
+  settings. With a folder set, only that folder (and the files at the repository root) is written to the server's
+  disk, so long paths or names Windows refuses elsewhere in the repository do not stop the import; this needs git 2.27
+  or newer on the server. A private repository needs the server's own access.
 - `file://` addresses and local paths work only when the operator sets `SKILLFORGE_IMPORT_ALLOW_FILE_URLS`;
   other forms get `import_url_not_allowed`. `SKILLFORGE_IMPORT_GIT` (on by default) turns git import off
   (`import_git_disabled`).

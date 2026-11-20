@@ -6,7 +6,7 @@ related: pages/import
 
 ## What it does
 
-Limits the scan to one folder of the cloned repository, written as a relative path with forward slashes, such as `plugins/review`. The path may be up to 200 characters and must not start with a slash, contain `..` or a backslash, or begin with a drive letter. Leave it empty to scan the whole repository.
+Limits the scan to one folder of the cloned repository, written as a relative path with forward slashes, such as `plugins/review`. The path may be up to 200 characters and must not start with a slash, contain `..` or a backslash, or begin with a drive letter. Only this folder and the files at the repository root are written to the server's disk, so long paths or file names Windows refuses elsewhere in the repository do not stop the import. Leave it empty to scan the whole repository.
 
 ## When to use
 

@@ -3,6 +3,14 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.21 — 2026-11-20
+
+### Fixed
+- A git import of one folder failed on Windows with "Filename too long" when another folder of the repository had
+  long paths: the server checked out the whole repository. Now only the folder (and the files at the repository root)
+  is written to disk, and every clone allows long paths. The same applies to mirrors and tracked sources checked
+  through git. Git import of a folder needs git 2.27 or newer on the server.
+
 ## 0.5.20 — 2026-11-19
 
 ### Fixed

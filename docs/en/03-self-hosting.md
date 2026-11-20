@@ -170,6 +170,9 @@ configuration error that names the variable, and the process does not start.
 | `SKILLFORGE_GITHUB_TOKEN` | (empty) | GitHub token for rollout through pull requests (`/admin/rollout`) and rules from reviews (`/admin/harvest`), and for checks of tracked sources on GitHub when it is set. Environment only, sent only to `SKILLFORGE_GITHUB_API_URL`, never shown or stored. Needs rights to create branches, files and pull requests in the chosen repositories (read access is enough for tracked sources). Empty: rollout and harvest answer `503 github_not_configured`; tracked sources call GitHub without a token, under its anonymous limit of about 60 requests an hour |
 | `SKILLFORGE_GITHUB_API_URL` | `https://api.github.com` | GitHub REST API for rollout, harvest and the archive transport of tracked sources; for GitHub Enterprise `https://<host>/api/v3`. `https:` only (`http:` only for `localhost`, `127.0.0.1`, `[::1]`), no user, password or query; otherwise the start stops |
 
+**Git.** Git import, mirrors and tracked sources outside GitHub need `git` 2.27 or newer on the server: a folder is
+checked out on its own (sparse checkout). Without `git` the server still checks GitHub sources through their archive.
+
 **Outbound network.** The server goes out only for git imports, mirrors and tracked sources, and to
 `SKILLFORGE_GITHUB_API_URL`. A tracked source of `https://github.com/<owner>/<repo>` finds its commit through that
 API (`GET /repos/<owner>/<repo>/commits/<ref>`) and downloads the tarball of the commit from it when `git` is

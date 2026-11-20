@@ -299,16 +299,63 @@ async function headCommit(cloneDir: string): Promise<string> {
   return stdout.trim();
 }
 
+/** Options for every git command of a clone, so the result does not depend on the host's git settings. */
+function cloneConfigArgs(followRedirects: boolean): string[] {
+  // With an allowlist a permitted host must not be able to send the clone somewhere else.
+  const args = followRedirects ? [] : ["-c", "http.followRedirects=false"];
+  // Files as in the repository, whatever the host's line-end settings (Git for Windows sets core.autocrlf=true).
+  args.push("-c", "core.autocrlf=false", "-c", "core.eol=lf");
+  // Deep paths in a repository must not fail the checkout on Windows.
+  args.push("-c", "core.longpaths=true");
+  return args;
+}
+
+const GIT_MAX_BUFFER = 10 * 1024 * 1024;
+
+/** Runs git with `input` on its stdin (the promisified execFile cannot write stdin). */
+function gitWithStdin(args: string[], cwd: string, input: string, timeout: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      "git",
+      args,
+      { cwd, timeout, windowsHide: true, maxBuffer: GIT_MAX_BUFFER },
+      (err, _stdout, stderr) => (err ? reject(Object.assign(err, { stderr })) : resolve()),
+    );
+    // A git that exits before reading stdin reports its failure through the callback.
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(input);
+  });
+}
+
+/** Checks out only `folder` (and the repository's root files) in a clone made with --no-checkout. */
+async function sparseCheckout(config: string[], cloneDir: string, folder: string): Promise<void> {
+  // The folder goes through stdin, never argv: a leading "-" is a valid folder name, and cone mode
+  // takes glob characters literally.
+  await gitWithStdin(
+    [...config, "sparse-checkout", "set", "--cone", "--stdin"],
+    cloneDir,
+    `${folder}\n`,
+    60_000,
+  );
+  await execFileAsync("git", [...config, "checkout"], {
+    cwd: cloneDir,
+    timeout: 60_000,
+    windowsHide: true,
+    maxBuffer: GIT_MAX_BUFFER,
+  });
+}
+
 async function shallowClone(
   source: ImportSourceGit,
   cloneDir: string,
   followRedirects: boolean,
 ): Promise<MaterializeFail | null> {
-  // With an allowlist a permitted host must not be able to send the clone somewhere else.
-  const args = followRedirects ? [] : ["-c", "http.followRedirects=false"];
-  // Files as in the repository, whatever the host's line-end settings (Git for Windows sets core.autocrlf=true).
-  args.push("-c", "core.autocrlf=false", "-c", "core.eol=lf");
-  args.push("clone", "--depth", "1");
+  const config = cloneConfigArgs(followRedirects);
+  const args = [...config, "clone", "--depth", "1"];
+  // With a folder, other folders never reach the disk: their names or path length cannot fail the import.
+  if (source.path) {
+    args.push("--no-checkout");
+  }
   if (source.ref) {
     args.push("--branch", source.ref);
   }
@@ -319,8 +366,11 @@ async function shallowClone(
     await execFileAsync("git", args, {
       timeout: 120_000,
       windowsHide: true,
-      maxBuffer: 10 * 1024 * 1024,
+      maxBuffer: GIT_MAX_BUFFER,
     });
+    if (source.path) {
+      await sparseCheckout(config, cloneDir, source.path);
+    }
   } catch (e) {
     return cloneFailure(e, source.url);
   }

@@ -14,9 +14,9 @@ artifacts. These rules apply to every type:
 |---|---|---|
 | Name | 1–64 characters of `a-z0-9-` (lowercase letters, digits, single hyphens) | `E_NAME_INVALID` |
 | Description | required, at most 1024 characters | `E_DESCRIPTION_MISSING`, `E_DESCRIPTION_TOO_LONG` |
-| Total size of the package | 32 MiB | `E_BUNDLE_TOO_LARGE` |
+| Total size of the package | 64 MiB | `E_BUNDLE_TOO_LARGE` |
 | Size of one file | 16 MiB | `E_FILE_TOO_LARGE` |
-| Number of files | 1000 | `E_TOO_MANY_FILES` |
+| Number of files | 4000 | `E_TOO_MANY_FILES` |
 | Paths | relative, no `..`, no control characters, unique after normalisation | `E_PATH_UNSAFE`, `E_PATH_DUPLICATE` |
 | Forbidden folders | nothing under `.git/` or `node_modules/` | `E_PATH_FORBIDDEN` |
 

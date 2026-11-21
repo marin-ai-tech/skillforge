@@ -52,9 +52,42 @@ test("prepareFiles: duplicate paths", () => {
   assert.ok(r.errors.some((e) => e.code === ISSUE_CODES.E_PATH_DUPLICATE));
 });
 
-test("prepareFiles: 1001 files => E_TOO_MANY_FILES", () => {
-  const files = [{ path: "SKILL.md", content: "x" }];
-  for (let i = 0; i < 1000; i++) files.push({ path: `a${i}.txt`, content: "x" });
-  const r = prepareFiles(files);
-  assert.ok(r.errors.some((e) => e.code === ISSUE_CODES.E_TOO_MANY_FILES));
+// bundle-limits: at most 4000 files and 64 MiB per bundle (the import limits are 5000 files and 64 MiB).
+const MiB = 1024 * 1024;
+const many = (n: number) => {
+  const files: Array<{ path: string; content: string | Uint8Array }> = [
+    { path: "SKILL.md", content: "x" },
+  ];
+  for (let i = 1; i < n; i++) files.push({ path: `a${i}.txt`, content: "x" });
+  return files;
+};
+const codes = (r: ReturnType<typeof prepareFiles>) => r.errors.map((e) => e.code);
+
+test("prepareFiles: 4000 files pass, 4001 => E_TOO_MANY_FILES", () => {
+  assert.ok(!codes(prepareFiles(many(4000))).includes(ISSUE_CODES.E_TOO_MANY_FILES), "4000 files");
+  assert.ok(prepareFiles(many(4001)).errors.some((e) => e.code === ISSUE_CODES.E_TOO_MANY_FILES));
+});
+
+test("prepareFiles: 64 MiB pass, one byte more => E_BUNDLE_TOO_LARGE", () => {
+  const chunk = (n: number) => new Uint8Array(n);
+  const files = (extra: number) => [
+    { path: "SKILL.md", content: "x" },
+    ...Array.from({ length: 4 }, (_, i) => ({
+      path: `big${i}.bin`,
+      content: chunk(16 * MiB - (i === 0 ? 1 : 0)),
+    })),
+    { path: "tail.txt", content: chunk(extra) },
+  ];
+  // SKILL.md (1 byte) + 4 x 16 MiB - 1 byte = exactly 64 MiB
+  assert.ok(!codes(prepareFiles(files(0))).includes(ISSUE_CODES.E_BUNDLE_TOO_LARGE), "64 MiB");
+  assert.ok(
+    codes(prepareFiles(files(1))).includes(ISSUE_CODES.E_BUNDLE_TOO_LARGE),
+    "64 MiB + 1 byte",
+  );
+  // negative: one file over 16 MiB is still refused on its own
+  const one = prepareFiles([
+    { path: "SKILL.md", content: "x" },
+    { path: "huge.bin", content: chunk(16 * MiB + 1) },
+  ]);
+  assert.ok(codes(one).includes(ISSUE_CODES.E_FILE_TOO_LARGE));
 });

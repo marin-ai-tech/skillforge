@@ -1,7 +1,7 @@
 {
   "id": "codealive",
   "title": "CodeAlive starter pack",
-  "description": "Twelve MIT skills from CodeAlive-AI used as a SkillForge starter set: settings, hooks, skills, prompts, UX, naming, orchestration, and engineering protocols.",
+  "description": "Eighteen MIT skills from CodeAlive-AI used as a SkillForge starter set: settings, hooks, skills, MCP servers, plugins, prompts, UX, naming, orchestration, verification, agent readiness, repository activity, VCS hygiene, and engineering protocols.",
   "license": "MIT",
   "source_repositories": [
     {
@@ -11,6 +11,14 @@
     {
       "repo": "CodeAlive-AI/pragmatic-orchestration",
       "commit": "595a7719bdef12480eb775fb50978f19f0c475be"
+    },
+    {
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "e593ee6f2e2dbb68d081c5305615c2c3a9abb823"
+    },
+    {
+      "repo": "CodeAlive-AI/jj-agentic-workflow",
+      "commit": "bdcffe81c06a93d1652a000747230226d7970b3f"
     }
   ],
   "artifacts": [
@@ -201,6 +209,54 @@
           "with": ""
         }
       ]
+    },
+    {
+      "type": "skill",
+      "name": "pragmatic-verification",
+      "path": "skills/pragmatic-verification",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "e593ee6f2e2dbb68d081c5305615c2c3a9abb823",
+      "source_path": "skills/pragmatic-verification"
+    },
+    {
+      "type": "skill",
+      "name": "agentic-readiness",
+      "path": "skills/agentic-readiness",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "e593ee6f2e2dbb68d081c5305615c2c3a9abb823",
+      "source_path": "skills/agentic-readiness"
+    },
+    {
+      "type": "skill",
+      "name": "mcp-management",
+      "path": "skills/mcp-management",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "e593ee6f2e2dbb68d081c5305615c2c3a9abb823",
+      "source_path": "skills/mcp-management"
+    },
+    {
+      "type": "skill",
+      "name": "plugins-management",
+      "path": "skills/plugins-management",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "e593ee6f2e2dbb68d081c5305615c2c3a9abb823",
+      "source_path": "skills/plugins-management"
+    },
+    {
+      "type": "skill",
+      "name": "repo-activity-summary",
+      "path": "skills/repo-activity-summary",
+      "repo": "CodeAlive-AI/ai-driven-development",
+      "commit": "e593ee6f2e2dbb68d081c5305615c2c3a9abb823",
+      "source_path": "skills/repo-activity-summary"
+    },
+    {
+      "type": "skill",
+      "name": "maintaining-vcs-hygiene",
+      "path": "skills/maintaining-vcs-hygiene",
+      "repo": "CodeAlive-AI/jj-agentic-workflow",
+      "commit": "bdcffe81c06a93d1652a000747230226d7970b3f",
+      "source_path": "skills/maintaining-vcs-hygiene"
     }
   ]
 }

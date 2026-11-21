@@ -105,9 +105,9 @@ export type ParseResult =
   | { ok: false; errors: Issue[]; warnings: Issue[] };
 
 export const LIMITS = {
-  maxBundleBytes: 32 * 1024 * 1024,
+  maxBundleBytes: 64 * 1024 * 1024,
   maxFileBytes: 16 * 1024 * 1024,
-  maxFiles: 1000,
+  maxFiles: 4000,
   /** rule-artifacts: tokens of a rule without `paths` (loaded on every agent turn). */
   ruleAlwaysTokens: 1500,
 } as const;

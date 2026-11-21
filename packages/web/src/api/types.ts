@@ -1443,6 +1443,13 @@ export type NewsListResponse = {
   next_cursor: string | null;
 };
 
+/** The answer of marking the feed seen: the mark now, the mark before it (null when there was none), the count. */
+export type NewsSeenResponse = {
+  seen_at: string | null;
+  previous_seen_at: string | null;
+  unread_count: number;
+};
+
 export type NewsSummaryPeriod = "off" | "daily" | "weekly";
 
 export type NewsSummarySetting = { period: NewsSummaryPeriod };

@@ -1,6 +1,6 @@
 ---
 title: Starter packs
-summary: How an administrator seeds an empty registry with the vendored starter packs — CodeAlive (nine skills) and the optional ECC essentials (three skills), all MIT — without network access.
+summary: How an administrator seeds an empty registry with the vendored starter packs — CodeAlive (eighteen skills) and the optional ECC essentials (three skills), all MIT — without network access.
 section: start
 learn:
   - Which skills the CodeAlive and ECC essentials packs contain
@@ -10,11 +10,11 @@ learn:
 related: getting-started/self-hosting, getting-started/lifecycle, getting-started/provenance, getting-started/roles, getting-started/quality, pages/users, actions/lifecycle/queue-promote
 ---
 
-A fresh SkillForge registry is empty until someone publishes artifacts. Self-hosted teams often cannot reach GitHub from the server perimeter, so SkillForge ships **vendored starter packs**: twelve MIT-licensed skills from CodeAlive-AI and three from affaan-m/ECC. Each pack is optional and installs on its own. The packs live on disk under `packages/server/starter-packs/` (`codealive/`, `ecc-essentials/`; override with `SKILLFORGE_STARTER_PACKS_DIR`) and are copied into the release archive and the runtime Docker image. Pack files are frozen at specific upstream commits recorded in `pack.json` and `NOTICE.md`; operators do not need network access during install.
+A fresh SkillForge registry is empty until someone publishes artifacts. Self-hosted teams often cannot reach GitHub from the server perimeter, so SkillForge ships **vendored starter packs**: eighteen MIT-licensed skills from CodeAlive-AI and three from affaan-m/ECC. Each pack is optional and installs on its own. The packs live on disk under `packages/server/starter-packs/` (`codealive/`, `ecc-essentials/`; override with `SKILLFORGE_STARTER_PACKS_DIR`) and are copied into the release archive and the runtime Docker image. Pack files are frozen at specific upstream commits recorded in `pack.json` and `NOTICE.md`; operators do not need network access during install.
 
 ## What is in the CodeAlive pack
 
-The `codealive` pack includes: `settings-management`, `hooks-management`, `skills-management`, `prompt-engineering`, `pragmatic-orchestration`, `coordinator-mode`, `code-that-fits-in-your-head`, `bug-fix-protocol`, `plan-mode`, `investigating-repository-history`, `ubiquitous-language`, and `ux-best-practices`. Skill directories are copied from the upstream repositories (including `references/`, `scripts/`, and `prompts/` when present). The only edits keep the pack text-only and English-only — two images and a few non-English strings in `pragmatic-orchestration`, `coordinator-mode` and `ubiquitous-language` — and `NOTICE.md` lists each of them under `Local changes`. SkillForge does not rewrite author text to pass validation; any validator findings are reported as deviations rather than silent edits.
+The `codealive` pack includes: `settings-management`, `hooks-management`, `skills-management`, `prompt-engineering`, `pragmatic-orchestration`, `coordinator-mode`, `code-that-fits-in-your-head`, `bug-fix-protocol`, `plan-mode`, `investigating-repository-history`, `ubiquitous-language`, `ux-best-practices`, `pragmatic-verification`, `agentic-readiness`, `mcp-management`, `plugins-management`, `repo-activity-summary`, and `maintaining-vcs-hygiene`. Skill directories are copied from the upstream repositories (including `references/`, `scripts/`, and `prompts/` when present). The only edits keep the pack text-only and English-only — two images and a few non-English strings in `pragmatic-orchestration`, `coordinator-mode` and `ubiquitous-language` — and `NOTICE.md` lists each of them under `Local changes`. SkillForge does not rewrite author text to pass validation; any validator findings are reported as deviations rather than silent edits.
 
 ## What is in the ECC essentials pack
 
@@ -25,7 +25,7 @@ The `ecc-essentials` pack includes `change-impact` (impact analysis before a ris
 
 ## License and attribution
 
-All skills of both packs are MIT. Each pack root carries a full `LICENSE` text with the upstream copyright line and a `NOTICE.md` that names every skill, its repository (`CodeAlive-AI/ai-driven-development`, `CodeAlive-AI/pragmatic-orchestration` or `affaan-m/ECC`), source path, and the exact forty-character commit SHA.
+All skills of both packs are MIT. Each pack root carries a full `LICENSE` text with the upstream copyright line and a `NOTICE.md` that names every skill, its repository (`CodeAlive-AI/ai-driven-development`, `CodeAlive-AI/pragmatic-orchestration`, `CodeAlive-AI/jj-agentic-workflow` or `affaan-m/ECC`), source path, and the exact forty-character commit SHA.
 
 > [!IMPORTANT]
 > Keep those files when redistributing the image or the pack directory so attribution stays intact.

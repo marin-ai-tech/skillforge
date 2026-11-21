@@ -249,23 +249,29 @@ export function getSeenAt(db: Database, username: string): string | null {
   return row?.seen_at ?? null;
 }
 
-/** The mark only grows and never passes the newest visible item. Returns the mark now in force. */
+export type SeenMark = { seen_at: string | null; previous_seen_at: string | null };
+
+/**
+ * The mark only grows and never passes the newest visible item. Returns the mark now in force and the mark before
+ * the call (`previous_seen_at`, null when there was none; equal to `seen_at` when the mark did not move).
+ */
 export function markSeen(
   db: Database,
   viewer: NonNullable<Viewer>,
   requested: string | null,
   now: string,
-): string | null {
+): SeenMark {
   const newest = newestVisibleAt(db, viewer, now);
   const current = getSeenAt(db, viewer.username);
-  if (!newest) return current;
+  const kept: SeenMark = { seen_at: current, previous_seen_at: current };
+  if (!newest) return kept;
   const wanted = requested && requested < newest ? requested : newest;
-  if (current && current >= wanted) return current;
+  if (current && current >= wanted) return kept;
   db.prepare(
     `INSERT INTO news_seen (username, seen_at) VALUES (?, ?)
      ON CONFLICT (username) DO UPDATE SET seen_at = excluded.seen_at`,
   ).run(viewer.username, wanted);
-  return wanted;
+  return { seen_at: wanted, previous_seen_at: current };
 }
 
 function parseKey(value: string | null): { type: string; name: string } | null {

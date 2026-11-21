@@ -241,9 +241,10 @@ test("paths: directory traversal → E_PATH_UNSAFE with the original path; node_
   assert.ok(codes(forbidden.errors).includes("E_PATH_FORBIDDEN"), JSON.stringify(forbidden.errors));
 });
 
-test("limits: 1001 files → E_TOO_MANY_FILES", () => {
+// bundle-limits: at most 4000 files (was 1000).
+test("limits: 4001 files → E_TOO_MANY_FILES", () => {
   const files = [{ path: "SKILL.md", content: "---\nname: big\ndescription: Big.\n---\nBody.\n" }];
-  for (let i = 0; i < 1000; i++) files.push({ path: `assets/f${i}.txt`, content: "x" });
+  for (let i = 0; i < 4000; i++) files.push({ path: `assets/f${i}.txt`, content: "x" });
   const r = parseArtifact({ type: "skill", files });
   assert.equal(r.ok, false);
   assert.ok(codes(r.errors).includes("E_TOO_MANY_FILES"), JSON.stringify(r.errors.slice(0, 3)));

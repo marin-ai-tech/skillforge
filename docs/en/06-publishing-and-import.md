@@ -225,7 +225,7 @@ A fresh registry is empty. SkillForge ships vendored starter packs that install 
 
 | Pack id | Contents |
 |---|---|
-| `codealive` | twelve MIT-licensed skills from their upstream repositories, text-only and English-only; every change is listed in `NOTICE.md` |
+| `codealive` | eighteen MIT-licensed skills from their upstream repositories, text-only and English-only; every change is listed in `NOTICE.md` |
 | `ecc-essentials` | three MIT-licensed skills (`change-impact`, `architecture-decision-records`, `codebase-onboarding`), edited for SkillForge; every change is listed in `NOTICE.md` |
 
 Only an admin installs packs: from the first-run page `/start`, or with

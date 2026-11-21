@@ -445,7 +445,11 @@ export const artifactsRoutes: FastifyPluginAsync<ArtifactsPluginOpts> = async (a
     });
   });
 
-  app.post("/api/v1/artifacts/validate", async (request, reply) => {
+  // Publish and validate carry the whole bundle as base64 JSON (a 64 MiB bundle is about 86 MiB of body), so
+  // these two routes accept a larger body; every other route keeps the global limit.
+  const bundleBodyLimit = 96 * 1024 * 1024;
+
+  app.post("/api/v1/artifacts/validate", { bodyLimit: bundleBodyLimit }, async (request, reply) => {
     if (!requireRole(request, reply, "contributor")) return;
     const body = (request.body ?? {}) as Record<string, unknown>;
     const prepared = preparePublish(db, body, {
@@ -471,7 +475,7 @@ export const artifactsRoutes: FastifyPluginAsync<ArtifactsPluginOpts> = async (a
     });
   });
 
-  app.post("/api/v1/artifacts", async (request, reply) => {
+  app.post("/api/v1/artifacts", { bodyLimit: bundleBodyLimit }, async (request, reply) => {
     if (!requireRole(request, reply, "contributor")) return;
     const actor = actorFromRequest(request);
     const body = (request.body ?? {}) as Record<string, unknown>;

@@ -56,7 +56,7 @@ only the owner, maintainers, reviewers and admins can add versions. A contributo
 4. Or use the **Publish** page: pick the type, upload or paste the files, fill name, description, version,
    changelog and provenance, read the issue list, and choose **Submit**.
 
-Limits: 32 MiB per bundle, 16 MiB per file, at most 1000 files; names are 1–64 characters of `a-z0-9-`; descriptions
+Limits: 64 MiB per bundle, 16 MiB per file, at most 4000 files; names are 1–64 characters of `a-z0-9-`; descriptions
 are at most 1024 characters. After validation the page also shows the advisory quality grade and possible duplicates.
 Neither disables Submit. The registry scans the content for risky patterns and signs every version.
 

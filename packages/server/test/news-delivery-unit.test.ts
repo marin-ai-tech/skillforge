@@ -252,7 +252,7 @@ test("routes: the Atom key is refused as a bearer, unknown and revoked answer th
     });
     assert.equal(minted.statusCode, 403, "a personal token minted an Atom key");
 
-    for (const q of ["unread=false", "unread=1", "since=2026-13-45T00:00:00Z", "since=soon"]) {
+    for (const q of ["unread=yes", "unread=TRUE", "since=2026-13-45T00:00:00Z", "since=soon"]) {
       const r = await app.inject({ method: "GET", url: `/api/v1/news?${q}`, headers: { cookie } });
       assert.equal(r.statusCode, 400, q);
     }

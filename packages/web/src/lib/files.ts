@@ -2,7 +2,7 @@ import { secretFileMessage, secretFileReason } from "./secret-files.ts";
 /** Client-side file collection and base64 encoding. Limits mirror core LIMITS. */
 export const CLIENT_LIMITS = {
   maxFileBytes: 16 * 1024 * 1024,
-  maxBundleBytes: 32 * 1024 * 1024,
+  maxBundleBytes: 64 * 1024 * 1024,
   chunkBytes: 32 * 1024,
 } as const;
 
@@ -163,7 +163,7 @@ export async function encodeFiles(
   if (total > CLIENT_LIMITS.maxBundleBytes) {
     issues.push({
       code: "E_BUNDLE_TOO_LARGE",
-      message: "Bundle exceeds 32 MiB",
+      message: "Bundle exceeds 64 MiB",
     });
   }
   if (issues.length > 0) return { ok: false, issues };

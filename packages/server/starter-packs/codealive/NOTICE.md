@@ -6,6 +6,8 @@ This starter pack vendors third-party skills under the MIT License.
 
 - CodeAlive-AI/ai-driven-development @bcc63f2536dbacb13dbbb16185bee761510d7f01
 - CodeAlive-AI/pragmatic-orchestration @595a7719bdef12480eb775fb50978f19f0c475be
+- CodeAlive-AI/ai-driven-development @e593ee6f2e2dbb68d081c5305615c2c3a9abb823
+- CodeAlive-AI/jj-agentic-workflow @bdcffe81c06a93d1652a000747230226d7970b3f
 
 ## Skills
 
@@ -21,6 +23,12 @@ This starter pack vendors third-party skills under the MIT License.
 - ux-best-practices: CodeAlive-AI/ai-driven-development @bcc63f2536dbacb13dbbb16185bee761510d7f01 path skills/ux-best-practices
 - pragmatic-orchestration: CodeAlive-AI/pragmatic-orchestration @595a7719bdef12480eb775fb50978f19f0c475be path skills/pragmatic-orchestration
 - coordinator-mode: CodeAlive-AI/pragmatic-orchestration @595a7719bdef12480eb775fb50978f19f0c475be path skills/coordinator-mode
+- pragmatic-verification: CodeAlive-AI/ai-driven-development @e593ee6f2e2dbb68d081c5305615c2c3a9abb823 path skills/pragmatic-verification
+- agentic-readiness: CodeAlive-AI/ai-driven-development @e593ee6f2e2dbb68d081c5305615c2c3a9abb823 path skills/agentic-readiness
+- mcp-management: CodeAlive-AI/ai-driven-development @e593ee6f2e2dbb68d081c5305615c2c3a9abb823 path skills/mcp-management
+- plugins-management: CodeAlive-AI/ai-driven-development @e593ee6f2e2dbb68d081c5305615c2c3a9abb823 path skills/plugins-management
+- repo-activity-summary: CodeAlive-AI/ai-driven-development @e593ee6f2e2dbb68d081c5305615c2c3a9abb823 path skills/repo-activity-summary
+- maintaining-vcs-hygiene: CodeAlive-AI/jj-agentic-workflow @bdcffe81c06a93d1652a000747230226d7970b3f path skills/maintaining-vcs-hygiene
 
 ## Local changes
 

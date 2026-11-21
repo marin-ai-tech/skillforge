@@ -3,6 +3,31 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.5.22 — 2026-11-20
+
+### Added
+- The `codealive` starter pack has six more skills: `pragmatic-verification`, `agentic-readiness`,
+  `mcp-management`, `plugins-management`, `repo-activity-summary` (CodeAlive-AI/ai-driven-development) and
+  `maintaining-vcs-hygiene` (CodeAlive-AI/jj-agentic-workflow), eighteen in all. They are copied unchanged; reinstalling
+  the pack adds the six as candidates and reports the twelve already installed as `exists`.
+- News: the checkbox **Only my artifacts** above the feed keeps only the news about artifacts you own, co-author or
+  watch. It is shown to a signed-in reader, kept in the address as `mine=1`, and like the other filters hides the
+  pinned posts and the separator **Earlier — already seen**.
+
+### Changed
+- Boolean query flags accept `true`/`1` and `false`/`0` on every route; any other value is `400`.
+- Form fields have a stronger border (3:1 against the background in the light and dark themes).
+- News: **Earlier — already seen** stands right after the last item newer than your previous visit, your own recent
+  actions included. Before, it was placed by counting the unread items down the list, so an unread pinned post or
+  your own actions moved it and already seen news looked new.
+- `POST /api/v1/news/seen` also answers `previous_seen_at`: the mark before this call, `null` when there was none.
+- A bundle may hold up to 4000 files and 64 MiB (was 1000 and 32 MiB).
+
+### Fixed
+- A failing background task (routine schedule, evaluation batches, aging sweep, import cleanup, mirror and source
+  checks) writes `background_task_failed` to the server log instead of failing silently; the same error in a row is
+  written once.
+
 ## 0.5.21 — 2026-11-20
 
 ### Fixed

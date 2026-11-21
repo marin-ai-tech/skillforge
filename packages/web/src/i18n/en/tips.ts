@@ -288,7 +288,7 @@ const actionTips = {
   "home-news": "Open all news: the full feed with filters by kind and artifact type.",
   "news-new": "Write a post for everyone (admin) or for a team you lead.",
   "news-filter":
-    "Show only one kind of news or one artifact type; the filter is kept in the page address.",
+    "Show only one kind of news, one artifact type or only your artifacts; the filter is kept in the page address.",
   "news-more": "Load the next page of older news; focus moves to the first new item.",
   "news-form-submit": "Publish the post now, or at the chosen publication time.",
   "news-form-draft": "Save the post as a draft that only you and admins see; publish it later.",

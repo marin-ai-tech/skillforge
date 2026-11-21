@@ -33,12 +33,15 @@ const namedValue = z.strictObject({
   secret_like: z.boolean(),
 });
 
+export const MCP_TRANSPORTS = ["stdio", "http", "sse", "ws", "unknown"] as const;
+export const MCP_SCOPES = ["project", "user", "local"] as const;
+
 const server = z.strictObject({
   name,
   runtime: z.enum(RUNTIMES),
   source: z.string().max(64),
-  scope: z.enum(["project", "user", "local"]),
-  transport: z.enum(["stdio", "http", "sse", "ws", "unknown"]),
+  scope: z.enum(MCP_SCOPES),
+  transport: z.enum(MCP_TRANSPORTS),
   launcher: z.string().min(1).max(64).nullable(),
   package: z.string().min(1).max(214).nullable(),
   pinned: z.boolean(),

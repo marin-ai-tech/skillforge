@@ -12,7 +12,7 @@ local change.
 
 | Pack | Source | License |
 |---|---|---|
-| `packages/server/starter-packs/codealive/` | [CodeAlive-AI/ai-driven-development](https://github.com/CodeAlive-AI/ai-driven-development), [CodeAlive-AI/pragmatic-orchestration](https://github.com/CodeAlive-AI/pragmatic-orchestration) | MIT, Copyright (c) 2026 CodeAlive-AI |
+| `packages/server/starter-packs/codealive/` | [CodeAlive-AI/ai-driven-development](https://github.com/CodeAlive-AI/ai-driven-development), [CodeAlive-AI/pragmatic-orchestration](https://github.com/CodeAlive-AI/pragmatic-orchestration), [CodeAlive-AI/jj-agentic-workflow](https://github.com/CodeAlive-AI/jj-agentic-workflow) | MIT, Copyright (c) 2026 CodeAlive-AI; Copyright (c) 2026 Rodion Mostovoi |
 | `packages/server/starter-packs/ecc-essentials/` | [affaan-m/ECC](https://github.com/affaan-m/ECC) | MIT, Copyright (c) 2026 Affaan Mustafa |
 
 ## Dependencies

@@ -110,12 +110,22 @@ function envOrOpt(opt: string | undefined, envName: string): string | undefined 
   return nonEmpty(opt) ?? nonEmpty(process.env[envName]);
 }
 
-/** Resolve registry URL/token for commands (NOT health). */
-export function resolveRegistry(opts: {
+type RegistryAddress = {
+  url: string;
+  name: string | undefined;
+  explicitToken: string | undefined;
+  entry: RegistryEntry | undefined;
+};
+
+/**
+ * Shared address rule: the url from --url, SKILLFORGE_URL or the default entry, normalized;
+ * the explicit token; and the config entry with the same address (its tokens go only to that host).
+ */
+function resolveRegistryAddress(opts: {
   url?: string;
   token?: string;
   configPath?: string;
-}): ResolvedRegistry | null {
+}): RegistryAddress | null {
   const cfg = loadConfig(opts.configPath ?? defaultConfigPath());
   const defaultName = cfg.default;
   const defaultEntry = defaultName ? cfg.registries[defaultName] : undefined;
@@ -129,8 +139,24 @@ export function resolveRegistry(opts: {
 
   return {
     url: normalizedUrl,
-    token: explicitToken ?? match?.entry.token,
     name: match?.name ?? defaultName,
+    explicitToken,
+    entry: match?.entry,
+  };
+}
+
+/** Resolve registry URL/token for commands (NOT health). */
+export function resolveRegistry(opts: {
+  url?: string;
+  token?: string;
+  configPath?: string;
+}): ResolvedRegistry | null {
+  const resolved = resolveRegistryAddress(opts);
+  if (!resolved) return null;
+  return {
+    url: resolved.url,
+    token: resolved.explicitToken ?? resolved.entry?.token,
+    name: resolved.name,
   };
 }
 
@@ -143,21 +169,15 @@ export function resolveBridgeToken(opts: {
   token?: string;
   configPath?: string;
 }): ResolvedRegistry | null {
-  const cfg = loadConfig(opts.configPath ?? defaultConfigPath());
-  const defaultName = cfg.default;
-  const defaultEntry = defaultName ? cfg.registries[defaultName] : undefined;
-
-  const url = envOrOpt(opts.url, "SKILLFORGE_URL") ?? defaultEntry?.url;
-  if (!url || url.length === 0) return null;
-
-  const normalizedUrl = normalizeRegistryUrl(url);
-  const explicitToken = envOrOpt(opts.token, "SKILLFORGE_TOKEN");
-  const match = findEntryByUrl(cfg, normalizedUrl);
-
+  const resolved = resolveRegistryAddress(opts);
+  if (!resolved) return null;
   return {
-    url: normalizedUrl,
-    token: explicitToken ?? nonEmpty(match?.entry.mcp_token) ?? nonEmpty(match?.entry.token),
-    name: match?.name ?? defaultName,
+    url: resolved.url,
+    token:
+      resolved.explicitToken ??
+      nonEmpty(resolved.entry?.mcp_token) ??
+      nonEmpty(resolved.entry?.token),
+    name: resolved.name,
   };
 }
 

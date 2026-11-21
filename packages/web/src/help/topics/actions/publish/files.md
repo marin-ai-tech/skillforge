@@ -6,7 +6,7 @@ related: pages/publish
 
 ## What it does
 
-Stages files for the bundle with hard limits: 32 MiB total, 16 MiB per file, at most 1000 files. Paths are normalized and validated.
+Stages files for the bundle with hard limits: 64 MiB total, 16 MiB per file, at most 4000 files. Paths are normalized and validated.
 
 ## When to use
 

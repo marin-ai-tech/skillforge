@@ -2044,14 +2044,23 @@ export async function listNews(
   };
 }
 
-/** Marks the feed seen up to `at` (default: now; the server caps it at the newest visible item). */
-export async function markNewsSeen(at?: string): Promise<void> {
+/**
+ * Marks the feed seen up to `at` (default: now; the server caps it at the newest visible item). The answer carries the
+ * previous mark; a server without that field gives `previous_seen_at: null`.
+ */
+export async function markNewsSeen(at?: string): Promise<import("./types.ts").NewsSeenResponse> {
   const res = await fetch("/api/v1/news/seen", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(at ? { at } : {}),
   });
   if (!res.ok) throw await parseError(res, { redirect: false });
+  const body = (await res.json()) as Partial<import("./types.ts").NewsSeenResponse>;
+  return {
+    seen_at: body.seen_at ?? null,
+    previous_seen_at: body.previous_seen_at ?? null,
+    unread_count: body.unread_count ?? 0,
+  };
 }
 
 /** How often the news summary comes (news-delivery); the server default is weekly. */

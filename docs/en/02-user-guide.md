@@ -309,8 +309,8 @@ last visit, and **What's new** on Home shows the latest five.
 - Filters by kind and artifact type stay in the address, so a filtered feed can be bookmarked. Opening the page marks
   the feed seen; your own actions never count as new.
 - API: `GET /api/v1/news` (`kind`, `type`, `team`, `mine`, `drafts`, `since`, `unread`, `cursor`, `limit`; flags
-  take `true`; the answer has your `seen_at`), `POST /api/v1/news/seen`, `POST/GET/PATCH/DELETE
-  /api/v1/news/posts[/:id]`. Creating, changing and deleting a post is in the audit log.
+  take `true`/`1` or `false`/`0`, any other value is `400`; the answer has your `seen_at`), `POST /api/v1/news/seen`,
+  `POST/GET/PATCH/DELETE /api/v1/news/posts[/:id]`. Creating, changing and deleting a post is in the audit log.
 - **News summary** (`/me/notifications`, **News delivery**): off, daily or weekly (the default), at 09:00 server time
   (weekly on Mondays). It is the news of the past day or week you may see, without your own actions, as a
   notification and as the `news.summary` event for plugins your admin installed (for example, to send it by e-mail

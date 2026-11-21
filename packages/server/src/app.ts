@@ -96,6 +96,7 @@ import {
   createSafeErrorHandler,
   registerRedactSecrets,
 } from "./logging.ts";
+import { startBackgroundTask } from "./lib/background.ts";
 import { diagnosticsBundleRoutes } from "./routes/diagnostics-bundle.ts";
 import { registerOversizedBodyDrain } from "./body-drain.ts";
 
@@ -212,6 +213,9 @@ export async function buildApp(config: AppConfig) {
     /* best effort */
   }
 
+  // The server log exists before the first background task: their failures go there.
+  const logger = createLogger(config.dataDir);
+
   // Aging sweep at startup (after seed); hourly timer does not keep the process alive.
   // news: the same hourly pass removes automatic news older than a year (posts stay).
   const hourlySweep = () => {
@@ -219,21 +223,16 @@ export async function buildApp(config: AppConfig) {
     pruneAutomaticNews(db, new Date());
   };
   hourlySweep();
-  const sweepTimer = setInterval(
-    () => {
-      try {
-        hourlySweep();
-      } catch {
-        /* ignore sweep errors on timer */
-      }
-    },
-    60 * 60 * 1000,
-  );
-  if (typeof sweepTimer.unref === "function") sweepTimer.unref();
+  const sweepTask = startBackgroundTask({
+    task: "aging_sweep",
+    everyMs: 60 * 60 * 1000,
+    run: hourlySweep,
+    log: logger.error,
+  });
 
   ensureImportsRoot(config.dataDir);
   cleanupExpiredImports(config.dataDir);
-  const importCleanupTimer = startImportCleanupTimer(config.dataDir);
+  const importCleanupTask = startImportCleanupTimer(config.dataDir, logger.error);
 
   const app = Fastify({
     logger: false,
@@ -241,7 +240,6 @@ export async function buildApp(config: AppConfig) {
   });
   registerOversizedBodyDrain(app);
   await app.register(fastifyCookie);
-  const logger = createLogger(config.dataDir);
   registerRequestLogging(app, logger);
   app.setErrorHandler(createSafeErrorHandler(logger, { safeErrors: config.safeErrors }));
 
@@ -305,8 +303,8 @@ export async function buildApp(config: AppConfig) {
     newsDelivery.stop();
     stopBatchPump();
     stopRoutinesScheduler();
-    clearInterval(sweepTimer);
-    clearInterval(importCleanupTimer);
+    sweepTask.stop();
+    importCleanupTask.stop();
     try {
       db.close();
     } catch {
@@ -341,7 +339,7 @@ export async function buildApp(config: AppConfig) {
       await syncAllMirrors(db, config, logger.error, due);
       await checkAllSources(db, config, logger.error, due);
     },
-    { intervalHours: config.mirrorIntervalHours },
+    { intervalHours: config.mirrorIntervalHours, log: logger.error },
   );
   app.addHook("onClose", async () => sourceSchedule.stop());
   await app.register(assistantRoutes, { db, config });
@@ -448,9 +446,12 @@ export async function buildApp(config: AppConfig) {
   });
 
   if (config.orchestrationEnabled) {
-    startRoutinesScheduler(db, config.dataDir, { routinesDisabled: config.routinesDisabled });
+    startRoutinesScheduler(db, config.dataDir, {
+      routinesDisabled: config.routinesDisabled,
+      log: logger.error,
+    });
   }
-  startBatchPump(db, config);
+  startBatchPump(db, config, { log: logger.error });
   // provenance-ledger: an eval run in a terminal status writes a kind=eval record
   onRunFinished((runId) => {
     const run = db

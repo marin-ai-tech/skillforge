@@ -13,6 +13,7 @@ import { NewsPostForm } from "../components/NewsPostForm.tsx";
 import { useMe } from "../lib/auth.tsx";
 import { useNewsAudiences } from "../lib/news-audience.ts";
 import { FALLBACK_TYPE_IDS } from "../lib/artifact-types.ts";
+import { seenBoundaryIndex } from "../lib/news-boundary.ts";
 import { STR } from "../lib/strings.ts";
 import { locale } from "../i18n/index.ts";
 
@@ -28,24 +29,74 @@ type RowActions = { onEdit?: (item: NewsItem) => void; onDelete?: (item: NewsIte
 
 /**
  * Marks the feed seen once per visit, when `ready` (the unread count of this visit is known), and drops the header
- * count; the header reads it again when it is shown.
+ * count; the header reads it again when it is shown. Returns the reader's previous mark from the answer of this mark:
+ * null before the answer, when there was no mark, or when marking failed (then there is no boundary).
  */
-function useMarkSeen(ready: boolean) {
+function useMarkSeen(ready: boolean): string | null {
   const qc = useQueryClient();
   const done = useRef(false);
+  const [previous, setPrevious] = useState<string | null>(null);
   useEffect(() => {
     if (!ready || done.current) return;
     done.current = true;
     markNewsSeen()
-      .then(() => {
+      .then((answer) => {
+        setPrevious(answer.previous_seen_at);
         qc.setQueryData(["news-unread"], 0);
         return qc.invalidateQueries({ queryKey: ["news-unread"] });
       })
       .catch(() => undefined);
   }, [ready, qc]);
+  return previous;
 }
 
-function Filters({ kind, type }: { kind: string; type: string }) {
+/** «Only my artifacts»: a native checkbox with its label; the label makes the target at least 24×24 px. */
+function MineFilter({ mine, onChange }: { mine: boolean; onChange: (on: boolean) => void }) {
+  // The box follows the click at once; the address (mine=1) stays the source of truth: the router applies the
+  // address change asynchronously, and a box bound only to it is restored to the old state until then.
+  const [checked, setChecked] = useState(mine);
+  const [synced, setSynced] = useState(mine);
+  if (synced !== mine) {
+    setSynced(mine);
+    setChecked(mine);
+  }
+  return (
+    <div>
+      <label
+        htmlFor="news-filter-mine"
+        className="inline-flex min-h-6 min-w-6 cursor-pointer items-center gap-2 py-1.5 text-sm text-ink"
+      >
+        <HelpTip action="news-filter">
+          <input
+            id="news-filter-mine"
+            data-testid="news-filter-mine"
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => {
+              setChecked(e.target.checked);
+              onChange(e.target.checked);
+            }}
+            className="h-4 w-4"
+          />
+        </HelpTip>
+        {STR.news.mine}
+      </label>
+      <p className="text-xs text-muted">{STR.news.mineHint}</p>
+    </div>
+  );
+}
+
+function Filters({
+  kind,
+  type,
+  mine,
+  signedIn,
+}: {
+  kind: string;
+  type: string;
+  mine: boolean;
+  signedIn: boolean;
+}) {
   const [, setParams] = useSearchParams();
   const types = useQuery({
     queryKey: ["artifact-types"],
@@ -54,7 +105,7 @@ function Filters({ kind, type }: { kind: string; type: string }) {
   });
   const typeIds = types.data?.items.map((t) => t.id) ?? [...FALLBACK_TYPE_IDS];
   const postsOnly = kind === "post";
-  const update = (key: "kind" | "type", value: string) =>
+  const update = (key: "kind" | "type" | "mine", value: string) =>
     setParams((p) => {
       const next = new URLSearchParams(p);
       if (value) next.set(key, value);
@@ -113,6 +164,9 @@ function Filters({ kind, type }: { kind: string; type: string }) {
           </p>
         ) : null}
       </div>
+      {signedIn ? (
+        <MineFilter mine={mine} onChange={(on) => update("mine", on ? "1" : "")} />
+      ) : null}
     </fieldset>
   );
 }
@@ -255,12 +309,12 @@ function Feed({
   );
 }
 
-function useFeed(kind: string, type: string) {
+function useFeed(kind: string, type: string, mine: boolean) {
   return useInfiniteQuery<NewsListResponse>({
-    queryKey: ["news", "feed", kind, type],
+    queryKey: ["news", "feed", kind, type, mine],
     initialPageParam: "",
     queryFn: ({ pageParam }) =>
-      listNews({ kind, type, limit: PAGE_SIZE, cursor: (pageParam as string) || undefined }),
+      listNews({ kind, type, mine, limit: PAGE_SIZE, cursor: (pageParam as string) || undefined }),
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     retry: false,
   });
@@ -291,16 +345,6 @@ function More({ feed, onMore }: { feed: ReturnType<typeof useFeed>; onMore: () =
   );
 }
 
-/** Index of the last unread item: the first `unread` items not written by the reader (approximate by count). */
-function boundaryIndex(items: NewsItem[], unread: number, me: string): number | null {
-  let n = 0;
-  for (let i = 0; i < items.length; i++) {
-    if (items[i]!.actor !== me) n++;
-    if (n >= unread) return i < items.length - 1 ? i : null;
-  }
-  return null;
-}
-
 /** Pinned posts of the first page, and the feed items of all pages without them. */
 function split(pages: NewsListResponse[]): { pinned: NewsItem[]; items: NewsItem[] } {
   const first = pages[0]?.pinned ?? [];
@@ -312,20 +356,22 @@ function split(pages: NewsListResponse[]): { pinned: NewsItem[]; items: NewsItem
 function FeedBody({
   kind,
   type,
+  mine,
   me,
-  unreadBefore,
+  previousSeenAt,
   onReady,
   onEdit,
   onDelete,
 }: {
   kind: string;
   type: string;
+  mine: boolean;
   me: string;
-  unreadBefore: number | null;
+  previousSeenAt: string | null;
   onReady: (first: NewsListResponse | null) => void;
 } & RowActions) {
-  const feed = useFeed(kind, type);
-  const filtered = !!(kind || type);
+  const feed = useFeed(kind, type, mine);
+  const filtered = !!(kind || type || mine);
   const [focusId, setFocusId] = useState<string | null>(null);
   const clearFocus = useCallback(() => setFocusId(null), []);
   const { hash } = useLocation();
@@ -342,8 +388,8 @@ function FeedBody({
     document.getElementById(decodeURIComponent(hash.slice(1)))?.focus();
   }, [feed.data, hash]);
   const boundaryAfter = useMemo(
-    () => (filtered || !unreadBefore ? null : boundaryIndex(items, unreadBefore, me)),
-    [filtered, unreadBefore, items, me],
+    () => (filtered ? null : seenBoundaryIndex(items, previousSeenAt, me)),
+    [filtered, previousSeenAt, items, me],
   );
   if (feed.isPending) return <Loading />;
   if (feed.isError && !feed.data)
@@ -424,8 +470,8 @@ function useVisitUnread(signedIn: boolean) {
     setFeedReady(true);
     if (first) setUnreadBefore((u) => (u === null ? first.unread_count : u));
   }, []);
-  useMarkSeen(signedIn && (countKnownAtOpen || feedReady));
-  return { unreadBefore, feedReady, onReady };
+  const previousSeenAt = useMarkSeen(signedIn && (countKnownAtOpen || feedReady));
+  return { unreadBefore, feedReady, onReady, previousSeenAt };
 }
 
 function NewSince({ n, filtered }: { n: number | null; filtered: boolean }) {
@@ -512,14 +558,20 @@ function HeaderActions({ signedIn, newButton }: { signedIn: boolean; newButton: 
   );
 }
 
-export function News() {
+/** The filters from the address; «Only my artifacts» counts for a signed-in reader only. */
+function useNewsFilters(signedIn: boolean) {
   const [params] = useSearchParams();
   const kind = params.get("kind") ?? "";
   const type = params.get("type") ?? "";
-  const filtered = !!(kind || type);
+  const mine = signedIn && params.get("mine") === "1";
+  return { kind, type, mine, filtered: !!(kind || type || mine) };
+}
+
+export function News() {
   const qc = useQueryClient();
   const me = useMe();
   const user = me.data ?? null;
+  const { kind, type, mine, filtered } = useNewsFilters(!!user);
   const audiences = useNewsAudiences(user, STR.news.form.everyone);
   const canPost = (audiences.data?.length ?? 0) > 0;
   const [formOpen, setFormOpen] = useState(false);
@@ -529,7 +581,7 @@ export function News() {
   const [ask, setAsk] = useState<Ask | null>(null);
   const dirty = useRef(false);
   const newRef = useRef<HTMLButtonElement>(null);
-  const { unreadBefore, feedReady, onReady } = useVisitUnread(!!user);
+  const { unreadBefore, feedReady, onReady, previousSeenAt } = useVisitUnread(!!user);
   useEffect(() => {
     document.title = STR.news.documentTitle;
   }, []);
@@ -614,13 +666,14 @@ export function News() {
         />
       ) : null}
       <Drafts enabled={canPost && feedReady} {...actions} />
-      <Filters kind={kind} type={type} />
+      <Filters kind={kind} type={type} mine={mine} signedIn={!!user} />
       <FeedBody
-        key={`${kind}|${type}`}
+        key={`${kind}|${type}|${mine ? "mine" : ""}`}
         kind={kind}
         type={type}
+        mine={mine}
         me={user?.username ?? ""}
-        unreadBefore={unreadBefore}
+        previousSeenAt={previousSeenAt}
         onReady={onReady}
         {...actions}
       />

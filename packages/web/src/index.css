@@ -9,6 +9,7 @@
   --color-ink-2: var(--sf-ink-2);
   --color-muted: var(--sf-muted);
   --color-line: var(--sf-line);
+  --color-field-line: var(--sf-field-line);
   --color-accent: var(--sf-accent);
   --color-accent-soft: var(--sf-accent-soft);
   --color-st-candidate: var(--sf-st-candidate);
@@ -37,6 +38,16 @@
   --font-sans: var(--sf-font);
   --font-mono: var(--sf-mono);
   --radius-sf: var(--sf-radius);
+}
+
+@layer utilities {
+  :where(
+    input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]),
+    select,
+    textarea
+  ).border-line {
+    border-color: var(--color-field-line);
+  }
 }
 
 html,

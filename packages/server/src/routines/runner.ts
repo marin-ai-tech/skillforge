@@ -8,6 +8,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawnIsolated } from "@skillforge/core";
 import type { Database } from "../db.ts";
+import { startBackgroundTask, type BackgroundLog } from "../lib/background.ts";
 import { appendAudit } from "../repo.ts";
 import { recordRunOutputs } from "../runs/outputs.ts";
 import {
@@ -27,7 +28,7 @@ const ERROR_MAX = 500;
 
 type Job = { db: Database; dataDir: string; runId: number };
 const queue: Job[] = [];
-let timer: NodeJS.Timeout | null = null;
+let scheduler: { stop(): void } | null = null;
 let active = false;
 
 function nowIso(): string {
@@ -37,24 +38,23 @@ function nowIso(): string {
 export function startRoutinesScheduler(
   db: Database,
   dataDir: string,
-  opts: { routinesDisabled: boolean },
+  opts: { routinesDisabled: boolean; log?: BackgroundLog },
 ): void {
   stopRoutinesScheduler();
   // Kill switch: no scheduled fires at all; manual run-now (enqueueRun) still works.
   if (opts.routinesDisabled) return;
-  timer = setInterval(() => {
-    try {
-      tick(db, dataDir);
-    } catch {
-      /* a tick must never kill the server */
-    }
-  }, TICK_MS);
-  timer.unref();
+  // A failing tick goes to the server log and never kills the server.
+  scheduler = startBackgroundTask({
+    task: "routines",
+    everyMs: TICK_MS,
+    run: () => tick(db, dataDir),
+    log: opts.log,
+  });
 }
 
 export function stopRoutinesScheduler(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
+  scheduler?.stop();
+  scheduler = null;
 }
 
 /** Startup: runs interrupted by a previous process die as failed. */

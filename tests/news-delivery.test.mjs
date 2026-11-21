@@ -206,7 +206,7 @@ test("the summary: an empty period sends nothing; the news of the period by the 
   assert.equal((await summaryNotes("mia")).length, 1);
 });
 
-test("GET /api/v1/news: since, unread=true and the reader's seen_at; a flag other than true is 400", async () => {
+test("GET /api/v1/news: since, unread=true and the reader's seen_at; a flag value outside true/1/false/0 is 400", async () => {
   assert.equal((await api("POST", "/api/v1/news/seen", {}, "alice")).status, 200);
   const mark = (await api("GET", "/api/v1/news", undefined, "alice")).data.seen_at;
   assert.equal(typeof mark, "string", "seen_at after a visit");
@@ -218,7 +218,8 @@ test("GET /api/v1/news: since, unread=true and the reader's seen_at; a flag othe
   assert.equal(unread.status, 200, JSON.stringify(unread.data));
   assert.deepEqual(unread.data.items.map(label), ["new_artifact:grep"]);
   assert.equal(unread.data.seen_at, mark);
-  assert.equal((await api("GET", "/api/v1/news?unread=1", undefined, "alice")).status, 400);
+  // query-flags: `1` is yes as `true` (tests in packages/server/test/query-flags.test.ts); other values are 400.
+  assert.equal((await api("GET", "/api/v1/news?unread=yes", undefined, "alice")).status, 400);
   const since = await api("GET", `/api/v1/news?since=${encodeURIComponent(mark)}`, undefined, "dave");
   assert.deepEqual(since.data.items.map(label).sort(), ["new_artifact:grep", "new_version:pdf"]);
   assert.equal((await api("GET", "/api/v1/news?since=yesterday", undefined, "dave")).status, 400);

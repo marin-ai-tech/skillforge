@@ -1,4 +1,4 @@
-// Starter pack of twelve MIT-licensed CodeAlive-AI skills shipped with the server: attribution, validation, admin install.
+// Starter pack of eighteen MIT-licensed CodeAlive-AI skills shipped with the server: attribution, validation, admin install.
 // Requires `npm run build`.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -9,20 +9,30 @@ import { startServer, api, login, createUser, loadDir, toB64, ROOT, ADMIN_PASSWO
 
 const PACK_DIR = join(ROOT, "packages", "server", "starter-packs", "codealive");
 const EXPECTED = [
+  "agentic-readiness",
   "bug-fix-protocol",
   "code-that-fits-in-your-head",
   "coordinator-mode",
   "hooks-management",
   "investigating-repository-history",
+  "maintaining-vcs-hygiene",
+  "mcp-management",
   "plan-mode",
+  "plugins-management",
   "pragmatic-orchestration",
+  "pragmatic-verification",
   "prompt-engineering",
+  "repo-activity-summary",
   "settings-management",
   "skills-management",
   "ubiquitous-language",
   "ux-best-practices",
 ];
-const REPOS = ["CodeAlive-AI/ai-driven-development", "CodeAlive-AI/pragmatic-orchestration"];
+const REPOS = [
+  "CodeAlive-AI/ai-driven-development",
+  "CodeAlive-AI/pragmatic-orchestration",
+  "CodeAlive-AI/jj-agentic-workflow",
+];
 // U+0400..U+04FF, built from code points so that this file itself carries no Cyrillic letters
 const CYRILLIC = new RegExp(`[${String.fromCharCode(0x400)}-${String.fromCharCode(0x4ff)}]`);
 
@@ -56,6 +66,8 @@ test("pack contents, origin, license, attribution; the packs directory in the im
   assert.deepEqual(pack.artifacts.map((a) => a.name).sort(), EXPECTED);
   // pragmatic-orchestration ships remote-agents too; it is left out of the pack on purpose
   assert.ok(!pack.artifacts.some((a) => a.name === "remote-agents"), "remote-agents is not part of the pack");
+  // fpf-problem-solving (1779 files, 36.7 MB) does not fit the registry bundle limits and is left out
+  assert.ok(!pack.artifacts.some((a) => a.name === "fpf-problem-solving"), "fpf-problem-solving is not part of the pack");
   for (const r of pack.source_repositories) {
     assert.ok(REPOS.includes(r.repo), `unexpected repository ${r.repo}`);
     assert.match(r.commit, /^[0-9a-f]{40}$/);
@@ -115,7 +127,7 @@ test("pack list: admin only", async () => {
   assert.equal(r.status, 200, JSON.stringify(r.data));
   const item = r.data.items.find((i) => i.id === "codealive");
   assert.ok(item, JSON.stringify(r.data));
-  assert.equal(item.artifacts, 12);
+  assert.equal(item.artifacts, 18);
   assert.equal(item.installed, 0);
   assert.equal(item.license, "MIT");
   assert.equal((await api(base, "GET", "/api/v1/admin/starter-packs", undefined, { cookie: alice.cookie })).status, 403);
@@ -123,7 +135,7 @@ test("pack list: admin only", async () => {
   assert.equal((await api(base, "POST", "/api/v1/admin/starter-packs/codealive/install", {}, { cookie: alice.cookie })).status, 403);
 });
 
-test("install: twelve candidates with import provenance; repeat — exists with no new versions", async () => {
+test("install: eighteen candidates with import provenance; repeat — exists with no new versions", async () => {
   const r = await api(base, "POST", "/api/v1/admin/starter-packs/codealive/install", {}, { cookie: admin.cookie });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.deepEqual(r.data.results.map((x) => x.name).sort(), EXPECTED);
@@ -147,7 +159,7 @@ test("install: twelve candidates with import provenance; repeat — exists with 
   const card = await api(base, "GET", "/api/v1/artifacts/skill/plan-mode", undefined, { cookie: admin.cookie });
   assert.equal(card.data.versions.length, 1, "a repeated install creates no versions");
   const list = await api(base, "GET", "/api/v1/admin/starter-packs", undefined, { cookie: admin.cookie });
-  assert.equal(list.data.items.find((i) => i.id === "codealive").installed, 12);
+  assert.equal(list.data.items.find((i) => i.id === "codealive").installed, 18);
 });
 
 test("unknown pack and a path substitution in :id → 404", async () => {

@@ -7,9 +7,9 @@ export const codes = {
     "A file looks like a secret (.env, a private key, credentials): it would be handed to everyone who installs the artifact. Remove it, or rename a template to .env.example.",
   E_PATH_FORBIDDEN: "A path is inside .git/ or node_modules/, which are never allowed in a bundle.",
   E_PATH_DUPLICATE: "Two files resolve to the same relative path.",
-  E_BUNDLE_TOO_LARGE: "The total size of the files exceeds 32 MiB.",
+  E_BUNDLE_TOO_LARGE: "The total size of the files exceeds 64 MiB.",
   E_FILE_TOO_LARGE: "A single file exceeds 16 MiB.",
-  E_TOO_MANY_FILES: "The bundle contains more than 1000 files.",
+  E_TOO_MANY_FILES: "The bundle contains more than 4000 files.",
   E_FRONTMATTER_INVALID: "The frontmatter could not be parsed.",
   E_FRONTMATTER_MISSING: "The required frontmatter block is missing.",
   E_NAME_INVALID:

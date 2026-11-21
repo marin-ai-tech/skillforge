@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { Database } from "../db.ts";
 import { requireUser } from "../auth/guard.ts";
+import { parseQueryFlag } from "../lib/query-flag.ts";
 import { getArtifactById } from "../repo.ts";
 import { canView } from "../visibility/index.ts";
 import { preferenceEnabled, visibleUnreadCount } from "../notifications/notify.ts";
@@ -86,14 +87,16 @@ export const notificationsRoutes: FastifyPluginAsync<{ db: Database }> = async (
       if (!requireUser(request, reply)) return;
       const { username, role } = request.user;
       const q = request.query;
+      const unread = parseQueryFlag(q.unread);
+      if (unread === null) return reply.code(400).send({ error: "bad_request" });
       const limit = Math.min(200, Math.max(1, Number(q.limit) || 50));
       const rows = db
         .prepare(
           `SELECT * FROM notifications WHERE username = ?
-        AND (? <> '1' OR read_at IS NULL)
+        AND (? = 0 OR read_at IS NULL)
         ORDER BY created_at DESC, rowid DESC`,
         )
-        .all(username, q.unread ?? "0") as Row[];
+        .all(username, unread ? 1 : 0) as Row[];
       const visible = rows.filter((n) => {
         if (!n.artifact_id) return true;
         const a = getArtifactById(db, n.artifact_id);

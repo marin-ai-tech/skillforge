@@ -8,6 +8,12 @@ import semver from "semver";
 import type { Database } from "../db.ts";
 import type { AppConfig } from "../config.ts";
 import { appendAudit } from "../repo.ts";
+import {
+  backgroundErrorReporter,
+  startBackgroundTask,
+  type BackgroundErrorReporter,
+  type BackgroundLog,
+} from "../lib/background.ts";
 import { loadRunnersFile } from "./runner.ts";
 import { enqueueRun, onRunFinished } from "./runs.ts";
 
@@ -196,19 +202,26 @@ export function createBatch(
 
 type BatchCtx = { db: Database; config: AppConfig; dataDir: string };
 let ctx: BatchCtx | null = null;
-let timer: NodeJS.Timeout | null = null;
+let pump: { stop(): void } | null = null;
+// Every pass of the pump (timer or setImmediate) reports to this one reporter: one log line per error in a row.
+let reporter: BackgroundErrorReporter = backgroundErrorReporter("eval_batches");
 
-export function startBatchPump(db: Database, config: AppConfig): void {
+export function startBatchPump(
+  db: Database,
+  config: AppConfig,
+  opts: { log?: BackgroundLog } = {},
+): void {
   ctx = { db, config, dataDir: config.dataDir };
   stopBatchPumpTimer();
-  timer = setInterval(pumpBatches, TICK_MS);
-  timer.unref();
+  reporter = backgroundErrorReporter("eval_batches", opts.log);
+  // pumpBatches reports its own failures to the reporter above, so the task itself never sees a throw.
+  pump = startBackgroundTask({ task: "eval_batches", everyMs: TICK_MS, run: pumpBatches });
   onRunFinished(() => setImmediate(pumpBatches));
 }
 
 function stopBatchPumpTimer(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
+  pump?.stop();
+  pump = null;
 }
 
 export function stopBatchPump(): void {
@@ -351,7 +364,9 @@ export function pumpBatches(): void {
       .prepare("SELECT * FROM eval_batches WHERE status IN ('queued','running') ORDER BY id")
       .all() as unknown as BatchRow[];
     for (const b of rows) pumpOne(db, config, b);
-  } catch {
-    /* a pump tick must never kill the server */
+    reporter.ok();
+  } catch (e) {
+    // a pump tick must never kill the server; the failure goes to the server log
+    reporter.failed(e);
   }
 }

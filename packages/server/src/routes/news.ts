@@ -5,6 +5,7 @@ import { isArtifactType } from "@skillforge/core";
 import type { AppConfig } from "../config.ts";
 import type { Database } from "../db.ts";
 import { requireUser } from "../auth/guard.ts";
+import { parseQueryFlag } from "../lib/query-flag.ts";
 import type { Viewer } from "../visibility/index.ts";
 import { isNewsKind, type NewsKind } from "../news/rules.ts";
 import { requestAnnounce } from "../news/announce-trigger.ts";
@@ -75,12 +76,6 @@ function parseSince(raw: string | undefined): string | null | false {
   return /^\d{4}-\d{2}-\d{2}/.test(raw) && Number.isFinite(t) ? new Date(t).toISOString() : false;
 }
 
-/** news-delivery: `unread` — only `true`; `1` and the like are refused. */
-function parseUnread(raw: string | undefined): boolean | null {
-  if (raw === undefined) return false;
-  return raw === "true" ? true : null;
-}
-
 /** Query string → typed query; null on any malformed parameter. */
 export function parseFeedQuery(q: FeedParams): FeedQuery | null {
   const limit = parseLimit(q.limit);
@@ -88,9 +83,11 @@ export function parseFeedQuery(q: FeedParams): FeedQuery | null {
   const type = parseType(q.type);
   const cursor = parseCursor(q.cursor);
   const since = parseSince(q.since);
-  const unread = parseUnread(q.unread);
+  const unread = parseQueryFlag(q.unread);
+  const mine = parseQueryFlag(q.mine);
+  const drafts = parseQueryFlag(q.drafts);
   if (limit === null || kinds === false || type === false || cursor === false) return null;
-  if (since === false || unread === null) return null;
+  if (since === false || unread === null || mine === null || drafts === null) return null;
   return {
     since,
     unread,
@@ -99,8 +96,8 @@ export function parseFeedQuery(q: FeedParams): FeedQuery | null {
     kinds,
     type,
     team: q.team ? q.team : null,
-    mine: q.mine === "true",
-    drafts: q.drafts === "true",
+    mine,
+    drafts,
   };
 }
 
@@ -173,8 +170,12 @@ export const newsRoutes: FastifyPluginAsync<NewsRoutesOpts> = async (app, { db, 
     const at = parseSeenAt(request.body);
     if (at === false) return reply.code(400).send({ error: "bad_request" });
     const now = new Date().toISOString();
-    const seenAt = markSeen(db, viewerOf(request)!, at, now);
-    return reply.send({ seen_at: seenAt, unread_count: unreadCount(db, viewerOf(request), now) });
+    const mark = markSeen(db, viewerOf(request)!, at, now);
+    return reply.send({
+      seen_at: mark.seen_at,
+      previous_seen_at: mark.previous_seen_at,
+      unread_count: unreadCount(db, viewerOf(request), now),
+    });
   });
 
   app.post("/api/v1/news/posts", async (request, reply) => {

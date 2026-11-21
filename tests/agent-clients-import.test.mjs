@@ -78,7 +78,13 @@ before(async () => {
   }
   const tok = await call("alice", "POST", "/api/v1/me/tokens", { name: "cli" });
   assert.equal(tok.status, 201);
-  writeFileSync(join(work, "config.json"), JSON.stringify({ registries: { local: { url: base, token: tok.data.token } }, default: "local" }));
+  // The CLI config as a person gets it: through `skillforge login`, which also stores the signing key id, so install
+  // goes the same way as after a real login (a hand-written config skipped that branch).
+  const signIn = sf(["login", "--url", base, "--token", tok.data.token], work);
+  assert.equal(signIn.code, 0, signIn.out + signIn.err);
+  const config = JSON.parse(readFileSync(join(work, "config.json"), "utf8"));
+  const entry = Object.values(config.registries).find((r) => r.url === base);
+  assert.ok(entry?.signing_key_id, `login stores the signing key id: ${JSON.stringify(config)}`);
 
   await publishActive({ type: "skill", files: toB64(loadDir(join(FIXTURES, "skill-standard"))) }, "skill", "pdf-tools");
   const cmd = `---\ndescription: Summarizes the given file for a changelog entry.\nargument-hint: <file>\n---\n\nSummarize $ARGUMENTS in one line for the changelog.\n`;

@@ -13,7 +13,7 @@ related: getting-started/upload-artifacts, getting-started/artifact-types, actio
 
 ## What this page is for
 
-Publish is the UI for `POST /api/v1/artifacts`. Contributors upload or paste a package, validate it, and create a new immutable semver with a content digest. New artifacts start in **candidate** status for reviewer endorsement. Validation emits Blocking `E_*` and Warning `W_*` codes with help links. Hard limits: 32 MiB total, 16 MiB per file, at most 1000 files; names 1-64 characters of `a-z0-9-`; descriptions at most 1024 characters. Omitting version auto-assigns `0.1.0` or patch+1. Conflicts `version_exists` and `digest_exists` leave prior versions untouched. Provenance source must be one of human, reckon, agentspace, dreamteam, import, agent or harvest.
+Publish is the UI for `POST /api/v1/artifacts`. Contributors upload or paste a package, validate it, and create a new immutable semver with a content digest. New artifacts start in **candidate** status for reviewer endorsement. Validation emits Blocking `E_*` and Warning `W_*` codes with help links. Hard limits: 64 MiB total, 16 MiB per file, at most 4000 files; names 1-64 characters of `a-z0-9-`; descriptions at most 1024 characters. Omitting version auto-assigns `0.1.0` or patch+1. Conflicts `version_exists` and `digest_exists` leave prior versions untouched. Provenance source must be one of human, reckon, agentspace, dreamteam, import, agent or harvest.
 
 ## What you see
 

@@ -59,7 +59,7 @@ skillforge validate .claude/skills/my-skill --type skill
 skillforge publish .claude/skills/my-skill --type skill --version 0.1.0 --changelog "First version"
 ```
 
-A single publish may hold at most 1000 files and 32 MiB in total, and 16 MiB per file.
+A single publish may hold at most 4000 files and 64 MiB in total, and 16 MiB per file.
 
 ## After the upload
 

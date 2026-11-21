@@ -51,7 +51,7 @@ A project rule: one markdown file `rules/<name>.md` with frontmatter `name`, `de
 
 ## Choosing
 
-Use skill for reusable procedures, command for slash-style prompts, agent for system-prompt personas, hook for pre/mid/post verification, plugin for a full Claude Code plugin bundle, settings for company baselines applied with the CLI, and mcp-server for an approved MCP server people configure in their agents. Skills, commands and agents install into every supported agent ([Agent support](getting-started/agent-support) shows which types each one accepts); hooks, plugins and settings profiles are Claude Code features. Types are filtered on Home counts and Catalog tabs. In Claude Code, marketplace distribution maps every type except settings and mcp-server to plugin folders. Bundle limits still apply to every type: 32 MiB total, 16 MiB per file, at most 1000 files.
+Use skill for reusable procedures, command for slash-style prompts, agent for system-prompt personas, hook for pre/mid/post verification, plugin for a full Claude Code plugin bundle, settings for company baselines applied with the CLI, and mcp-server for an approved MCP server people configure in their agents. Skills, commands and agents install into every supported agent ([Agent support](getting-started/agent-support) shows which types each one accepts); hooks, plugins and settings profiles are Claude Code features. Types are filtered on Home counts and Catalog tabs. In Claude Code, marketplace distribution maps every type except settings and mcp-server to plugin folders. Bundle limits still apply to every type: 64 MiB total, 16 MiB per file, at most 4000 files.
 
 ## Quality score
 

@@ -37,7 +37,8 @@ function parseLabels(v: unknown): BadgeLabels {
 }
 
 const ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const TONES = new Set<string>(["ok", "info", "warn", "danger"]);
+export const BADGE_TONES = ["ok", "info", "warn", "danger"] as const;
+const TONES = new Set<string>(BADGE_TONES);
 
 export function parseBadge(v: unknown): BadgeInput {
   const o = (v ?? {}) as Record<string, unknown>;

@@ -58,6 +58,8 @@ export const news = {
   loadingLabel: "Loading news",
   moreRetry: "Try again",
   typeDisabledHint: "Posts have no artifact type.",
+  mine: "Only my artifacts",
+  mineHint: "News about artifacts you own, co-author or watch",
   /** How many items are new since the last visit (count taken before the feed is marked seen). */
   newSince: (n: number) => `${n} new since your last visit`,
   seenBoundary: "Earlier — already seen",

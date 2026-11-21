@@ -82,8 +82,8 @@ The canonical formats follow Claude Code plugins and the agentskills.io skill fo
 | `rule` | one `<name>.md` with frontmatter (optional `paths`) | `rules/<name>.md` | Claude Code, Cursor and OpenCode; not the marketplace |
 
 The author's frontmatter is never rewritten: the digest covers exactly what was published. Registry metadata (status,
-provenance, evidence, counters) lives in the database. Bundle limits: 32 MiB in total, 16 MiB per file, at most
-1000 files.
+provenance, evidence, counters) lives in the database. Bundle limits: 64 MiB in total, 16 MiB per file, at most
+4000 files.
 
 ## Storage and integrity
 

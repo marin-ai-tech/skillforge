@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { startBackgroundTask, type BackgroundLog } from "../lib/background.ts";
 import type { MaterializedFile } from "./sources.ts";
 
 export type ImportMeta = {
@@ -130,17 +131,13 @@ export function ensureImportsRoot(dataDir: string): void {
   fs.mkdirSync(importsRoot(dataDir), { recursive: true });
 }
 
-export function startImportCleanupTimer(dataDir: string): NodeJS.Timeout {
-  const timer = setInterval(
-    () => {
-      try {
-        cleanupExpiredImports(dataDir);
-      } catch {
-        /* ignore */
-      }
+export function startImportCleanupTimer(dataDir: string, log?: BackgroundLog): { stop(): void } {
+  return startBackgroundTask({
+    task: "import_cleanup",
+    everyMs: 5 * 60 * 1000,
+    run: () => {
+      cleanupExpiredImports(dataDir);
     },
-    5 * 60 * 1000,
-  );
-  if (typeof timer.unref === "function") timer.unref();
-  return timer;
+    log,
+  });
 }

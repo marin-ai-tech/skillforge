@@ -2,15 +2,18 @@
 // config file (the MCP inventory then reports a literal secret). They name the variable and how to remove an old entry.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/client.mjs";
 
 const HELP = join(ROOT, "packages", "web", "src", "help");
+// The second-language topics live only in the lang-local tree; the public tree checks the English ones.
 const FILES = [
-  ...["topics", "topics-ru"].flatMap((dir) =>
-    ["getting-started/mcp.md", "pages/tokens.md", "actions/tokens/mcp-snippet.md"].map((t) => join(HELP, dir, t)),
-  ),
+  ...["topics", "topics-ru"]
+    .filter((dir) => existsSync(join(HELP, dir)))
+    .flatMap((dir) =>
+      ["getting-started/mcp.md", "pages/tokens.md", "actions/tokens/mcp-snippet.md"].map((t) => join(HELP, dir, t)),
+    ),
   join(ROOT, "docs", "en", "13-mcp.md"),
 ];
 // Any value after "Bearer" except a variable reference: <token>, <MCP token>, a real token.

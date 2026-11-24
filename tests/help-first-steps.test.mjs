@@ -4,11 +4,13 @@
 // workarounds of 0.5 (SKILLFORGE_CONFIG per session, publishing a pack by raw POST, agent publish as a snapshot).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./lib/client.mjs";
 
 const HELP = join(ROOT, "packages", "web", "src", "help");
+// The second-language topics live only in the lang-local tree; the public tree checks the English topic.
+const LANGS = existsSync(join(HELP, "topics-ru")) ? ["en", "ru"] : ["en"];
 const topic = (lang) =>
   readFileSync(join(HELP, lang === "en" ? "topics" : "topics-ru", "getting-started", "first-steps.md"), "utf8");
 // The RU sign of success as unicode escapes: the public tree keeps test sources free of Cyrillic.
@@ -23,7 +25,7 @@ function steps(text) {
     .filter((s) => /^\d+\.\s/.test(s.head));
 }
 
-for (const lang of ["en", "ru"]) {
+for (const lang of LANGS) {
   test(`${lang}: eleven numbered steps, each with a sign of success and a link; the last is a checklist`, () => {
     const s = steps(topic(lang));
     assert.deepEqual(

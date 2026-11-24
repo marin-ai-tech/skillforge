@@ -3,6 +3,11 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.6.1 — 2026-11-24
+
+### Fixed
+- The tests of the public source tree no longer read the second-language help, which that tree does not contain; the 0.6.0 release build on GitHub stopped on them. No change in the product: 0.6.1 is 0.6.0 with this fix.
+
 ## 0.6.0 — 2026-11-24
 
 ### Added

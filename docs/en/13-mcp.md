@@ -129,17 +129,17 @@ the bridge then prints the command above. It exits with code 3 without a URL and
 claude mcp add skillforge -- skillforge mcp                                   # recommended
 claude mcp remove skillforge      # an entry from the former HTTP command kept the token in ~/.claude.json
 
-# Codex: the token never appears on the command line
-codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN
+# Codex: the token never appears on the command line; config.toml keeps only the variable name
+codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_MCP_TOKEN
 codex mcp add skillforge --env SKILLFORGE_URL=<server> -- skillforge mcp      # recommended
 
-# OpenCode
-opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer <token>"
+# OpenCode: expands {env:SKILLFORGE_MCP_TOKEN} at start; running the command again replaces a former entry
+opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer {env:SKILLFORGE_MCP_TOKEN}"
 opencode mcp add skillforge -- skillforge mcp
 
-# Qwen Code (user scope)
-qwen mcp add -s user -t http -H "Authorization: Bearer <token>" skillforge <server>/mcp
+# Qwen Code (user scope): HTTP is a ~/.qwen/settings.json block (below)
 qwen mcp add -s user skillforge skillforge mcp
+qwen mcp remove -s user skillforge   # an entry from the former HTTP command kept the token in ~/.qwen/settings.json
 ```
 
 For Claude Code over HTTP, put this block into the project `.mcp.json` and set `SKILLFORGE_MCP_TOKEN` to the MCP
@@ -151,8 +151,24 @@ keeps only the variable name. The former `claude mcp add --transport http` comma
 {"mcpServers":{"skillforge":{"type":"http","url":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
 ```
 
-For Codex over HTTP, set `SKILLFORGE_TOKEN=<token>` (the MCP token) in the environment Codex starts from. Cursor is
-configured in the user-level `~/.cursor/mcp.json`; the stdio entry keeps the token out of the file:
+Every other HTTP entry names the same variable in its client's syntax, and the client expands it at start: set
+`SKILLFORGE_MCP_TOKEN` to the MCP token in the environment Codex, OpenCode, Qwen Code or Cursor starts from. Codex
+reads it with `--bearer-token-env-var SKILLFORGE_MCP_TOKEN`; an entry made by the former command reads another
+variable, so run the command again. Qwen Code gets a block for `mcpServers` in the user-level
+`~/.qwen/settings.json`, not a command, because bash and PowerShell would expand the variable before Qwen Code saves
+it:
+
+```json
+{"mcpServers":{"skillforge":{"httpUrl":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
+```
+
+Cursor is configured in the user-level `~/.cursor/mcp.json`. Its HTTP entry names `${env:SKILLFORGE_MCP_TOKEN}`;
+an entry with the token itself in the header should get the variable instead. The stdio entry keeps the token out of
+the file:
+
+```json
+{"mcpServers":{"skillforge":{"url":"<server>/mcp","headers":{"Authorization":"Bearer ${env:SKILLFORGE_MCP_TOKEN}"}}}}
+```
 
 ```json
 {"mcpServers":{"skillforge":{"command":"skillforge","args":["mcp"]}}}

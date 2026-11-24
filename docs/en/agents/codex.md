@@ -103,11 +103,12 @@ regular login stays), and pass the server address with `--env SKILLFORGE_URL`:
 codex mcp add skillforge --env SKILLFORGE_URL=<server> -- skillforge mcp
 ```
 
-Over HTTP, the entry reads the token from an environment variable. Set `SKILLFORGE_TOKEN=<token>` (the MCP token) in
-the environment Codex starts from:
+Over HTTP, the entry reads the token from an environment variable. Set `SKILLFORGE_MCP_TOKEN` to the MCP token in the
+environment Codex starts from; `config.toml` keeps only the variable name. `SKILLFORGE_TOKEN` is not used: the CLI reads
+it as its regular token. An entry made by the former command reads that variable, so run the command again:
 
 ```bash
-codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN
+codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_MCP_TOKEN
 ```
 
 ## Scan the agent folder

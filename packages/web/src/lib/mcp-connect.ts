@@ -54,13 +54,15 @@ function stdioNote(base: string): string {
 }
 
 /**
- * Commands that connect `client` to the SkillForge MCP endpoint at `baseUrl` with `token`.
+ * Commands that connect `client` to the SkillForge MCP endpoint at `baseUrl`; the MCP token itself goes into the
+ * SKILLFORGE_MCP_TOKEN environment variable, never into a snippet or a client config file.
  * Throws on an unknown client or on input that is unsafe to put into a shell command.
  */
 export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): McpConnectSnippets {
   if (!isMcpClient(client)) throw new Error("mcp-connect: unknown client");
   const base = safeBaseUrl(input?.baseUrl);
-  const token = safeToken(input?.token);
+  // The token is checked but never written into a snippet: every client reads it from SKILLFORGE_MCP_TOKEN.
+  safeToken(input?.token);
   const url = `${base}/mcp`;
   const STDIO_NOTE = stdioNote(base);
   switch (client) {
@@ -90,10 +92,11 @@ export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): M
       };
     case "codex":
       return {
-        http: `codex mcp add skillforge --url ${url} --bearer-token-env-var SKILLFORGE_TOKEN`,
+        http: `codex mcp add skillforge --url ${url} --bearer-token-env-var SKILLFORGE_MCP_TOKEN`,
         stdio: `codex mcp add skillforge --env SKILLFORGE_URL=${base} -- skillforge mcp`,
         notes: [
-          "Set SKILLFORGE_TOKEN=<token> in the environment Codex starts from",
+          "Set SKILLFORGE_MCP_TOKEN to the MCP token in the environment Codex starts from; config.toml keeps only the variable name.",
+          "An entry made by the former command reads another variable: run the command again to replace it.",
           `Recommended: stdio. Save the MCP token with ${mcpTokenSaveCommand(base)}; the server URL is passed with --env SKILLFORGE_URL.`,
         ],
       };
@@ -102,7 +105,7 @@ export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): M
         http: JSON.stringify(
           {
             mcpServers: {
-              skillforge: { url, headers: { Authorization: `Bearer ${token}` } },
+              skillforge: { url, headers: { Authorization: "Bearer ${env:SKILLFORGE_MCP_TOKEN}" } },
             },
           },
           null,
@@ -114,22 +117,43 @@ export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): M
           2,
         ),
         notes: [
-          "Add this JSON to your user-level ~/.cursor/mcp.json.",
-          "Do not commit a token: keep it out of the project .cursor/mcp.json",
+          "Add this JSON to your user-level ~/.cursor/mcp.json and set SKILLFORGE_MCP_TOKEN to the MCP token in the environment Cursor starts from; the file keeps only the variable name.",
+          "An entry with the token itself in the Authorization header: replace the token with ${env:SKILLFORGE_MCP_TOKEN}.",
           `Recommended: stdio, with no token in the file. ${STDIO_NOTE}`,
         ],
       };
     case "opencode":
+      // OpenCode expands {env:NAME} in its config at start; no shell (bash, PowerShell, cmd.exe) touches {env:...}.
       return {
-        http: `opencode mcp add skillforge --url ${url} --header "Authorization=Bearer ${token}"`,
+        http: `opencode mcp add skillforge --url ${url} --header "Authorization=Bearer {env:SKILLFORGE_MCP_TOKEN}"`,
         stdio: "opencode mcp add skillforge -- skillforge mcp",
-        notes: [STDIO_NOTE],
+        notes: [
+          "Set SKILLFORGE_MCP_TOKEN to the MCP token in the environment OpenCode starts from; the config keeps only the variable name.",
+          "An entry made by the former command keeps the token in the OpenCode config: running this command again replaces it.",
+          STDIO_NOTE,
+        ],
       };
     case "qwen":
+      // A block, not a command: bash and PowerShell expand $VAR inside double quotes before Qwen Code saves it.
       return {
-        http: `qwen mcp add -s user -t http -H "Authorization: Bearer ${token}" skillforge ${url}`,
+        http: JSON.stringify(
+          {
+            mcpServers: {
+              skillforge: {
+                httpUrl: url,
+                headers: { Authorization: "Bearer ${SKILLFORGE_MCP_TOKEN}" },
+              },
+            },
+          },
+          null,
+          2,
+        ),
         stdio: "qwen mcp add -s user skillforge skillforge mcp",
-        notes: [STDIO_NOTE],
+        notes: [
+          "Add this block to mcpServers in your user-level ~/.qwen/settings.json and set SKILLFORGE_MCP_TOKEN to the MCP token in the environment Qwen Code starts from; the file keeps only the variable name.",
+          "An entry made by the former qwen mcp add command keeps the token in ~/.qwen/settings.json: remove it first with qwen mcp remove -s user skillforge",
+          STDIO_NOTE,
+        ],
       };
   }
 }

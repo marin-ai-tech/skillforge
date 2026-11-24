@@ -62,15 +62,23 @@ stderr.
 
 ## Connect Qwen Code over MCP
 
-Create an MCP-enabled token on `/me/tokens` and pick Qwen Code in the client switch. Both commands add the server in
-the user scope (`-s user`):
+Create an MCP-enabled token on `/me/tokens` and pick Qwen Code in the client switch. Over HTTP, add this block to
+`mcpServers` in the user-level `~/.qwen/settings.json` and set `SKILLFORGE_MCP_TOKEN` to the MCP token in the
+environment Qwen Code starts from; Qwen Code expands the variable at start, so the file keeps only its name. It is a
+block, not a command: bash and PowerShell would expand the variable before Qwen Code saves it.
+
+```json
+{"mcpServers":{"skillforge":{"httpUrl":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
+```
+
+An entry made by the former `qwen mcp add -t http` command keeps the token in `~/.qwen/settings.json`: remove it
+first with `qwen mcp remove -s user skillforge`. Over stdio, in the user scope (`-s user`):
 
 ```bash
-qwen mcp add -s user -t http -H "Authorization: Bearer <token>" skillforge <server>/mcp
 qwen mcp add -s user skillforge skillforge mcp
 ```
 
-The second command runs the `skillforge mcp` stdio bridge, which uses the MCP token saved once with
+The command runs the `skillforge mcp` stdio bridge, which uses the MCP token saved once with
 `skillforge login --url <server> --mcp-token-stdin`.
 
 ## Scan the agent folder

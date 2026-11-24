@@ -75,21 +75,21 @@ and pick Cursor in the client switch. The recommended entry is stdio, which keep
 }
 ```
 
-The HTTP entry puts the token into the file:
+The HTTP entry names the `SKILLFORGE_MCP_TOKEN` variable, which Cursor expands at start; set it to the MCP token
+in the environment Cursor starts from, and the file keeps only the variable name:
 
 ```json
 {
   "mcpServers": {
     "skillforge": {
       "url": "<server>/mcp",
-      "headers": { "Authorization": "Bearer <token>" }
+      "headers": { "Authorization": "Bearer ${env:SKILLFORGE_MCP_TOKEN}" }
     }
   }
 }
 ```
 
-> [!CAUTION]
-> Do not commit a token: keep it out of the project `.cursor/mcp.json`.
+An entry with the token itself in the `Authorization` header: replace the token with `${env:SKILLFORGE_MCP_TOKEN}`.
 
 ## Scan the agent folder
 

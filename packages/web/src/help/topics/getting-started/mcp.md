@@ -67,7 +67,7 @@ Only artifacts in status `active` are visible, matching `marketplace.json`. Cand
 
 ## Connecting over HTTP and stdio
 
-After you create an MCP-enabled token, the tokens page shows two snippets: one for Streamable HTTP and one for the `skillforge mcp` stdio bridge. HTTP is the main way: the command carries the MCP token and needs nothing else; for Claude Code the HTTP snippet is a project `.mcp.json` block whose header names the `SKILLFORGE_MCP_TOKEN` variable, so no file keeps the token. The bridge keeps the token out of the agent's configuration: it uses the MCP token that the CLI keeps next to your regular login. Save it once with `skillforge login --url <server> --mcp-token-stdin`, which reads the first line of stdin (paste the token and press Enter, or pipe it from the clipboard) and checks it against `/mcp`; a token without MCP consent is refused with `mcp_not_allowed` and nothing is saved. The bridge sends `--token`, then `SKILLFORGE_TOKEN`, then the saved MCP token, then the regular one; a regular token gets `403 mcp_not_allowed`, and the bridge prints the command to save the MCP token. A client switch above them picks the client (Claude Code by default); your choice is remembered in the browser. [Agent support](getting-started/agent-support) shows the connect method of every runtime; any other MCP client connects over HTTP `<server>/mcp` with `Authorization: Bearer`.
+After you create an MCP-enabled token, the tokens page shows two snippets: one for Streamable HTTP and one for the `skillforge mcp` stdio bridge. HTTP is the main way: every HTTP snippet names the `SKILLFORGE_MCP_TOKEN` environment variable in the client's own syntax, and the client expands it at start, so no file keeps the token. For Claude Code, Cursor and Qwen Code the HTTP snippet is a JSON block for the client's config file; for Codex and OpenCode it is a command. The bridge keeps the token out of the agent's configuration: it uses the MCP token that the CLI keeps next to your regular login. Save it once with `skillforge login --url <server> --mcp-token-stdin`, which reads the first line of stdin (paste the token and press Enter, or pipe it from the clipboard) and checks it against `/mcp`; a token without MCP consent is refused with `mcp_not_allowed` and nothing is saved. The bridge sends `--token`, then `SKILLFORGE_TOKEN`, then the saved MCP token, then the regular one; a regular token gets `403 mcp_not_allowed`, and the bridge prints the command to save the MCP token. A client switch above them picks the client (Claude Code by default); your choice is remembered in the browser. [Agent support](getting-started/agent-support) shows the connect method of every runtime; any other MCP client connects over HTTP `<server>/mcp` with `Authorization: Bearer`.
 
 Claude Code:
 
@@ -75,31 +75,27 @@ Claude Code:
 - stdio (recommended): `claude mcp add skillforge -- skillforge mcp`; on Windows, if `claude mcp list` shows the server as failed, add it as `claude mcp add skillforge -- cmd /c skillforge mcp` (the npm `skillforge` command is a `.cmd` wrapper there)
 - An entry made by the former `claude mcp add --transport http` command keeps the token in `~/.claude.json` in plain text: remove it with `claude mcp remove skillforge` and connect again.
 
-Codex never takes the token on its command line, because it does not accept custom headers. The HTTP entry reads the token from an environment variable: set `SKILLFORGE_TOKEN=<token>` in the environment Codex starts from. The recommended option for Codex is stdio: the bridge uses the saved MCP token and the server URL is passed with `--env SKILLFORGE_URL`.
+Codex never takes the token on its command line, because it does not accept custom headers. The HTTP entry reads the token from an environment variable: set `SKILLFORGE_MCP_TOKEN` to the MCP token in the environment Codex starts from; `config.toml` keeps only the variable name. An entry made by the former command reads another variable: run the command again to replace it. The recommended option for Codex is stdio: the bridge uses the saved MCP token and the server URL is passed with `--env SKILLFORGE_URL`.
 
-- HTTP: `codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN`
+- HTTP: `codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_MCP_TOKEN`
 - stdio (recommended): `codex mcp add skillforge --env SKILLFORGE_URL=<server> -- skillforge mcp`
 
-Cursor is configured with JSON in the user-level `~/.cursor/mcp.json`. The stdio entry (recommended) keeps the token out of the file entirely.
+Cursor is configured with JSON in the user-level `~/.cursor/mcp.json`. The HTTP entry names `${env:SKILLFORGE_MCP_TOKEN}`, which Cursor expands at start: set the variable to the MCP token in the environment Cursor starts from. An entry with the token itself in the `Authorization` header: replace the token with `${env:SKILLFORGE_MCP_TOKEN}`. The stdio entry (recommended) keeps the token out of the file entirely.
 
-> [!CAUTION]
-> Do not commit a token: keep it out of the project `.cursor/mcp.json`.
-
-- HTTP: `{"mcpServers":{"skillforge":{"url":"<server>/mcp","headers":{"Authorization":"Bearer <token>"}}}}`
+- HTTP: `{"mcpServers":{"skillforge":{"url":"<server>/mcp","headers":{"Authorization":"Bearer ${env:SKILLFORGE_MCP_TOKEN}"}}}}`
 - stdio (recommended): `{"mcpServers":{"skillforge":{"command":"skillforge","args":["mcp"]}}}`
 
-OpenCode:
+OpenCode expands `{env:SKILLFORGE_MCP_TOKEN}` in its config at start: set the variable to the MCP token in the environment OpenCode starts from. An entry made by the former command keeps the token in the OpenCode config in plain text: running the HTTP command again replaces it.
 
-- HTTP: `opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer <token>"`
+- HTTP: `opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer {env:SKILLFORGE_MCP_TOKEN}"`
 - stdio: `opencode mcp add skillforge -- skillforge mcp`
 
-Qwen Code (user scope):
+Qwen Code (user scope) gets a block for the user-level `~/.qwen/settings.json`, not a command: bash and PowerShell would expand the variable before Qwen Code saves it. Add the block to `mcpServers` and set `SKILLFORGE_MCP_TOKEN` to the MCP token in the environment Qwen Code starts from. An entry made by the former `qwen mcp add -t http` command keeps the token in `~/.qwen/settings.json`: remove it first with `qwen mcp remove -s user skillforge`.
 
-- HTTP: `qwen mcp add -s user -t http -H "Authorization: Bearer <token>" skillforge <server>/mcp`
+- HTTP: `{"mcpServers":{"skillforge":{"httpUrl":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}`
 - stdio: `qwen mcp add -s user skillforge skillforge mcp`
 
 The commands use only double quotes, so they paste the same way into cmd.exe, PowerShell, bash and zsh.
-
 The bridge reads JSON-RPC lines from stdin, posts each to `/mcp`, writes `200` responses to stdout, and stays silent on `202` notifications. Missing URL exits with code 3; missing token exits with code 4.
 
 ## Connect an approved MCP server

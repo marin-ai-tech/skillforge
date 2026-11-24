@@ -64,12 +64,15 @@ its whole configuration when it meets Claude Code values of `color` or `tools`. 
 Create an MCP-enabled token on `/me/tokens` and pick OpenCode in the client switch:
 
 ```bash
-opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer <token>"
+opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer {env:SKILLFORGE_MCP_TOKEN}"
 opencode mcp add skillforge -- skillforge mcp
 ```
 
 The second command runs the `skillforge mcp` stdio bridge, which uses the MCP token saved once with
-`skillforge login --url <server> --mcp-token-stdin`. Note the `Authorization=Bearer` form of the header that OpenCode expects.
+`skillforge login --url <server> --mcp-token-stdin`. Note the `Authorization=Bearer` form of the header that OpenCode expects. The first command keeps only the variable name in
+the config: OpenCode expands `{env:SKILLFORGE_MCP_TOKEN}` at start, so set the variable to the MCP token in the
+environment OpenCode starts from. An entry made by the former command kept the token in plain text; running the
+command again replaces it.
 
 ## Scan the agent folder
 

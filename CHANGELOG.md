@@ -3,6 +3,11 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.6.2 — 2026-11-24
+
+### Fixed
+- The MCP connection snippets on the tokens page no longer write the MCP token into a client config file. Every HTTP snippet names the `SKILLFORGE_MCP_TOKEN` environment variable, which the client expands at start: OpenCode with `{env:SKILLFORGE_MCP_TOKEN}` in the command, Qwen Code with a block for `~/.qwen/settings.json`, Cursor with `${env:SKILLFORGE_MCP_TOKEN}`, Codex with `--bearer-token-env-var SKILLFORGE_MCP_TOKEN`. Before, the OpenCode, Qwen Code and Cursor snippets kept the token in plain text (which `agent scan --mcp` itself reports as a literal secret), and the Codex snippet used `SKILLFORGE_TOKEN`, the variable the CLI reads as its regular token. The notes and help say how to replace an entry made by a former snippet.
+
 ## 0.6.1 — 2026-11-24
 
 ### Fixed

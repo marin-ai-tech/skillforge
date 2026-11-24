@@ -67,22 +67,29 @@ test.describe("MCP tokens", () => {
 
     await client("opencode").click();
     await expect(snippet).toContainText("opencode mcp add skillforge --url");
-    await expect(snippet).toContainText('--header "Authorization=Bearer sf_');
+    // fix-mcp-client-snippets: every HTTP snippet names SKILLFORGE_MCP_TOKEN, never the token itself
+    await expect(snippet).toContainText('--header "Authorization=Bearer {env:SKILLFORGE_MCP_TOKEN}"');
+    await expect(snippet).not.toContainText("Bearer sf_");
     await expect(snippet).not.toContainText("claude mcp add");
 
     await client("codex").click();
-    await expect(snippet).toContainText("--bearer-token-env-var SKILLFORGE_TOKEN");
+    await expect(snippet).toContainText("--bearer-token-env-var SKILLFORGE_MCP_TOKEN");
     await expect(snippet).toContainText("codex mcp add skillforge --env SKILLFORGE_URL=");
     await expect(snippet).not.toContainText("Bearer sf_");
     await expect(snippet).not.toContainText("claude mcp add");
 
     await client("qwen").click();
-    await expect(snippet).toContainText("qwen mcp add -s user -t http");
+    await expect(snippet).toContainText('"httpUrl"');
+    await expect(snippet).toContainText("Bearer ${SKILLFORGE_MCP_TOKEN}");
+    await expect(snippet).toContainText("qwen mcp remove -s user skillforge");
     await expect(snippet).toContainText("qwen mcp add -s user skillforge skillforge mcp");
+    await expect(snippet).not.toContainText("Bearer sf_");
 
     await client("cursor").click();
     await expect(snippet).toContainText('"mcpServers"');
     await expect(snippet).toContainText(".cursor/mcp.json");
+    await expect(snippet).toContainText("Bearer ${env:SKILLFORGE_MCP_TOKEN}");
+    await expect(snippet).not.toContainText("Bearer sf_");
     await expect(snippet).not.toContainText("claude mcp add");
 
     await client("claude-code").click();

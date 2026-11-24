@@ -406,6 +406,16 @@ const registry: PurgeEraser[] = [
       "usage metrics and lifecycle-by-data activity signals drop the purged reports; cached use_count/help_count are not recomputed",
   },
   {
+    // security-gates: a clearance is per-version metadata; a version or artifact purge deletes it
+    table: "security_clearances",
+    strategy: "delete",
+    scopes: ["artifact", "version"],
+    sql: {
+      artifact: "DELETE FROM security_clearances WHERE artifact_id = ?",
+      version: "DELETE FROM security_clearances WHERE artifact_id = ? AND version = ?",
+    },
+  },
+  {
     table: "artifact_watchers",
     strategy: "delete",
     scopes: ["artifact"],
@@ -429,6 +439,19 @@ const registry: PurgeEraser[] = [
     strategy: "delete",
     scopes: ["artifact"],
     sql: { artifact: "DELETE FROM artifact_sources WHERE artifact_id = ?" },
+  },
+  {
+    // mcp-version-tracking: the last check and the notice journal go with the artifact
+    table: "mcp_release_checks",
+    strategy: "delete",
+    scopes: ["artifact"],
+    sql: { artifact: "DELETE FROM mcp_release_checks WHERE artifact_id = ?" },
+  },
+  {
+    table: "mcp_version_notices",
+    strategy: "delete",
+    scopes: ["artifact"],
+    sql: { artifact: "DELETE FROM mcp_version_notices WHERE artifact_id = ?" },
   },
   {
     table: "artifact_availability",

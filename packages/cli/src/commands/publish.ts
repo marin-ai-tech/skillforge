@@ -27,6 +27,28 @@ export type PublishFlags = {
 
 type Issue = { code?: string; message?: string; path?: string; severity?: string };
 
+type QualityView = {
+  security?: {
+    verdict?: string;
+    findings?: Array<{ rule: string; severity: string; mention?: boolean }>;
+  };
+} | null;
+
+/** security-gates: the verdict of the scan and its blocking rules; on `fail` the way out. */
+function printSecurity(ctx: AppContext, quality: QualityView | undefined): void {
+  const scan = quality?.security;
+  if (!scan?.verdict) return;
+  const rules = [
+    ...new Set(
+      (scan.findings ?? []).filter((f) => f.severity === "high" && !f.mention).map((f) => f.rule),
+    ),
+  ];
+  ctx.out.write(`security: ${scan.verdict}${rules.length > 0 ? ` (${rules.join(", ")})` : ""}`);
+  if (scan.verdict === "fail") {
+    ctx.out.write("a reviewer must clear the findings before the artifact becomes active");
+  }
+}
+
 function parseProvenance(
   raw: string | undefined,
 ): { source: string; ref: string | null } | undefined {
@@ -125,8 +147,10 @@ function printValidateHuman(
     conflicts?: string[];
     artifact?: { type?: string; name?: string };
     next_version?: string;
+    quality?: QualityView;
   };
   printIssues(ctx, data.errors ?? [], data.warnings ?? []);
+  printSecurity(ctx, data.quality);
   if (data.conflicts && data.conflicts.length > 0) {
     for (const c of data.conflicts) ctx.out.write(String(c));
   }
@@ -206,11 +230,13 @@ export async function runPublish(
       artifact: { type: string; name: string };
       version: { version: string; provenance?: unknown };
       warnings?: Issue[];
+      quality?: QualityView;
     };
     if (ctx.out.json) {
       ctx.out.printJson(res.data);
     } else {
       printIssues(ctx, [], data.warnings ?? []);
+      printSecurity(ctx, data.quality);
       ctx.out.write(`${data.artifact.type}/${data.artifact.name}@${data.version.version}`);
       ctx.out.write(`${client.url}/artifacts/${data.artifact.type}/${data.artifact.name}`);
     }

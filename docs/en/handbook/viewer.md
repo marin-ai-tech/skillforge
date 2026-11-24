@@ -115,11 +115,16 @@ Pack versions pin exact artifact versions; `sync` does not move them, a newer pa
 
 1. On `/me/tokens`, create a token and select **Allow agents to load active skills via MCP**. Add MCP tags to limit
    what the agent sees, or leave them empty for every active artifact.
-2. Under the secret, pick your client and run the HTTP command, for example:
+2. Under the secret, pick your client and use the HTTP snippet. For Claude Code it is a block for the project
+   `.mcp.json`; set `SKILLFORGE_MCP_TOKEN` to the MCP token in the environment Claude Code starts from, so the file
+   keeps only the variable name:
 
-   ```bash
-   claude mcp add --transport http skillforge <server>/mcp --header "Authorization: Bearer <token>"
+   ```json
+   {"mcpServers":{"skillforge":{"type":"http","url":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
    ```
+
+   If you connected with the former `claude mcp add --transport http` command, remove that entry first with
+   `claude mcp remove skillforge`: it keeps the token in `~/.claude.json` in plain text.
 
    Or paste the prompt from [Connect with a prompt](../13-mcp.md#connect-with-a-prompt) and let the agent guide you.
 

@@ -524,6 +524,33 @@ export function onRunFinished(fn: (runId: number) => void): void {
   runFinishedHooks.push(fn);
 }
 
+type HookLog = (msg: string, fields: Record<string, unknown>) => void;
+let runHookLog: HookLog | undefined;
+
+/** fix-background-errors-rest: where a failing run-finished hook is written (the server log; unset in unit tests). */
+export function setEvalRunLog(log: HookLog | undefined): void {
+  runHookLog = log;
+}
+
+/** Calls every run-finished hook; a failing hook is logged and does not stop the others or the queue. */
+export function notifyRunFinished(runId: number): void {
+  for (const fn of runFinishedHooks) {
+    try {
+      fn(runId);
+    } catch (e) {
+      try {
+        runHookLog?.("background_task_failed", {
+          task: "eval-run-finished",
+          run_id: runId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      } catch {
+        // a broken log must not stop the queue
+      }
+    }
+  }
+}
+
 function pumpQueue(): void {
   if (activeArtifact !== null) return;
   const next = waitQueue.shift();
@@ -531,13 +558,7 @@ function pumpQueue(): void {
   activeArtifact = next.artifactId;
   void executeRun(next).finally(() => {
     activeArtifact = null;
-    for (const fn of runFinishedHooks) {
-      try {
-        fn(next.runId);
-      } catch {
-        /* hook errors must not break the queue */
-      }
-    }
+    notifyRunFinished(next.runId);
     pumpQueue();
   });
 }

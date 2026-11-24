@@ -526,7 +526,7 @@ function NewPostButton({
           }
           onOpen();
         }}
-        className="min-h-6 rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+        className="min-h-6 rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
       >
         {STR.news.newPost}
       </button>

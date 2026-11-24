@@ -33,6 +33,11 @@ export function semverGreater(a: string, b: string): boolean {
   return semver.gt(a, b);
 }
 
+/** True when `v` is a valid semver version string. */
+export function semverValid(v: string): boolean {
+  return semver.valid(v) !== null;
+}
+
 /** Moving from `installed` to `wanted` lowers the semver precedence. */
 export function isDowngrade(installed: string, wanted: string): boolean {
   return semverGreater(installed, wanted);

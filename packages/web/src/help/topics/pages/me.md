@@ -21,6 +21,8 @@ My workspace (`/me`) is your personal cabinet home in SkillForge. After you sign
 - Agents section (`me-agents`) listing snapshots (`me-agent` with `data-name`) linked to `/me/agents/<name>`, an attention badge when outdated or modified items exist, or empty guidance mentioning `skillforge agent scan`.
 - Tokens summary (`me-tokens`) with active and never-used counts plus `me-tokens-manage` to `/me/tokens` (no secrets or hashes).
 - Review queue (`me-review`) only for reviewer/admin: pending count, candidate items, and `me-review-open` to `/lifecycle`.
+- My usage reports (`me-usage`): the usage reports you and your agents sent (`record_usage` over MCP, `skillforge report-usage`, the API), one row per artifact you can see (`me-usage-row`): reports, helped of uses, the basis (`loaded`, `assigned`, without basis), the last version and time, with a link to the card. Up to 20 artifacts with the newest reports; without reports `me-usage-empty` says how an agent reports. Reports of other people are not shown here — they are in the artifact's usage on its Evidence tab.
+- First steps (`me-setup-hint`) when you have API tokens but no agent snapshot and no session facts: the commands that send them.
 - Recent activity (`me-activity`) up to twenty events with actor, action, and artifact identity, or `me-activity-empty`.
 
 ## Common tasks

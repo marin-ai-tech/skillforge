@@ -2,6 +2,7 @@ import type { Database } from "./repo.ts";
 import { appendAudit, getArtifactByTypeName } from "./repo.ts";
 import { getTeamByName, teamRoleByUsername } from "./teams.ts";
 import { canView, type Viewer } from "./visibility/index.ts";
+import { securityGate } from "./security/clearance.ts";
 
 /**
  * Availability of an artifact per team: unavailable, available (no row), installed
@@ -21,10 +22,13 @@ const RANK: Record<AvailabilityState, number> = {
 export class AvailabilityError extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string) {
+  /** More fields for the response body (the security gate names the version and the rules). */
+  extra: Record<string, unknown>;
+  constructor(status: number, code: string, extra: Record<string, unknown> = {}) {
     super(code);
     this.status = status;
     this.code = code;
+    this.extra = extra;
   }
 }
 
@@ -55,6 +59,15 @@ export function setAvailability(
     throw new AvailabilityError(403, "forbidden");
   }
   const row = getArtifactByTypeName(db, artifact.type, artifact.name)!;
+  if ((state === "default" || state === "required") && row.latest_version) {
+    const gate = securityGate(db, row.id, row.latest_version);
+    if (!gate.ok) {
+      throw new AvailabilityError(409, "security_not_cleared", {
+        version: gate.version,
+        rules: gate.rules,
+      });
+    }
+  }
   const now = new Date().toISOString();
   if (state === "available") {
     db.prepare("DELETE FROM artifact_availability WHERE artifact_id = ? AND team_id = ?").run(

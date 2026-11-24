@@ -172,7 +172,7 @@ export function MetadataPanel({ artifact }: { artifact: ArtifactSummary }) {
         <Button
           type="button"
           data-testid="metadata-save"
-          className="rounded-sf bg-accent px-3 py-1.5 text-white"
+          className="rounded-sf bg-accent px-3 py-1.5 text-on-accent"
           pending={busy}
           onClick={() =>
             void save({

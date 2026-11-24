@@ -46,6 +46,7 @@ export const UI_GROUPS = ["ui-catalog", "ui-workspace", "ui-review", "ui-admin",
 
 /** Reader order inside guide sections; topics not listed follow alphabetically. */
 const GUIDE_ORDER = [
+  "getting-started/first-steps",
   "getting-started/overview",
   "getting-started/roles",
   "getting-started/artifact-types",

@@ -1,5 +1,5 @@
 import semver from "semver";
-import { getArtifactByTypeName, getVersion, type Database } from "../repo.ts";
+import type { Database } from "../repo.ts";
 
 /**
  * Team method packs: a versioned, immutable manifest of roles, each with artifacts
@@ -84,21 +84,6 @@ export function parsePackBody(body: unknown): {
       roles,
     },
   };
-}
-
-/** Every item exists at that version, is active and visible to the whole organisation. */
-export function checkPackItems(db: Database, manifest: PackManifest): void {
-  for (const item of manifest.roles.flatMap((r) => r.items)) {
-    const label = `${item.type}/${item.name}@${item.version}`;
-    const row = getArtifactByTypeName(db, item.type, item.name);
-    const version = row && !row.purged_at ? getVersion(db, row.id, item.version) : null;
-    if (!row || !version || version.purged)
-      throw new PackError(422, "unknown_item", `${label} is not in the registry`);
-    if (row.status !== "active")
-      throw new PackError(422, "item_not_active", `${label} is ${row.status}`);
-    if (row.visibility !== "org")
-      throw new PackError(422, "item_not_org", `${label} is not visible to everyone`);
-  }
 }
 
 type PackRow = { id: number; name: string; owner: string; created_at: string; updated_at: string };

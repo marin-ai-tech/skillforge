@@ -1,8 +1,17 @@
-import type { SecurityReport } from "../api/types.ts";
+import type { ArtifactSummary, SecurityReport, VersionDetail } from "../api/types.ts";
 import { STR } from "../lib/strings.ts";
+import { SecurityClearanceBlock } from "./SecurityClearance.tsx";
 
 /** Built-in content scan of a version (content-security-scan): verdict and findings by file and line. */
-export function SecurityScan({ report }: { report: SecurityReport | undefined }) {
+export function SecurityScan({
+  report,
+  artifact,
+  version,
+}: {
+  report: SecurityReport | undefined;
+  artifact: ArtifactSummary;
+  version: VersionDetail;
+}) {
   if (!report) return null;
   const tone =
     report.verdict === "fail"
@@ -16,6 +25,9 @@ export function SecurityScan({ report }: { report: SecurityReport | undefined })
       <p data-testid="quality-security-verdict" className={`text-sm ${tone}`}>
         {STR.art.quality.securityVerdict[report.verdict]}
       </p>
+      {report.verdict === "fail" ? (
+        <SecurityClearanceBlock artifact={artifact} version={version} />
+      ) : null}
       {report.findings.length > 0 ? (
         <ul className="space-y-1 text-sm">
           {report.findings.map((f, i) => (

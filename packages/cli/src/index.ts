@@ -15,8 +15,10 @@ import { runList, runSearch } from "./commands/list.ts";
 import { runSuggest } from "./commands/suggest.ts";
 import { runHarvestSessions } from "./commands/harvest.ts";
 import { runPackInstall, runPackList } from "./commands/pack.ts";
+import { runMethodPackPublish, runMethodPackShow } from "./commands/method-pack-publish.ts";
 import { runLogin } from "./commands/login.ts";
 import { runLogout } from "./commands/logout.ts";
+import { runProfileList } from "./commands/profile.ts";
 import { runPublish, runValidate } from "./commands/publish.ts";
 import { runWhoami } from "./commands/whoami.ts";
 import { runNews, runNewsSeen } from "./commands/news.ts";
@@ -96,6 +98,10 @@ function addGlobals(cmd: Command): Command {
   return cmd
     .option("--url <base>", "Registry base URL")
     .option("--token <token>", "Bearer token")
+    .option(
+      "--profile <name>",
+      "Profile from the CLI config (default: SKILLFORGE_PROFILE, .skillforge/profile, then the default profile)",
+    )
     .option("--json", "JSON output only on stdout", false)
     .option("--no-color", "Disable ANSI colors");
 }
@@ -104,6 +110,7 @@ function globalsFrom(cmd: Command): GlobalOpts {
   const opts = cmd.opts() as {
     url?: string;
     token?: string;
+    profile?: string;
     json?: boolean;
     color?: boolean;
   };
@@ -113,6 +120,7 @@ function globalsFrom(cmd: Command): GlobalOpts {
   return {
     url: opts.url,
     token: opts.token,
+    profile: opts.profile,
     json: Boolean(opts.json) || argvHasJson,
     noColor: opts.color === false,
   };
@@ -205,6 +213,7 @@ addGlobals(
         passwordStdin: Boolean(opts.passwordStdin),
         mcpTokenStdin: Boolean(opts.mcpTokenStdin),
         name: opts.name,
+        profile: ctx.globals.profile,
       });
     } catch (e) {
       handleError(ctx, e);
@@ -218,6 +227,18 @@ addGlobals(
   const ctx = createContext(globalsFrom(cmd));
   try {
     await runLogout(ctx);
+  } catch (e) {
+    handleError(ctx, e);
+  }
+});
+const profileCmd = program.command("profile").description("CLI profiles (named registry sign-ins)");
+
+addGlobals(
+  profileCmd.command("list").description("List CLI profiles; tokens are never printed"),
+).action(async (_opts: unknown, cmd: Command) => {
+  const ctx = createContext(globalsFrom(cmd));
+  try {
+    await runProfileList(ctx);
   } catch (e) {
     handleError(ctx, e);
   }
@@ -359,6 +380,33 @@ addGlobals(
     }
   },
 );
+addGlobals(
+  pack
+    .command("publish")
+    .description("Publish a method pack version from a JSON file (or only check it with --dry-run)")
+    .argument("<file>", "JSON file with the pack body: name, version, title, description, roles")
+    .option("--dry-run", "Only check the pack; print every problem, publish nothing", false),
+).action(async (file: string, opts: { dryRun?: boolean }, cmd: Command) => {
+  const ctx = createContext(globalsFrom(cmd));
+  try {
+    await runMethodPackPublish(ctx, file, { dryRun: Boolean(opts.dryRun) });
+  } catch (e) {
+    handleError(ctx, e);
+  }
+});
+addGlobals(
+  pack
+    .command("show")
+    .description("Show a method pack version: who published it, roles and items")
+    .argument("<name[@version]>", "Pack, latest version unless given"),
+).action(async (spec: string, _opts: unknown, cmd: Command) => {
+  const ctx = createContext(globalsFrom(cmd));
+  try {
+    await runMethodPackShow(ctx, spec);
+  } catch (e) {
+    handleError(ctx, e);
+  }
+});
 addGlobals(pack.command("list").description("List team method packs")).action(
   async (_opts: unknown, cmd: Command) => {
     const ctx = createContext(globalsFrom(cmd));

@@ -193,7 +193,7 @@ function PluginsPage() {
                   <Button
                     type="button"
                     data-testid="plugin-config-save"
-                    className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+                    className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-40"
                     pending={patchMut.isPending}
                     onClick={() => {
                       setError(null);

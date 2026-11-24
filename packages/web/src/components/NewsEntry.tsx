@@ -253,7 +253,7 @@ export function NewsError({
         data-testid="news-retry"
         pending={pending}
         onClick={onRetry}
-        className="mt-2 min-h-6 rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+        className="mt-2 min-h-6 rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
       >
         {STR.common.retry}
       </Button>

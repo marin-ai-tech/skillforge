@@ -21,7 +21,10 @@ test.describe("MCP tokens", () => {
     await expect(secret).toContainText("sf_");
     const snippet = page.locator(tid("token-mcp-snippet"));
     await expect(snippet).toContainText("/mcp");
-    await expect(snippet).toContainText("claude mcp add --transport http skillforge");
+    // fix-mcp-token-snippet: a project .mcp.json block with a variable, never the issued token itself
+    await expect(snippet).toContainText("Bearer ${SKILLFORGE_MCP_TOKEN}");
+    const issued = /sf_[A-Za-z0-9_-]+/.exec((await secret.textContent()) ?? "")![0];
+    await expect(snippet).not.toContainText(issued);
     await expect(snippet).toContainText("claude mcp add skillforge -- skillforge mcp");
     const agentRow = page.locator(tid("token-row")).filter({ hasText: "agent-e2e" });
     await expect(agentRow.locator(tid("token-mcp-chip"))).toHaveText("MCP: team-a, docs");

@@ -1,11 +1,13 @@
 import { ApiError, SkillforgeClient, noRegistryError } from "./client.ts";
 import { resolveRegistry } from "./config.ts";
+import { ConfigError } from "./config-error.ts";
 import { EXIT, type ExitCode } from "./exit.ts";
 import { Output } from "./output.ts";
 
 export type GlobalOpts = {
   url?: string;
   token?: string;
+  profile?: string;
   json?: boolean;
   noColor?: boolean;
 };
@@ -30,6 +32,7 @@ export function requireClient(ctx: AppContext): {
   const resolved = resolveRegistry({
     url: ctx.globals.url,
     token: ctx.globals.token,
+    profile: ctx.globals.profile,
   });
   if (!resolved) throw noRegistryError();
   return {
@@ -44,6 +47,11 @@ export function setExit(code: ExitCode): void {
 }
 
 export function handleError(ctx: AppContext, err: unknown): void {
+  if (err instanceof ConfigError) {
+    ctx.out.error(err.message);
+    setExit(err.exitCode as ExitCode);
+    return;
+  }
   if (err instanceof ApiError) {
     if (ctx.out.json && err.body !== undefined && typeof err.body === "object") {
       ctx.out.printJson(err.body);

@@ -24,6 +24,8 @@ type Props = {
   version: VersionDetail;
 };
 
+type OverviewProps = Props & { canManage: boolean };
+
 function settingsJsonPath(artifact: ArtifactSummary, version: VersionDetail): string | null {
   const exact = `settings/${artifact.name}/settings.json`;
   const hit = version.files.find((f) => f.path === exact);
@@ -191,7 +193,7 @@ function OverviewMeta({ artifact, version }: Props) {
   );
 }
 
-export function Overview({ artifact, version }: Props) {
+export function Overview({ artifact, version, canManage }: OverviewProps) {
   const mainPath = primaryFile(artifact.type, artifact.name, version.files);
   const fileQ = useQuery({
     queryKey: ["file", artifact.type, artifact.name, version.version, mainPath],
@@ -264,7 +266,12 @@ export function Overview({ artifact, version }: Props) {
         />
       ) : null}
 
-      <McpServerCard type={artifact.type} name={artifact.name} version={version.version} />
+      <McpServerCard
+        type={artifact.type}
+        name={artifact.name}
+        version={version.version}
+        canManage={canManage}
+      />
 
       <AgentsSection artifact={artifact} />
 

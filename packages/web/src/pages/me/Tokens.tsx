@@ -186,7 +186,7 @@ function TokensPage() {
             type="submit"
             data-testid="token-create-submit"
             pending={createMut.isPending}
-            className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
           >
             {createMut.isPending ? STR.tokens.creating : STR.tokens.create}
           </Button>

@@ -8,6 +8,7 @@
   --sf-line: #ddd4cb;
   --sf-field-line: #887b70;
   --sf-accent: #be4a18;
+  --sf-on-accent: #ffffff;
   --sf-accent-soft: #f3e0d6;
   --sf-st-candidate: #8a6d1f;
   --sf-st-candidate-bg: #f7efd4;
@@ -25,6 +26,7 @@
   --sf-type-hook: #1f7a4d;
   --sf-type-plugin: #8a5a1f;
   --sf-danger: #a32020;
+  --sf-on-danger: #ffffff;
   --sf-danger-bg: #f8e4e4;
   --sf-warning: #8a6d1f;
   --sf-warning-bg: #f7efd4;
@@ -49,6 +51,7 @@
     --sf-line: #3a322c;
     --sf-field-line: #807164;
     --sf-accent: #e8804c;
+    --sf-on-accent: #14110f;
     --sf-accent-soft: #3a2418;
     --sf-st-candidate: #e0c56a;
     --sf-st-candidate-bg: #3a3420;
@@ -66,6 +69,7 @@
     --sf-type-hook: #6dcea0;
     --sf-type-plugin: #e0a86a;
     --sf-danger: #e08a8a;
+    --sf-on-danger: #14110f;
     --sf-danger-bg: #3a2222;
     --sf-warning: #e0c56a;
     --sf-warning-bg: #3a3420;
@@ -86,6 +90,7 @@
   --sf-line: #3a322c;
   --sf-field-line: #807164;
   --sf-accent: #e8804c;
+  --sf-on-accent: #14110f;
   --sf-accent-soft: #3a2418;
   --sf-st-candidate: #e0c56a;
   --sf-st-candidate-bg: #3a3420;
@@ -103,6 +108,7 @@
   --sf-type-hook: #6dcea0;
   --sf-type-plugin: #e0a86a;
   --sf-danger: #e08a8a;
+  --sf-on-danger: #14110f;
   --sf-danger-bg: #3a2222;
   --sf-warning: #e0c56a;
   --sf-warning-bg: #3a3420;

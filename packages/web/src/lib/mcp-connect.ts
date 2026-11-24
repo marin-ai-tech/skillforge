@@ -1,4 +1,4 @@
-// Connect commands for MCP clients on /me/tokens.
+// Connect commands (and config blocks) for MCP clients on /me/tokens.
 // Pure module: no DOM, no JSX, no app imports - Node tests and the real-client oracle import it directly.
 // The oracle splits each command on spaces and "double quotes" and runs it without a shell, so commands use
 // no single quotes, carets or line continuations.
@@ -65,10 +65,28 @@ export function mcpConnectSnippets(client: McpClient, input: McpConnectInput): M
   const STDIO_NOTE = stdioNote(base);
   switch (client) {
     case "claude-code":
+      // A project .mcp.json block: Claude Code expands ${SKILLFORGE_MCP_TOKEN} itself at start, so no file keeps the
+      // token. A command line would not do: bash and PowerShell expand ${...} before Claude Code saves it.
       return {
-        http: `claude mcp add --transport http skillforge ${url} --header "Authorization: Bearer ${token}"`,
+        http: JSON.stringify(
+          {
+            mcpServers: {
+              skillforge: {
+                type: "http",
+                url,
+                headers: { Authorization: "Bearer ${SKILLFORGE_MCP_TOKEN}" },
+              },
+            },
+          },
+          null,
+          2,
+        ),
         stdio: "claude mcp add skillforge -- skillforge mcp",
-        notes: [STDIO_NOTE],
+        notes: [
+          `Recommended: stdio, with no token in any file. ${STDIO_NOTE}`,
+          "Put this block into the project .mcp.json and set SKILLFORGE_MCP_TOKEN to the MCP token in the environment Claude Code starts from; the file keeps only the variable name.",
+          "An old entry made by the former claude mcp add --transport http command keeps the token in ~/.claude.json: remove it with claude mcp remove skillforge",
+        ],
       };
     case "codex":
       return {

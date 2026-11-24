@@ -9,6 +9,7 @@ import type {
   SecurityPolicy,
   McpPolicy,
   McpCard,
+  McpRelease,
   CommentDto,
   CommentsListResponse,
   NotificationDto,
@@ -28,6 +29,7 @@ import type {
   ValidateResponse,
   VersionChannel,
   VersionDetail,
+  SecurityClearance,
   AdminUser,
   ApiToken,
   CreatedToken,
@@ -256,6 +258,36 @@ export async function getVersion(
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as VersionDetail;
+}
+
+export async function setSecurityClearance(
+  type: string,
+  name: string,
+  version: string,
+  reason: string,
+): Promise<{ security_clearance: SecurityClearance }> {
+  const res = await fetch(
+    `/api/v1/artifacts/${encodeURIComponent(type)}/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}/security-clearance`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason }),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as { security_clearance: SecurityClearance };
+}
+
+export async function removeSecurityClearance(
+  type: string,
+  name: string,
+  version: string,
+): Promise<void> {
+  const res = await fetch(
+    `/api/v1/artifacts/${encodeURIComponent(type)}/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}/security-clearance`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw await parseError(res);
 }
 
 export async function getFileText(
@@ -706,6 +738,20 @@ export async function getMcpCard(name: string, version: string): Promise<McpCard
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as McpCard;
+}
+
+export async function postMcpReleaseCheck(name: string): Promise<{ release: McpRelease }> {
+  const res = await fetch(
+    `/api/v1/artifacts/mcp-server/${encodeURIComponent(name)}/mcp/release-check`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as { release: McpRelease };
 }
 
 export async function getMcpPolicy(): Promise<{ policy: McpPolicy }> {
@@ -1978,6 +2024,47 @@ export async function listPacks(): Promise<{ items: import("./types.ts").PackSum
   const res = await fetch("/api/v1/packs");
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as { items: import("./types.ts").PackSummary[] };
+}
+
+export async function getPackVersion(
+  name: string,
+  version: string,
+): Promise<import("./types.ts").PackVersion> {
+  const res = await fetch(
+    `/api/v1/packs/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`,
+  );
+  if (!res.ok) throw await parseError(res);
+  return ((await res.json()) as { version: import("./types.ts").PackVersion }).version;
+}
+
+/** pack-authoring: every problem of a draft, nothing written. */
+export const checkMethodPack = (draft: import("./types.ts").MethodPackDraft) =>
+  postJson<{ ok: boolean; problems: import("./types.ts").MethodPackProblem[] }>(
+    "/api/v1/packs/check",
+    draft,
+  );
+
+/**
+ * pack-authoring: a refusal with problems (422) is returned, not thrown, so the form can list them; any other failure
+ * throws as usual.
+ */
+export async function publishMethodPack(
+  draft: import("./types.ts").MethodPackDraft,
+): Promise<{ ok: true } | { ok: false; problems: import("./types.ts").MethodPackProblem[] }> {
+  const res = await fetch("/api/v1/packs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(draft),
+  });
+  if (res.status === 422) {
+    const body = (await res
+      .clone()
+      .json()
+      .catch(() => null)) as { problems?: import("./types.ts").MethodPackProblem[] } | null;
+    if (Array.isArray(body?.problems)) return { ok: false, problems: body.problems };
+  }
+  if (!res.ok) throw await parseError(res);
+  return { ok: true };
 }
 
 export async function getPack(name: string): Promise<{

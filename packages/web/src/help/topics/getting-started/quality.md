@@ -42,6 +42,8 @@ The verdict is **pass**, **warn** or **fail**. A line that only warns about a pa
 
 An admin can make a failed scan block publishing, import and agent uploads (`E_SECURITY_BLOCKED`). The CLI warns about **warn** and refuses to install a **fail** without `--allow-risky`.
 
+A reviewer's Security Clearance on the Quality tab replaces `--allow-risky` for everyone: once the mark is current, the version can become active, be assigned to a team and enter a pack, and `skillforge install` no longer needs the flag. The security verdict itself stays fail. The mark stops being current if a later scan finds a blocking finding the mark does not cover.
+
 ## Context cost
 
 The Quality tab also estimates how many tokens the artifact puts into the agent's context, with the same estimate as `body_tokens_est`. **Every turn** is the name and description: the agent keeps the list of skills, commands and agents in its context all the time, so a long description costs on each turn of every session. **When used** is the body of the main file, read when the artifact is called. **Other files, on demand** are reference files the agent reads only when it needs them. Hooks, settings and MCP server descriptions cost nothing here: their scripts, `settings.json` and `server.json` do not enter the model's context (the tool descriptions a running MCP server sends do, but SkillForge does not measure them). A plugin adds up its components.

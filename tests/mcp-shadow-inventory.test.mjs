@@ -207,7 +207,7 @@ test("admin summary: identity, attention order, totals; reviewer gets 403", asyn
   const inv = await api(srv.base, "GET", "/api/v1/admin/inventory", undefined, { cookie: adminCookie });
   assert.equal(inv.status, 200);
   const m = inv.data.mcp;
-  assert.deepEqual(m.totals, { agents: 2, people: 2, servers: 3, installs: 4, unpinned_installs: 1, literal_secret_installs: 1, remote_installs: 1 });
+  assert.deepEqual(m.totals, { agents: 2, people: 2, servers: 3, installs: 4, unpinned_installs: 1, literal_secret_installs: 1, remote_installs: 1, drift_installs: 0 });
   assert.deepEqual(m.servers.map((s) => s.key), ["package:npx:tickets-mcp", "package:npx:@modelcontextprotocol/server-github", "origin:https://mcp.sentry.dev"]);
   const t = m.servers[0];
   assert.deepEqual(

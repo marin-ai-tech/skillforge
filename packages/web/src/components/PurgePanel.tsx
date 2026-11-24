@@ -171,7 +171,7 @@ export function PurgePanel({
                   data-testid="purge-submit"
                   pending={busy}
                   disabled={reason.length < 10 || reason.length > 500 || confirm !== reference}
-                  className="rounded-sf bg-danger px-3 py-1.5 text-white disabled:opacity-50"
+                  className="rounded-sf bg-danger px-3 py-1.5 text-on-danger disabled:opacity-50"
                   onClick={() => void submit()}
                 >
                   {STR.art.purge.submit}

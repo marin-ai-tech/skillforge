@@ -143,6 +143,12 @@ export type AppConfig = {
   githubToken: string | null;
   /** SKILLFORGE_GITHUB_API_URL: GitHub REST API, default https://api.github.com; http only for loopback. */
   githubApiUrl: string;
+  /** SKILLFORGE_NPM_REGISTRY_URL: npm registry, default https://registry.npmjs.org; http only for loopback. */
+  npmRegistryUrl?: string;
+  /** SKILLFORGE_PYPI_URL: PyPI, default https://pypi.org; http only for loopback. */
+  pypiUrl?: string;
+  /** SKILLFORGE_MCP_RELEASE_CHECK (default true): package release checks for mcp-server artifacts. */
+  mcpReleaseCheck?: boolean;
   /** release-dist: folder with the CLI package served at /downloads. */
   downloadsDir: string;
 };
@@ -641,23 +647,49 @@ export function parseLlmKeyOrigins(raw: string | undefined): string[] {
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
-/** GitHub token and API address (pr-rollout): the address is the operator's, never a request's. */
-function parseGitHubEnv(env: NodeJS.ProcessEnv): Pick<AppConfig, "githubToken" | "githubApiUrl"> {
-  const raw = env.SKILLFORGE_GITHUB_API_URL?.trim() || "https://api.github.com";
+/** https, or http only for loopback; no credentials, query or fragment. */
+function parseExternalUrl(raw: string, variable: string): string {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new ConfigError("SKILLFORGE_GITHUB_API_URL");
+    throw new ConfigError(variable);
   }
   const secure =
     url.protocol === "https:" || (url.protocol === "http:" && LOOPBACK.has(url.hostname));
   if (!secure || url.username || url.password || url.search || url.hash) {
-    throw new ConfigError("SKILLFORGE_GITHUB_API_URL");
+    throw new ConfigError(variable);
   }
+  return url.toString().replace(/\/+$/, "");
+}
+
+/** GitHub token and API address (pr-rollout): the address is the operator's, never a request's. */
+function parseGitHubEnv(env: NodeJS.ProcessEnv): Pick<AppConfig, "githubToken" | "githubApiUrl"> {
+  const raw = env.SKILLFORGE_GITHUB_API_URL?.trim() || "https://api.github.com";
   return {
     githubToken: env.SKILLFORGE_GITHUB_TOKEN?.trim() || null,
-    githubApiUrl: url.toString().replace(/\/+$/, ""),
+    githubApiUrl: parseExternalUrl(raw, "SKILLFORGE_GITHUB_API_URL"),
+  };
+}
+
+/** npm and PyPI registry addresses and the release-check switch (mcp-version-tracking). */
+function parseMcpRegistryEnv(
+  env: NodeJS.ProcessEnv,
+): Pick<AppConfig, "npmRegistryUrl" | "pypiUrl" | "mcpReleaseCheck"> {
+  return {
+    npmRegistryUrl: parseExternalUrl(
+      env.SKILLFORGE_NPM_REGISTRY_URL?.trim() || "https://registry.npmjs.org",
+      "SKILLFORGE_NPM_REGISTRY_URL",
+    ),
+    pypiUrl: parseExternalUrl(
+      env.SKILLFORGE_PYPI_URL?.trim() || "https://pypi.org",
+      "SKILLFORGE_PYPI_URL",
+    ),
+    mcpReleaseCheck: parseBoolEnv(
+      env.SKILLFORGE_MCP_RELEASE_CHECK,
+      true,
+      "SKILLFORGE_MCP_RELEASE_CHECK",
+    ),
   };
 }
 
@@ -939,6 +971,7 @@ export function parseConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     safeErrors,
     ...parseLlmEnv(env),
     ...parseGitHubEnv(env),
+    ...parseMcpRegistryEnv(env),
     downloadsDir: parseDownloadsDir(env.SKILLFORGE_DOWNLOADS_DIR),
   };
 }

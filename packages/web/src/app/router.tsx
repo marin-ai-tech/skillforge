@@ -29,6 +29,7 @@ import { AdminInventory } from "../pages/admin/Inventory.tsx";
 import { AdminRollout } from "../pages/admin/Rollout.tsx";
 import { AdminHarvest } from "../pages/admin/Harvest.tsx";
 import { Packs } from "../pages/Packs.tsx";
+import { MethodPackPage } from "../pages/MethodPackPage.tsx";
 import { Help } from "../pages/Help.tsx";
 import { Teams } from "../pages/Teams.tsx";
 import { Notifications } from "../pages/me/Notifications.tsx";
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
       { path: "admin/rollout", element: <AdminRollout /> },
       { path: "admin/harvest", element: <AdminHarvest /> },
       { path: "packs", element: <Packs /> },
+      { path: "packs/:name", element: <MethodPackPage /> },
       { path: "ext/:plugin/:page", element: <ExtPage /> },
       { path: "me", element: <Overview /> },
       { path: "me/tokens", element: <Tokens /> },

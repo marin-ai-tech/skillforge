@@ -11,13 +11,27 @@ test("clients in display order", () => {
   assert.deepEqual(MCP_CLIENTS, ["claude-code", "codex", "cursor", "opencode", "qwen"]);
 });
 
-test("Claude Code: unchanged commands", () => {
+// fix-mcp-token-snippet (#184): the former HTTP command put the token into ~/.claude.json in plain text. Claude Code now
+// gets a project .mcp.json block whose header names an environment variable; Claude Code expands it at start.
+test("Claude Code: HTTP is a .mcp.json block with a variable; the token is nowhere in the snippets", () => {
   const s = mcpConnectSnippets("claude-code", { baseUrl: BASE, token: TOKEN });
-  assert.equal(
-    s.http,
-    `claude mcp add --transport http skillforge ${BASE}/mcp --header "Authorization: Bearer ${TOKEN}"`,
-  );
+  assert.deepEqual(JSON.parse(s.http), {
+    mcpServers: {
+      skillforge: {
+        type: "http",
+        url: `${BASE}/mcp`,
+        headers: { Authorization: "Bearer ${SKILLFORGE_MCP_TOKEN}" },
+      },
+    },
+  });
   assert.equal(s.stdio, "claude mcp add skillforge -- skillforge mcp");
+  for (const text of [s.http, s.stdio, ...s.notes]) {
+    assert.ok(!text.includes(TOKEN), `token leaked: ${text}`);
+  }
+  assert.ok(
+    s.notes.some((n) => n.includes("SKILLFORGE_MCP_TOKEN")),
+    JSON.stringify(s.notes),
+  );
 });
 
 test("Codex: token only via environment variable", () => {

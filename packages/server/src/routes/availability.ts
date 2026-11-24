@@ -30,7 +30,8 @@ export const availabilityRoutes: FastifyPluginAsync<{ db: Database }> = async (a
       try {
         setAvailability(db, request.user, row, request.body);
       } catch (e) {
-        if (e instanceof AvailabilityError) return reply.code(e.status).send({ error: e.code });
+        if (e instanceof AvailabilityError)
+          return reply.code(e.status).send({ ...e.extra, error: e.code });
         throw e;
       }
       return reply.send({ items: listAvailability(db, row.id) });

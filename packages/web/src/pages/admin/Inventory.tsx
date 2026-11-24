@@ -136,21 +136,39 @@ function People({ inv }: { inv: OrganisationInventory }) {
 
 function McpTotals({ mcp }: { mcp: InventoryMcp }) {
   const T = STR.adm.inventory.mcpTotals;
-  const cells: Array<[string, number]> = [
-    [T.agents, mcp.totals.agents],
-    [T.people, mcp.totals.people],
-    [T.servers, mcp.totals.servers],
-    [T.installs, mcp.totals.installs],
-    [T.unpinned, mcp.totals.unpinned_installs],
-    [T.literal, mcp.totals.literal_secret_installs],
-    [T.remote, mcp.totals.remote_installs],
+  const cells: Array<{
+    key: string;
+    label: string;
+    value: number;
+    warning?: boolean;
+    testId?: string;
+  }> = [
+    { key: "agents", label: T.agents, value: mcp.totals.agents },
+    { key: "people", label: T.people, value: mcp.totals.people },
+    { key: "servers", label: T.servers, value: mcp.totals.servers },
+    { key: "installs", label: T.installs, value: mcp.totals.installs },
+    { key: "unpinned", label: T.unpinned, value: mcp.totals.unpinned_installs },
+    { key: "literal", label: T.literal, value: mcp.totals.literal_secret_installs },
+    { key: "remote", label: T.remote, value: mcp.totals.remote_installs },
+    {
+      key: "drift",
+      label: T.drift,
+      value: mcp.totals.drift_installs,
+      warning: mcp.totals.drift_installs > 0,
+      testId: "inventory-mcp-totals-drift",
+    },
   ];
   return (
     <dl data-testid="inventory-mcp-totals" className="grid gap-3 sm:grid-cols-4">
-      {cells.map(([k, v]) => (
-        <div key={k} className="rounded-sf border border-line bg-surface p-3">
-          <dt className="text-xs uppercase tracking-wide text-muted">{k}</dt>
-          <dd className="text-lg font-semibold">{v}</dd>
+      {cells.map((c) => (
+        <div key={c.key} className="rounded-sf border border-line bg-surface p-3">
+          <dt className="text-xs uppercase tracking-wide text-muted">{c.label}</dt>
+          <dd
+            data-testid={c.testId}
+            className={`text-lg font-semibold${c.warning ? " text-warning" : ""}`}
+          >
+            {c.value}
+          </dd>
         </div>
       ))}
     </dl>
@@ -200,6 +218,15 @@ function McpRow({ s }: { s: InventoryMcpServer }) {
         )}
         {s.registry ? <span className="text-muted"> · {s.registry.status}</span> : null}
       </td>
+      <td data-testid="inventory-mcp-registry-version" className="py-1 pr-3 font-mono text-xs">
+        {s.registry?.version || "—"}
+      </td>
+      <td
+        data-testid="inventory-mcp-drift"
+        className={`py-1 ${s.drift_installs > 0 ? "text-warning" : ""}`}
+      >
+        {s.drift_installs}
+      </td>
     </tr>
   );
 }
@@ -233,7 +260,9 @@ function McpServers({ inv }: { inv: OrganisationInventory }) {
                 <th className="py-1 pr-3">{C.unpinned}</th>
                 <th className="py-1 pr-3">{C.literal}</th>
                 <th className="py-1 pr-3">{C.disabled}</th>
-                <th className="py-1">{C.registry}</th>
+                <th className="py-1 pr-3">{C.registry}</th>
+                <th className="py-1 pr-3">{C.registryVersion}</th>
+                <th className="py-1">{C.drift}</th>
               </tr>
             </thead>
             <tbody>

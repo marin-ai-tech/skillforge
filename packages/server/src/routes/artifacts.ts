@@ -23,6 +23,7 @@ import semver from "semver";
 import { allowedTransitions } from "../lifecycle/machine.ts";
 import { contentTypeForPath } from "../mime.ts";
 import { hasBlob, readBlob } from "../blobs.ts";
+import { getClearance } from "../security/clearance.ts";
 import {
   commitPublish,
   prepareArtifactPublish,
@@ -770,7 +771,7 @@ export const artifactsRoutes: FastifyPluginAsync<ArtifactsPluginOpts> = async (a
         return reply.code(404).send({ error: "not_found" });
       }
       if (detail.purged) return reply.code(410).send({ error: "purged" });
-      return reply.send(detail);
+      return reply.send({ ...detail, security_clearance: getClearance(db, row.id, version) });
     },
   );
 

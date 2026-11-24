@@ -3,6 +3,55 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.6.0 — 2026-11-24
+
+### Added
+- Help and docs: «First steps» — the whole path from starting SkillForge to checking it with your agents in eleven steps, each with a sign that it is done, first in Getting started and in `docs/en`.
+- Method packs can be authored: a pack page `/packs/<name>` (roles of a chosen version, versions with who published them, a diff between two versions), a form to check and publish a new pack or version, `POST /api/v1/packs/check` (every problem at once, nothing written), and CLI `skillforge pack publish <file> [--dry-run]` and `skillforge pack show`. A publish refusal lists every problem in `problems`; an item the author cannot see is `unknown_item`.
+- My space shows «My usage reports»: your own usage reports per artifact you can see (reports, helped of uses, basis, last version and time), and a first-steps hint when you have tokens but no agent snapshot or session facts.
+- MCP version tracking in the web: a Source releases block on the MCP server card (six states, a Check now action for the owner, a maintainer or an admin, and other versions from agent snapshots), inventory columns for the version in the registry and for differing installs, and a `mcp_version` notification preference whose title is built in the reader's language. Help and the MCP and self-hosting guides cover source releases, drift, and `SKILLFORGE_NPM_REGISTRY_URL`, `SKILLFORGE_PYPI_URL` and `SKILLFORGE_MCP_RELEASE_CHECK`.
+- CLI profiles: several named sign-ins live side by side in `~/.skillforge/config.json`. Choose one with `--profile`, `SKILLFORGE_PROFILE`, or a `.skillforge/profile` project binding. `skillforge profile list` (and `profile list --json`) lists names and addresses, never tokens; `skillforge doctor` shows the active profile and its source.
+- Security Clearance: a reviewer marks the blocking security findings of a version as false positives with a reason
+  (`POST` and `DELETE /api/v1/artifacts/:type/:name/versions/:version/security-clearance`). The mark is audited
+  (`security_clearance_set`, `security_clearance_removed`), shown in the version as `security_clearance`, and the
+  verdict stays `fail`. The author of the version cannot clear it (an admin can, marked `self_clearance` in the audit).
+- Quality tab: when the security verdict is `fail`, a reviewer who is not the version's publisher (or an admin) can record a Security Clearance with a reason, or remove it after confirmation. The verdict stays `fail`. Help covers the mark, the form and removal.
+- `skillforge install` installs a cleared version without `--allow-risky` and says who cleared it.
+- `skillforge validate` and `skillforge publish` print `security: <verdict>` with the blocking rules and, on `fail`,
+  that a reviewer must clear the findings before the artifact becomes active.
+- `install`, `sync` and `pack install` adopt skills copied into a project before SkillForge: when every file of the
+  version already on disk without a lock entry matches what the CLI would write (the same bytes, or a text file that
+  differs only in line endings), the files are written, the lock gets an entry and the result is `adopted`
+  (`Adopted <key>@<version> (local files match the registry)`; `sync`: `adopted=N`, `  adopted <key>@<version>` and the
+  `adopted` field with `--json`). A differing file is still refused with exit code 5, and only differing files are
+  named; `--force` is unchanged.
+
+### Changed
+- Files tab of a large artifact: a version with more than 100 files opens only the artifact folder and the path to the selected file, with Expand all / Collapse all; a filter finds files by part of the path (at most 500 rows); folders announce whether they are open.
+- Several profiles for one registry address without a choice, and without `default` among them, are refused with `profile_ambiguous` instead of using the first entry.
+- When a profile is chosen explicitly (`--profile`, `SKILLFORGE_PROFILE`, or a project binding), `SKILLFORGE_TOKEN` is ignored (one stderr line names the profile and the source); `--token` still wins. Without an explicit profile the previous order is unchanged.
+- `login --profile` (and a binding or `SKILLFORGE_PROFILE`) does not move `default` when a default already exists. `login` without an explicit profile and `login --name` still do.
+- Activation, assignment to a team as `default` or `required`, and method packs refuse a version whose security scan
+  failed without a current clearance (`security_not_cleared`, `item_security_not_cleared`). Artifacts, assignments and
+  packs that already exist are not touched.
+
+### Fixed
+- A failing eval run-finished hook (it writes the provenance record of the run) and a failing plugin event handler are written to the server log as `background_task_failed` instead of being swallowed or printed to the console only.
+- MCP package identity includes the registry type, so the same name on npm and on PyPI no longer collides in usage and inventory matching. npm release-check URLs encode the package identifier (one path segment, or `@scope%2Fname`). A failure in a background release check or a drift notice after an upload is written to the server log and does not fail the pass or the upload.
+- Dark-theme contrast of filled accent and danger buttons now meets WCAG 2.2 AA, and undefined colour classes (`text-accent-fg`, `text-ok`) are replaced with theme tokens.
+- Security check: "without asking the user to <verb>" (for example "…without asking the user to fill a record") is no
+  longer an `instruction_override` finding; it describes not burdening the user. A hidden action stays a finding: the
+  phrase at the end of a sentence, with "first", "for permission", "for confirmation" or "to" with a consent verb
+  (approve, confirm, allow, agree, consent). Quality algorithm 6: stored reports are recomputed on start.
+- `agent scan --mcp`: a stdio server started through `cmd /c` or `cmd /k` (the form Claude Code needs on Windows for
+  `npx`) is analyzed by the wrapped command, so its launcher, package and pinned version are reported and the approved
+  `mcp-server` artifact matches. Before, the snapshot showed `cmd` without a package.
+- Tokens page, Claude Code: the HTTP snippet is a project `.mcp.json` block whose header is
+  `Bearer ${SKILLFORGE_MCP_TOKEN}`; Claude Code expands the variable at start, so no file keeps the MCP token. The
+  former `claude mcp add --transport http … --header "Authorization: Bearer <token>"` wrote it into `~/.claude.json`
+  in plain text, and the MCP inventory then reported a literal secret. Help and the MCP guide say how to remove such an
+  entry (`claude mcp remove skillforge`); the stdio bridge stays recommended.
+
 ## 0.5.22 — 2026-11-20
 
 ### Added

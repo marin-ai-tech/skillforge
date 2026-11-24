@@ -46,7 +46,7 @@ function NewsNav({ signedIn }: { signedIn: boolean }) {
           <span
             data-testid="nav-news-count"
             aria-hidden
-            className="rounded-sf bg-accent px-1.5 py-0.5 text-xs font-medium text-bg"
+            className="rounded-sf bg-accent px-1.5 py-0.5 text-xs font-medium text-on-accent"
           >
             {unread}
           </span>
@@ -238,7 +238,7 @@ export function Layout() {
                 {(unreadQ.data?.unread_count ?? 0) > 0 ? (
                   <span
                     data-testid="notif-count"
-                    className="ml-1 rounded-sf bg-accent px-1.5 py-0.5 text-xs font-medium text-white"
+                    className="ml-1 rounded-sf bg-accent px-1.5 py-0.5 text-xs font-medium text-on-accent"
                   >
                     {unreadQ.data!.unread_count}
                   </span>

@@ -17,6 +17,7 @@ import { actorFromUsername } from "../plugins/actor.ts";
 import { notify, emitNotifications } from "../notifications/notify.ts";
 import { recordTransitionNews } from "../news/record.ts";
 import type { Role } from "../auth/users.ts";
+import { securityGate } from "../security/clearance.ts";
 
 export type TransitionOk = {
   ok: true;
@@ -58,6 +59,34 @@ function selfPromotion(
     return { err: { ok: false, status: 400, body: { error: "reason_required" } } };
   }
   return { meta: { ...meta, self_promotion: true } };
+}
+
+/** security-gates: a version whose scan failed does not become active without a current clearance. */
+function activationGate(
+  db: Database,
+  row: { id: string; latest_version: string | null },
+  to: string,
+): TransitionErr | null {
+  if (to !== "active" || !row.latest_version) return null;
+  const gate = securityGate(db, row.id, row.latest_version);
+  if (gate.ok) return null;
+  return {
+    ok: false,
+    status: 409,
+    body: { error: "security_not_cleared", version: gate.version, rules: gate.rules },
+  };
+}
+
+/** The checks before a transition to active: self-promotion, then the security gate. */
+function activationChecks(
+  db: Database,
+  row: { id: string; latest_version: string | null },
+  input: TransitionInput,
+): { err: TransitionErr } | { meta: Record<string, unknown> | null } {
+  const self = selfPromotion(db, row, input);
+  if ("err" in self) return self;
+  const gated = activationGate(db, row, input.to);
+  return gated ? { err: gated } : self;
 }
 
 function reasonError(to: string, reason: string | null | undefined): TransitionErr | null {
@@ -121,7 +150,7 @@ export function transitionArtifact(db: Database, input: TransitionInput): Transi
       };
     }
 
-    const self = selfPromotion(db, row, input);
+    const self = activationChecks(db, row, input);
     if ("err" in self) {
       db.exec("ROLLBACK");
       return self.err;

@@ -33,6 +33,7 @@ const PREF_KINDS = [
   "status_change",
   "plugin",
   "source",
+  "mcp_version",
 ] as const;
 
 /** Interface label of a notification kind; an unknown kind from the server is shown as is. */
@@ -41,6 +42,17 @@ function notificationTitle(n: NotificationDto): string {
   // The summary has no artifact: its title comes from the stored item count, with plurals of the reader's language.
   if (n.kind === "news_summary" && typeof n.summary_items === "number") {
     return STR.ws.notifications.summaryTitle(n.summary_items);
+  }
+  if (n.kind === "mcp_version" && n.meta && n.artifact) {
+    const { event, version, registry_version } = n.meta;
+    if (event === "release" || event === "drift") {
+      return STR.ws.notifications.mcpVersionTitle(
+        n.artifact.name,
+        event,
+        version,
+        registry_version,
+      );
+    }
   }
   const build = STR.ws.notifications.titles[n.kind];
   return build && n.artifact ? build(`${n.artifact.type}/${n.artifact.name}`) : n.title;

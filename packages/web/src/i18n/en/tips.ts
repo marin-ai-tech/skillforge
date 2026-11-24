@@ -78,9 +78,10 @@ const actionTips = {
   "token-mcp-tags": "Optional kebab-case tags that limit which active artifacts the agent can see.",
   "token-integration":
     "An integration token also sees MCP tools that plugins mark for integrations (for example sdlc process events). Give it to the tool, never to an agent.",
-  "token-mcp-snippet": "Copy-paste commands to connect your agent over MCP; pick the client above.",
+  "token-mcp-snippet":
+    "Copy-paste commands or config blocks to connect your agent over MCP; pick the client above.",
   "token-mcp-client":
-    "Pick your agent client to see its MCP connect commands. Your choice is remembered in this browser.",
+    "Pick your agent client to see its MCP connect commands or config blocks. Your choice is remembered in this browser.",
   "token-create-submit": "Create a new API token. The secret is shown only once.",
   "token-revoke": "Revoke this token so it can no longer call the API. Requires confirmation.",
   "password-current": "Your current password (required to change it).",
@@ -188,6 +189,10 @@ const actionTips = {
   "home-delete-board": "Shortcut to aging and zombie counts on the delete-today board.",
   "quality-check-help": "Open advisory quality-code help for this Q_* check.",
   "hook-risk": "Highlight hook table rows for this risk label; click again to clear.",
+  "security-clearance-form":
+    "Mark the blocking security findings of this version as false positives. A reason is required.",
+  "security-clearance-remove":
+    "Remove the current security clearance. The version will be blocked again where a mark is required.",
   "sessions-delete":
     "Delete all session usage facts attributed to your account after confirmation.",
   "team-create": "Create a team with an initial lead (admin only).",

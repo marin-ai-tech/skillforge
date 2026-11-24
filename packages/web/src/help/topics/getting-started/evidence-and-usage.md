@@ -41,6 +41,8 @@ Any signed-in user, viewers included, can report usage: `uses` (0–100000) and 
 
 Each author can send at most 200 reports per artifact per UTC day (`rate_limited`).
 
+Your own reports, per artifact, are listed in **My space → My usage reports**, so you can see what your agent actually sent.
+
 ## CLI and MCP
 
 ```bash

@@ -17,7 +17,7 @@ Teams want to adopt a whole way of working â€” how they plan, build and review â
 ## What you see
 
 - The list of packs (`pack`) with title, name and latest version.
-- Opening a pack (`pack-open`) shows its roles (`pack-role`) with the pinned artifacts and a ready install command for each role.
+- The pack name leads to its page; **Roles** (`pack-open`) shows its roles (`pack-role`) with the pinned artifacts and a ready install command for each role.
 - An empty state (`packs-empty`) when no pack has been published.
 
 ## Common tasks
@@ -25,7 +25,7 @@ Teams want to adopt a whole way of working â€” how they plan, build and review â
 1. Open the page from the user menu (`menu-packs`) or go to `/packs`.
 2. Copy the command for your role, for example `skillforge pack install team-method@1.0.0 --role developer`, and run it in your project. Without `--role` every role is installed.
 3. Keep working as usual: `skillforge sync` does not move the pinned versions; installing a newer pack version moves them.
-4. To publish a pack, send `POST /api/v1/packs` with `name`, `version`, `title`, `description` and `roles`; every item must exist at that version, be active and be visible to the whole organisation.
+4. To publish a new pack, press **New pack** (`pack-new`, contributors and above): fill in the name, version and roles, **Check**, then **Publish**. A new version of an existing pack is published on its page. The same from a terminal: `skillforge pack publish pack.json` (`--dry-run` only checks).
 
 > [!NOTE]
 > A new version must be higher than the latest one, and only the pack's owner or an admin can publish it. Use `skillforge pack list` to see packs from the terminal.

@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "codegraph": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@colbymchenry/codegraph@1.6.4", "serve", "--mcp"]
+    },
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github@2025.4.8"],

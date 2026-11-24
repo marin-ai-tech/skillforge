@@ -2,7 +2,14 @@ import { currentSigningKeyId } from "../verify.ts";
 import os from "node:os";
 import readline from "node:readline";
 import { ApiError, SkillforgeClient } from "../client.ts";
-import { entryNameFromUrl, saveMcpToken, upsertRegistry, type RegistryEntry } from "../config.ts";
+import {
+  entryNameFromUrl,
+  loadConfig,
+  readExplicitProfile,
+  saveMcpToken,
+  upsertRegistry,
+  type RegistryEntry,
+} from "../config.ts";
 import { EXIT } from "../exit.ts";
 import type { AppContext } from "../context.ts";
 import { setExit } from "../context.ts";
@@ -24,6 +31,7 @@ export type LoginOpts = {
   passwordStdin?: boolean;
   mcpTokenStdin?: boolean;
   name?: string;
+  profile?: string;
 };
 
 /** First line of stdin; on a terminal prompts on stderr and returns after one line (no EOF wait). */
@@ -63,6 +71,21 @@ function errorCodeOf(text: string): string | undefined {
   return undefined;
 }
 
+function resolveLoginTarget(
+  opts: LoginOpts,
+  url: string,
+): { entryName: string; setDefault: boolean } {
+  const nameOpt = opts.name && opts.name.length > 0 ? opts.name : undefined;
+  const profileFlag = opts.profile && opts.profile.length > 0 ? opts.profile : undefined;
+  if (nameOpt && profileFlag && nameOpt !== profileFlag) {
+    throw new Error("--name (" + nameOpt + ") and --profile (" + profileFlag + ") differ");
+  }
+  const explicit = readExplicitProfile({ profile: opts.profile });
+  const entryName = nameOpt ?? explicit?.name ?? entryNameFromUrl(url);
+  const cfg = loadConfig();
+  const setDefault = !explicit || !cfg.default;
+  return { entryName, setDefault };
+}
 const MCP_PROBE = JSON.stringify({
   jsonrpc: "2.0",
   id: 1,
@@ -126,7 +149,8 @@ async function runSaveMcpToken(ctx: AppContext, base: string, opts: LoginOpts): 
     return;
   }
 
-  const name = saveMcpToken(base, token, opts.name);
+  const { entryName, setDefault } = resolveLoginTarget(opts, base);
+  const name = saveMcpToken(base, token, entryName, undefined, { setDefault });
 
   if (process.platform === "win32") {
     ctx.out.error(
@@ -203,7 +227,7 @@ export async function runLogin(ctx: AppContext, opts: LoginOpts): Promise<void> 
     return;
   }
 
-  const entryName = opts.name && opts.name.length > 0 ? opts.name : entryNameFromUrl(base);
+  const { entryName, setDefault } = resolveLoginTarget(opts, base);
   const client = new SkillforgeClient({ url: base });
 
   let authenticated: { entry: RegistryEntry; username: string } | null = null;
@@ -221,7 +245,9 @@ export async function runLogin(ctx: AppContext, opts: LoginOpts): Promise<void> 
 
   const { entry, username } = authenticated;
   const keyId = await currentSigningKeyId(client);
-  upsertRegistry(entryName, keyId ? { ...entry, signing_key_id: keyId } : entry);
+  upsertRegistry(entryName, keyId ? { ...entry, signing_key_id: keyId } : entry, undefined, {
+    setDefault,
+  });
 
   if (process.platform === "win32") {
     ctx.out.error(

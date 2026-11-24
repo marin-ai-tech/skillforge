@@ -154,6 +154,7 @@ export {
   parseVersionSpec,
   isDowngrade,
   semverGreater,
+  semverValid,
   VERSION_SPEC_MAX_LENGTH,
 } from "./version-spec.ts";
 export type { VersionSpec } from "./version-spec.ts";

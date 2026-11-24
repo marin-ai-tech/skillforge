@@ -16,7 +16,7 @@ export type CreatedNotification = {
 
 type Event = {
   /** `source` (tracked-sources): a tracked source could not be updated. */
-  kind: "comment" | "mention" | "new_version" | "status_change" | "source";
+  kind: "comment" | "mention" | "new_version" | "status_change" | "source" | "mcp_version";
   artifact: ArtifactRow;
   actor: string;
   version?: string | null;
@@ -24,6 +24,8 @@ type Event = {
   parentId?: string | null;
   mentions?: string[];
   onlyMentions?: boolean;
+  title?: string;
+  meta?: Record<string, unknown>;
 };
 
 export function preferenceEnabled(db: Database, username: string, kind: string): boolean {
@@ -178,9 +180,9 @@ export function notify(db: Database, event: Event): CreatedNotification[] {
         version: event.version,
         commentId: event.commentId,
         actor,
-        title: `${target.kind}: ${artifact.type}/${artifact.name}`,
+        title: event.title ?? `${target.kind}: ${artifact.type}/${artifact.name}`,
         url: event.commentId ? `${url}?comment=${event.commentId}` : url,
-        meta: target.meta,
+        meta: { ...event.meta, ...target.meta },
       }),
     );
   }

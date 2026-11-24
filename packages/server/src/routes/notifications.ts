@@ -6,7 +6,15 @@ import { getArtifactById } from "../repo.ts";
 import { canView } from "../visibility/index.ts";
 import { preferenceEnabled, visibleUnreadCount } from "../notifications/notify.ts";
 
-const kinds = ["comment", "mention", "new_version", "status_change", "plugin", "source"] as const;
+const kinds = [
+  "comment",
+  "mention",
+  "new_version",
+  "status_change",
+  "plugin",
+  "source",
+  "mcp_version",
+] as const;
 type Row = {
   id: string;
   kind: string;
@@ -31,6 +39,30 @@ function summaryItems(n: Row): number | null {
   } catch {
     return null;
   }
+}
+
+/** Fields the client needs to build an mcp_version title in the reader's language. */
+function mcpVersionMeta(
+  n: Row,
+): { event: "release" | "drift"; version: string; registry_version: string } | undefined {
+  if (n.kind !== "mcp_version" || !n.meta) return undefined;
+  try {
+    const m = JSON.parse(n.meta) as {
+      event?: unknown;
+      version?: unknown;
+      registry_version?: unknown;
+    };
+    if (
+      (m.event === "release" || m.event === "drift") &&
+      typeof m.version === "string" &&
+      typeof m.registry_version === "string"
+    ) {
+      return { event: m.event, version: m.version, registry_version: m.registry_version };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 type Reader = { viewer: Parameters<typeof canView>[1]; username: string };
@@ -119,6 +151,7 @@ export const notificationsRoutes: FastifyPluginAsync<{ db: Database }> = async (
           created_at: n.created_at,
           read: n.read_at !== null,
           summary_items: summaryItems(n),
+          meta: mcpVersionMeta(n),
         };
       });
       return reply.send({

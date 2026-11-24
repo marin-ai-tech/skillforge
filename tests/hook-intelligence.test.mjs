@@ -35,7 +35,7 @@ async function validate(body) {
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.deepEqual(r.data.errors, [], JSON.stringify(r.data.errors));
   assert.ok(r.data.quality, "no quality report");
-  assert.equal(r.data.quality.algorithm, 5);
+  assert.equal(r.data.quality.algorithm, 6);
   return r.data.quality;
 }
 
@@ -120,7 +120,7 @@ test("non-hooks have no hook section, algorithm 2", async () => {
     { cookie: admin.cookie },
   );
   assert.equal(r.status, 200);
-  assert.equal(r.data.quality.algorithm, 5);
+  assert.equal(r.data.quality.algorithm, 6);
   assert.ok(!("hook" in r.data.quality), "the hook section exists only for hooks");
 });
 
@@ -146,7 +146,7 @@ test("backfill on start: an algorithm 1 report is recomputed to algorithm 2 with
     assert.ok(s2.up, s2.stderr);
     const card = await api(s2.base, "GET", "/api/v1/artifacts/hook/destructive-guard");
     assert.equal(card.status, 200);
-    assert.equal(card.data.latest.quality.algorithm, 5);
+    assert.equal(card.data.latest.quality.algorithm, 6);
     assert.deepEqual(card.data.latest.quality, original);
   } finally {
     if (s1?.up) await s1.stop();

@@ -254,7 +254,7 @@ function UsersPage() {
               type="submit"
               data-testid="create-submit"
               pending={createMut.isPending}
-              className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
             >
               {createMut.isPending ? STR.admin.submitting : STR.admin.submit}
             </Button>
@@ -366,7 +366,7 @@ function UsersPage() {
                         <button
                           type="button"
                           data-testid="user-reset-submit"
-                          className="rounded-sf bg-accent px-2 py-1 text-xs text-white"
+                          className="rounded-sf bg-accent px-2 py-1 text-xs text-on-accent"
                           onClick={() => onResetSubmit(u)}
                         >
                           {STR.admin.resetSubmit}

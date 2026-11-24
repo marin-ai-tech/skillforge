@@ -1,5 +1,6 @@
 import { sourceRoutes } from "./routes/sources.ts";
 import { checkAllSources } from "./tracked/check.ts";
+import { checkAllReleases } from "./mcp-registry/release-check.ts";
 import { isDue, startSourceSchedule } from "./tracked/schedule.ts";
 import { backfillSources } from "./tracked/store.ts";
 import { backfillSignatures, loadSigner, setSigner } from "./signing/signer.ts";
@@ -31,6 +32,7 @@ import { mcpServerCardRoutes } from "./routes/mcp-server-card.ts";
 import { adminMirrorRoutes } from "./routes/admin-mirrors.ts";
 import { versionDiffRoutes } from "./routes/version-diff.ts";
 import { availabilityRoutes } from "./routes/availability.ts";
+import { securityClearanceRoutes } from "./routes/security-clearance.ts";
 import { replacementRoutes } from "./routes/replacement.ts";
 import { adminAuditRoutes } from "./routes/admin-audit.ts";
 import { qualityRubricRoutes } from "./routes/quality-rubric.ts";
@@ -59,7 +61,8 @@ import { workflowsRoutes } from "./routes/workflows.ts";
 import { routinesRoutes } from "./routes/routines.ts";
 import { hooksRoutes } from "./routes/hooks.ts";
 import { configureRunOutputs, pruneRunOutputs } from "./runs/outputs.ts";
-import { interruptStaleRuns, onRunFinished } from "./evals/runs.ts";
+import { interruptStaleRuns, onRunFinished, setEvalRunLog } from "./evals/runs.ts";
+import { setPluginEventLog } from "./plugins/events.ts";
 import { appendProvenance } from "./provenance/ledger.ts";
 import { interruptStaleBatches, startBatchPump, stopBatchPump } from "./evals/batch.ts";
 import { interruptStaleWorkflowRuns } from "./workflows/engine.ts";
@@ -322,6 +325,7 @@ export async function buildApp(config: AppConfig) {
   await app.register(adminMirrorRoutes, { db, config });
   await app.register(versionDiffRoutes, { db, config });
   await app.register(availabilityRoutes, { db });
+  await app.register(securityClearanceRoutes, { db });
   await app.register(replacementRoutes, { db });
   await app.register(adminAuditRoutes, { db });
   await app.register(qualityRubricRoutes, { db });
@@ -338,6 +342,7 @@ export async function buildApp(config: AppConfig) {
         isDue(x.last_checked_at, config.mirrorIntervalHours, Date.now());
       await syncAllMirrors(db, config, logger.error, due);
       await checkAllSources(db, config, logger.error, due);
+      await checkAllReleases(db, config, logger.error, due);
     },
     { intervalHours: config.mirrorIntervalHours, log: logger.error },
   );
@@ -452,6 +457,9 @@ export async function buildApp(config: AppConfig) {
     });
   }
   startBatchPump(db, config, { log: logger.error });
+  // fix-background-errors-rest: failing event handlers go to the server log
+  setEvalRunLog(logger.error);
+  setPluginEventLog(logger.error);
   // provenance-ledger: an eval run in a terminal status writes a kind=eval record
   onRunFinished((runId) => {
     const run = db

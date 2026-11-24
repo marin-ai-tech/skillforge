@@ -35,7 +35,7 @@ export function Quality({ artifact, version }: Props) {
 
   return (
     <div className="space-y-6">
-      <SecurityScan report={version.quality.security} />
+      <SecurityScan report={version.quality.security} artifact={artifact} version={version} />
       <RubricResultView result={version.rubric} />
       <ContextCost cost={version.quality.context} />
       <QualityReportView quality={version.quality} />

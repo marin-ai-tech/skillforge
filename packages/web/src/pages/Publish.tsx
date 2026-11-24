@@ -866,7 +866,7 @@ export function Publish() {
           type="button"
           data-testid="publish-submit"
           disabled={!canSubmit}
-          className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() => void onSubmit()}
         >
           {state.submitting ? STR.publish.submitting : STR.publish.submit}

@@ -157,7 +157,7 @@ function RunsPanel({
                 <span
                   className={
                     r.status === "done"
-                      ? "text-ok"
+                      ? "text-st-active"
                       : r.status === "failed"
                         ? "text-danger"
                         : "text-warning"
@@ -383,7 +383,7 @@ function RunEvalPanel({
           <Button
             type="button"
             data-testid="eval-run-start"
-            className="rounded-sf bg-accent px-3 py-1.5 text-xs font-medium text-white"
+            className="rounded-sf bg-accent px-3 py-1.5 text-xs font-medium text-on-accent"
             pending={runMut.isPending}
             disabled={!runVersion}
             onClick={() => {
@@ -787,7 +787,7 @@ export function Evals({ type, name, versions, canManage }: Props) {
             <Button
               type="button"
               data-testid="eval-save"
-              className="rounded-sf bg-accent px-3 py-1 text-xs font-medium text-white"
+              className="rounded-sf bg-accent px-3 py-1 text-xs font-medium text-on-accent"
               pending={saveMut.isPending}
               onClick={() => {
                 setSuiteMsg(null);

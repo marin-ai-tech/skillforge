@@ -153,6 +153,9 @@ configuration error that names the variable, and the process does not start.
 | `SKILLFORGE_PLUGINS_DIR` | `<data_dir>/plugins` | Server plugins folder |
 | `SKILLFORGE_NEWS_TICK_MS` | `60000` | How often the server announces scheduled news posts that are due and sends the news summaries that are due, in milliseconds; each post is announced once and each summary sent once per period, also across restarts |
 | `SKILLFORGE_MIRROR_INTERVAL_HOURS` | `24` | How often to check mirrors of external catalogs and the tracked sources of artifacts, in hours: what was last checked longer ago, or never, is checked; the server looks 5 minutes after it starts and then every hour, and a restart does not reset the interval; `0` turns the background check off (Check now still works) |
+| `SKILLFORGE_MCP_RELEASE_CHECK` | `true` | When true, the server checks npm and PyPI for newer versions of published `mcp-server` packages (the same background pass as mirrors, and a manual check on the card). `false`/`0` turns the checks off: a manual check answers `409 release_check_disabled` |
+| `SKILLFORGE_NPM_REGISTRY_URL` | `https://registry.npmjs.org` | npm registry for MCP package release checks. `https:` only (`http:` only for `localhost`, `127.0.0.1`, `[::1]`), no user, password or query; otherwise the start stops and names this variable |
+| `SKILLFORGE_PYPI_URL` | `https://pypi.org` | PyPI for MCP package release checks. Same URL rules as `SKILLFORGE_NPM_REGISTRY_URL`; a bad value names this variable |
 | `SKILLFORGE_BUNDLED_PLUGINS_DIR` | `packages/server/bundled-plugins` | Folder of the plugins shipped with a release (`review-assistant`); an empty value disables it |
 | `SKILLFORGE_PLUGINS_DISABLED` | `false` | Do not load server plugins |
 | `SKILLFORGE_REVIEWERS_FILE` | (empty) | Path to the JSON file of `review-assistant` reviewers (read on each run) |

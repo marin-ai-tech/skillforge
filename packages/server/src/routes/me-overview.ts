@@ -5,6 +5,7 @@ import type { AppConfig } from "../config.ts";
 import type { Database } from "../db.ts";
 import { rowToSummary, type ArtifactRow } from "../repo.ts";
 import { userSessionsSummary } from "../sessions/facts.ts";
+import { myUsageSummary } from "../evidence/my-usage.ts";
 import { buildMyAgentsList } from "../agents/my-list.ts";
 import { visibleUnreadCount } from "../notifications/notify.ts";
 import { visibleClause } from "../visibility/sql.ts";
@@ -163,6 +164,7 @@ export const meOverviewRoutes: FastifyPluginAsync<MeOverviewPluginOpts> = async 
         return row ? canView(db, viewer, row) : false;
       }),
       sessions: userSessionsSummary(db, username),
+      usage_reports: myUsageSummary(db, viewer),
       notifications: { unread: visibleUnreadCount(db, username, user.role) },
     });
   });

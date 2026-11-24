@@ -102,7 +102,7 @@ function BackupsPage() {
             type="button"
             data-testid="backup-create"
             pending={createMut.isPending}
-            className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="rounded-sf bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
             onClick={() => {
               setError(null);
               createMut.mutate();

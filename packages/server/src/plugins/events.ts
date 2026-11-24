@@ -145,7 +145,28 @@ export function unsubscribePlugin(name: string): void {
   }
 }
 
-/** Emit after COMMIT; handlers run via setImmediate, isolated with try/catch. */
+type EventLog = (msg: string, fields: Record<string, unknown>) => void;
+let eventLog: EventLog | undefined;
+
+/** fix-background-errors-rest: where a failing plugin event handler is written (the server log; unset in unit tests). */
+export function setPluginEventLog(log: EventLog | undefined): void {
+  eventLog = log;
+}
+
+function handlerFailed(plugin: string, event: string, e: unknown): void {
+  try {
+    eventLog?.("background_task_failed", {
+      task: "plugin-event",
+      plugin,
+      event,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  } catch {
+    // a broken log must not stop the other handlers
+  }
+}
+
+/** Emit after COMMIT; handlers run via setImmediate, isolated: a failure goes to the server log. */
 export function emitPluginEvent(evt: PluginEvent): void {
   const list = handlers.get(evt.type) ?? [];
   if (list.length === 0) return;
@@ -154,14 +175,10 @@ export function emitPluginEvent(evt: PluginEvent): void {
       try {
         const result = handler(evt);
         if (result && typeof (result as Promise<void>).then === "function") {
-          (result as Promise<void>).catch((e: unknown) => {
-            const msg = e instanceof Error ? e.message : String(e);
-            console.error(`[plugin ${plugin}] event handler error: ${msg}`);
-          });
+          (result as Promise<void>).catch((e: unknown) => handlerFailed(plugin, evt.type, e));
         }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error(`[plugin ${plugin}] event handler error: ${msg}`);
+        handlerFailed(plugin, evt.type, e);
       }
     }
   });

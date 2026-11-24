@@ -3,6 +3,7 @@ import { getUserById } from "../auth/users.ts";
 import { listAllAgents } from "./store.ts";
 import { isUnpinned, listAllMcpServers, type StoredMcpServer } from "./mcp-store.ts";
 import { registryIndex, type RegistryLink } from "../mcp-registry/usage.ts";
+import { packageKey, registryTypeOfLauncher } from "../mcp-registry/package-key.ts";
 
 type Kind = "package" | "origin" | "name";
 
@@ -18,6 +19,7 @@ export type McpInventoryServer = {
   unpinned_installs: number;
   literal_secret_installs: number;
   disabled_installs: number;
+  drift_installs: number;
   /** The registry mcp-server declaring this package or origin (mcp-server-card), or null for a shadow server. */
   registry: RegistryLink | null;
 };
@@ -37,9 +39,11 @@ const sorted = (values: Iterable<string>) =>
 function attention(a: McpInventoryServer, b: McpInventoryServer): number {
   const secret = Number(b.literal_secret_installs > 0) - Number(a.literal_secret_installs > 0);
   const unpinned = Number(b.unpinned_installs > 0) - Number(a.unpinned_installs > 0);
+  const drift = Number(b.drift_installs > 0) - Number(a.drift_installs > 0);
   return (
     secret ||
     unpinned ||
+    drift ||
     b.installs - a.installs ||
     (a.label < b.label ? -1 : a.label > b.label ? 1 : 0)
   );
@@ -47,7 +51,10 @@ function attention(a: McpInventoryServer, b: McpInventoryServer): number {
 
 type Install = StoredMcpServer & { person: string };
 
-function summarize(key: string, list: Install[]): McpInventoryServer {
+function summarize(
+  key: string,
+  list: Install[],
+): Omit<McpInventoryServer, "registry" | "drift_installs"> {
   const id = identity(list[0]!);
   return {
     key,
@@ -61,8 +68,24 @@ function summarize(key: string, list: Install[]): McpInventoryServer {
     unpinned_installs: list.filter(isUnpinned).length,
     literal_secret_installs: list.filter((s) => s.literal_secret).length,
     disabled_installs: list.filter((s) => !s.enabled).length,
-    registry: null,
   };
+}
+
+function linkOf(
+  s: Omit<McpInventoryServer, "registry" | "drift_installs">,
+  list: Install[],
+  index: ReturnType<typeof registryIndex>,
+): RegistryLink | null {
+  if (s.kind === "origin") return index.origins.get(s.label) ?? null;
+  if (s.kind !== "package") return null;
+  const sample = list[0]!;
+  const pkg = sample.package ?? s.label;
+  return index.packages.get(packageKey(registryTypeOfLauncher(sample.launcher), pkg)) ?? null;
+}
+
+function driftInstalls(list: Install[], registry: RegistryLink | null): number {
+  if (!registry?.version) return 0;
+  return list.filter((s) => s.pinned && s.version && s.version !== registry.version).length;
 }
 
 /** The `mcp` section of the organisation inventory (admin only, like the rest of it). No paths beyond templates. */
@@ -81,15 +104,12 @@ export function mcpInventory(db: Database, dataDir?: string) {
     groups.set(key, [...(groups.get(key) ?? []), s]);
   }
   const index = registryIndex(db, dataDir);
-  const linkOf = (s: McpInventoryServer): RegistryLink | null =>
-    (s.kind === "package"
-      ? index.packages.get(s.label)
-      : s.kind === "origin"
-        ? index.origins.get(s.label)
-        : undefined) ?? null;
   const servers = [...groups]
-    .map(([key, list]) => summarize(key, list))
-    .map((s) => ({ ...s, registry: linkOf(s) }))
+    .map(([key, list]) => {
+      const base = summarize(key, list);
+      const registry = linkOf(base, list, index);
+      return { ...base, registry, drift_installs: driftInstalls(list, registry) };
+    })
     .sort(attention);
   const scannedAgents = db
     .prepare("SELECT COUNT(*) AS n FROM agents WHERE mcp_scanned_at IS NOT NULL")
@@ -103,6 +123,7 @@ export function mcpInventory(db: Database, dataDir?: string) {
       unpinned_installs: installs.filter(isUnpinned).length,
       literal_secret_installs: installs.filter((s) => s.literal_secret).length,
       remote_installs: installs.filter((s) => s.transport !== "stdio" && s.origin !== null).length,
+      drift_installs: servers.reduce((n, s) => n + s.drift_installs, 0),
     },
     servers,
   };

@@ -20,12 +20,13 @@ Recipients depend on the event:
 - **new_version** — owner, maintainers, watchers, and users whose agent snapshots depend on the artifact.
 - **status_change** — owner, maintainers, watchers.
 - **plugin** / review decisions — via `ctx.notifications.send` with visibility checks.
+- **mcp_version** — owner, maintainers and watchers, when a new package version is out at the source or agent snapshots use a different pinned version than the registry. The title is built in the reader's language.
 
 Hidden artifacts never leak: the feed re-filters by current visibility. One event yields at most one notification per user (`mention` wins over `comment`).
 
 ## Preferences and the bell
 
-Kinds `comment`, `new_version`, `status_change`, and `plugin` have toggles (`notif-pref-<kind>`). **mention** stays on. The bell polls about every 60 seconds and on window focus; polling stops for anonymous users and after `401`. Mark one row read by opening it, or use **Mark all read** (`notifications-mark-all`).
+Kinds `comment`, `new_version`, `status_change`, `plugin`, and `mcp_version` have toggles (`notif-pref-<kind>`). **mention** stays on. The bell polls about every 60 seconds and on window focus; polling stops for anonymous users and after `401`. Mark one row read by opening it, or use **Mark all read** (`notifications-mark-all`).
 
 ## Watching an artifact
 

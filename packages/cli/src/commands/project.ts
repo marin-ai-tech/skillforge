@@ -170,6 +170,7 @@ async function runProjectStatusInner(ctx: AppContext, opts: ProjectStatusOpts): 
   const resolved = resolveRegistry({
     url: ctx.globals.url,
     token: ctx.globals.token,
+    profile: ctx.globals.profile,
   });
 
   if (!resolved?.url) {

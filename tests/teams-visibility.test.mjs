@@ -133,6 +133,7 @@ test("MATRIX: an outsider does not see a team artifact on any read route; permit
     ["POST", `/api/v1/artifacts/skill/${N}/owner`, { owner: "oscar", reason: "x" }],
     ["POST", `/api/v1/artifacts/skill/${N}/maintainers`, { username: "oscar" }],
     ["POST", `/api/v1/artifacts/skill/${N}/versions/0.1.0/channel`, { channel: "beta" }],
+    ["POST", `/api/v1/artifacts/skill/${N}/versions/0.1.0/security-clearance`, { reason: "x" }],
     ["POST", `/api/v1/artifacts/skill/${N}/versions/0.1.0/validate`, { note: "x" }],
     ["PUT", `/api/v1/artifacts/skill/${N}/scope`, { visibility: "org", owner_team: null }],
     ["PUT", `/api/v1/artifacts/skill/${N}/labels`, { labels: ["x"] }],
@@ -442,6 +443,30 @@ test("membership: removal from a team revokes access immediately; deleting a tea
   assert.equal((await api("DELETE", "/api/v1/teams/beta")).status, 200, "an empty team is deleted");
 });
 
+test("security-clearance: an outsider gets 404 on POST for a team-visible artifact", async () => {
+  const p = "/api/v1/artifacts/skill/team-skill/versions/0.1.0/security-clearance";
+  const r = await api("POST", p, { reason: "false positive" }, "oscar");
+  assert.equal(r.status, 404, `write LEAK: oscar POST ${p}: ${r.status} ${JSON.stringify(r.data)}`);
+  assert.deepEqual(r.data, NOT_FOUND);
+});
+
+test("mcp release-check: an outsider gets 404 on POST for a team-visible MCP server, before any outbound request", async () => {
+  const md = "---\nname: team-mcp\ndescription: Team MCP server for the visibility test. Use when the team needs it.\n---\n\n# Team MCP\n";
+  const sj = JSON.stringify({ packages: [{ registryType: "npm", identifier: "team-mcp-pkg", version: "1.0.0", transport: { type: "stdio" } }] });
+  const files = [
+    { path: "team-mcp/MCP.md", content_base64: Buffer.from(md).toString("base64") },
+    { path: "team-mcp/server.json", content_base64: Buffer.from(sj).toString("base64") },
+  ];
+  const pub = await api("POST", "/api/v1/artifacts", { type: "mcp-server", files, visibility: "team", owner_team: "alpha" }, "lena");
+  assert.equal(pub.status, 201, JSON.stringify(pub.data));
+  const p = "/api/v1/artifacts/mcp-server/team-mcp/mcp/release-check";
+  for (const who of ["oscar", "vera"]) {
+    const r = await api("POST", p, {}, who);
+    assert.equal(r.status, 404, `write LEAK: ${who} POST ${p}: ${r.status} ${JSON.stringify(r.data)}`);
+    assert.deepEqual(r.data, NOT_FOUND);
+  }
+});
+
 test("route inventory: every path with /:type/:name is known to the test (a new route requires a deliberate entry)", async () => {
   const known = new Set([
     "/api/v1/artifacts/:type/:name",
@@ -463,6 +488,8 @@ test("route inventory: every path with /:type/:name is known to the test (a new 
     "/api/v1/artifacts/:type/:name/metrics",
     // mcp-server-card: covered by the visibility gate; tests/mcp-server-card.test.mjs checks a team artifact.
     "/api/v1/artifacts/:type/:name/mcp",
+    // mcp-version-tracking: manual release check; the outsider case is below.
+    "/api/v1/artifacts/:type/:name/mcp/release-check",
     "/api/v1/artifacts/:type/:name/comments",
     "/api/v1/artifacts/:type/:name/watch",
     "/api/v1/artifacts/:type/:name/metadata",
@@ -511,6 +538,7 @@ test("route inventory: every path with /:type/:name is known to the test (a new 
     "/api/v1/artifacts/:type/:name/versions/:version",
     "/api/v1/artifacts/:type/:name/versions/:version/bundle.zip",
     "/api/v1/artifacts/:type/:name/versions/:version/channel",
+    "/api/v1/artifacts/:type/:name/versions/:version/security-clearance",
     "/api/v1/artifacts/:type/:name/versions/:version/evidence",
     "/api/v1/artifacts/:type/:name/versions/:version/evidence/documents/:sha256",
     "/api/v1/artifacts/:type/:name/versions/:version/files/*",

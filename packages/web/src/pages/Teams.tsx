@@ -88,7 +88,7 @@ function TeamsInner({ isAdmin }: { isAdmin: boolean }) {
               <Button
                 type="submit"
                 data-testid="team-create"
-                className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
                 pending={createMut.isPending}
                 disabled={!name.trim() || !lead.trim()}
               >

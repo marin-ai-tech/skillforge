@@ -1,6 +1,6 @@
 ---
 title: Notifications
-summary: Notifications is your personal feed of mentions, comments, new versions, status changes and plugin messages. Use it to catch up and choose which kinds still alert you.
+summary: Notifications is your personal feed of mentions, comments, new versions, status changes, plugin messages and MCP server versions. Use it to catch up and choose which kinds still alert you.
 section: ui-workspace
 learn:
   - What each notification row shows and how rows become read
@@ -13,7 +13,7 @@ related: getting-started/notifications-and-watch, actions/notifications/notifica
 
 ## What this page is for
 
-`/me/notifications` is your personal feed of registry events: mentions, comments, new versions, status changes, and plugin messages. Use it to catch up without opening every artifact card, and to tune which kinds still alert you.
+`/me/notifications` is your personal feed of registry events: mentions, comments, new versions, status changes, plugin messages, and MCP server versions (`mcp_version`). Use it to catch up without opening every artifact card, and to tune which kinds still alert you.
 
 ## What you see
 

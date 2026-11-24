@@ -12,6 +12,7 @@ import { GradeChip } from "../../components/GradeChip.tsx";
 import { RelativeTime } from "../../components/RelativeTime.tsx";
 import { roleAtLeast } from "../../lib/auth.tsx";
 import { STR } from "../../lib/strings.ts";
+import { SetupHint, UsageSection } from "./UsageSection.tsx";
 
 const STATUSES: LifecycleStatus[] = ["candidate", "active", "aging", "zombie", "retired"];
 const AGENT_SUMMARY_KEYS = [
@@ -203,6 +204,8 @@ function OverviewPage({ data }: { data: MeOverview }) {
         </div>
       </section>
 
+      <SetupHint data={data} />
+
       <ArtifactsSection data={data} canPublish={canPublish} />
 
       <AgentsSection data={data} />
@@ -331,6 +334,8 @@ function OverviewPage({ data }: { data: MeOverview }) {
           onCancel={() => setDeleteOpen(false)}
         />
       </section>
+
+      <UsageSection usage={data.usage_reports} />
 
       <section data-testid="me-activity" className="space-y-3">
         <h2 className="text-base font-semibold text-ink">{STR.ws.overview.activity}</h2>

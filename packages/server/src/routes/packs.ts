@@ -3,7 +3,6 @@ import { requireRole, requireUser } from "../auth/guard.ts";
 import type { Database } from "../db.ts";
 import {
   PackError,
-  checkPackItems,
   getPack,
   listPacks,
   packVersion,
@@ -11,6 +10,7 @@ import {
   parsePackBody,
   publishPack,
 } from "../packs/packs.ts";
+import { methodPackItemProblems, methodPackOwnProblems } from "../packs/check.ts";
 
 /** Team method packs (method-packs): contributors publish, everyone signed in reads. */
 export const packRoutes: FastifyPluginAsync<{ db: Database }> = async (app, opts) => {
@@ -20,9 +20,31 @@ export const packRoutes: FastifyPluginAsync<{ db: Database }> = async (app, opts
     if (!requireRole(request, reply, "contributor")) return;
     try {
       const input = parsePackBody(request.body);
-      checkPackItems(db, input.manifest);
-      publishPack(db, { username: request.user.username, role: request.user.role }, input);
+      const actor = { username: request.user.username, role: request.user.role };
+      const problems = methodPackItemProblems(db, actor, input.manifest);
+      const first = problems[0];
+      if (first)
+        return reply.code(422).send({ error: first.code, message: first.message, problems });
+      publishPack(db, actor, input);
       return reply.code(201).send(packView(db, getPack(db, input.name)!));
+    } catch (e) {
+      if (e instanceof PackError)
+        return reply.code(e.status).send({ error: e.code, message: e.message });
+      throw e;
+    }
+  });
+
+  /** pack-authoring: the same checks as publishing, every problem at once, nothing written. */
+  app.post("/api/v1/packs/check", async (request, reply) => {
+    if (!requireRole(request, reply, "contributor")) return;
+    try {
+      const input = parsePackBody(request.body);
+      const actor = { username: request.user.username, role: request.user.role };
+      const problems = [
+        ...methodPackOwnProblems(db, actor, input.name, input.version),
+        ...methodPackItemProblems(db, actor, input.manifest),
+      ];
+      return reply.send({ ok: problems.length === 0, problems });
     } catch (e) {
       if (e instanceof PackError)
         return reply.code(e.status).send({ error: e.code, message: e.message });

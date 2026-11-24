@@ -293,7 +293,7 @@ export function ImportPage() {
           <Button
             type="button"
             data-testid="import-preview"
-            className="rounded-sf bg-accent px-3 py-1.5 text-sm text-accent-fg disabled:opacity-50"
+            className="rounded-sf bg-accent px-3 py-1.5 text-sm text-on-accent disabled:opacity-50"
             pending={busy}
             onClick={() => void onPreview()}
           >
@@ -366,7 +366,7 @@ export function ImportPage() {
               <button
                 type="button"
                 data-testid="import-run"
-                className="rounded-sf bg-accent px-3 py-1.5 text-sm text-accent-fg disabled:opacity-50"
+                className="rounded-sf bg-accent px-3 py-1.5 text-sm text-on-accent disabled:opacity-50"
                 disabled={!canRun}
                 onClick={() => void onRun()}
               >

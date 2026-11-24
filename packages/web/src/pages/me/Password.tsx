@@ -122,7 +122,7 @@ function PasswordPage() {
             type="submit"
             data-testid="password-submit"
             pending={submitting}
-            className="w-full rounded-sf bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="w-full rounded-sf bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-40"
           >
             {submitting ? STR.password.submitting : STR.password.submit}
           </Button>

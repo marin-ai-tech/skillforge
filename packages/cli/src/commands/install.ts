@@ -87,10 +87,23 @@ async function checkSecurity(
     `/api/v1/artifacts/${key}/versions/${encodeURIComponent(version)}`,
   );
   if (!res.ok) throw client.errorFromResult(res);
-  const meta = res.data as VersionMeta & { quality?: { security?: ScanView } | null };
+  const meta = res.data as VersionMeta & {
+    quality?: { security?: ScanView } | null;
+    security_clearance?: { cleared_by: string; reason: string; current: boolean } | null;
+  };
   const scan = meta.quality?.security;
   if (!scan || scan.verdict === "pass") return meta;
   const rules = [...new Set((scan.findings ?? []).filter((f) => !f.mention).map((f) => f.rule))];
+  const cleared =
+    scan.verdict === "fail" && meta.security_clearance?.current ? meta.security_clearance : null;
+  if (cleared) {
+    if (!flags.quiet) {
+      ctx.out.error(
+        `${key}@${version}: security findings cleared by ${cleared.cleared_by}: ${cleared.reason}`,
+      );
+    }
+    return meta;
+  }
   if (scan.verdict === "fail" && !flags.allowRisky) throw new RiskyError(key, version, rules);
   if (!flags.quiet) {
     ctx.out.error(
@@ -126,7 +139,9 @@ async function isPurgedVersion(
 export type InstallResult =
   | { status: "installed"; key: string; version: string }
   | { status: "updated"; key: string; version: string }
-  | { status: "up_to_date"; key: string; version: string };
+  | { status: "up_to_date"; key: string; version: string }
+  /** sync-adopt-identical: files already on disk without a lock entry matched what was written. */
+  | { status: "adopted"; key: string; version: string };
 
 function checkLocalChanges(into: string, entry: LockArtifact | undefined): string[] {
   if (!entry) return [];
@@ -154,6 +169,39 @@ function collectUnmanaged(
     if (!managed) unmanaged.push(rel);
   }
   return unmanaged;
+}
+
+/** sync-adopt-identical: equal bytes, or for a text file (no NUL byte) equal after CRLF -> LF. */
+function sameContent(disk: Buffer, wanted: Buffer): boolean {
+  if (disk.equals(wanted)) return true;
+  if (disk.includes(0) || wanted.includes(0)) return false;
+  const lf = (b: Buffer) => b.toString("latin1").replace(/\r\n/g, "\n");
+  return lf(disk) === lf(wanted);
+}
+
+/** Unmanaged files already on disk, split into those equal to what will be written and those that differ. */
+function compareUnmanaged(
+  into: string,
+  files: UnzippedFile[],
+  entry: LockArtifact | undefined,
+): { matching: string[]; differing: string[] } {
+  const unmanaged = collectUnmanaged(
+    into,
+    files.map((f) => f.path),
+    entry,
+  );
+  const abs = unmanaged.map((rel) => assertSafeRelPath(rel, into));
+  // A symlink or junction that leads out of the install root is refused before anything is read.
+  assertRealPathsInside(into, abs);
+  const wanted = new Map(files.map((f) => [f.path, f.content]));
+  const matching: string[] = [];
+  const differing: string[] = [];
+  unmanaged.forEach((rel, i) => {
+    const p = abs[i]!;
+    const same = fs.statSync(p).isFile() && sameContent(fs.readFileSync(p), wanted.get(rel)!);
+    (same ? matching : differing).push(rel);
+  });
+  return { matching, differing };
 }
 
 async function latestFromCard(
@@ -492,23 +540,36 @@ async function overlayState(client: SkillforgeClient, type: string, name: string
   return { layers, digest, field: digest ? { overlays: digest } : {} };
 }
 
+/**
+ * Files of the version already on disk without a lock entry: each one is compared with what will be written. Any
+ * differing file is refused as before (only those are named); --force overwrites without comparing, as before.
+ * Returns true when at least one such file existed and all of them matched (sync-adopt-identical).
+ */
 function assertUnmanagedOk(
   into: string,
   files: UnzippedFile[],
   existing: LockArtifact | undefined,
   force: boolean | undefined,
-): void {
-  const unmanaged = collectUnmanaged(
-    into,
-    files.map((f) => f.path),
-    existing,
-  );
-  if (unmanaged.length > 0 && !force) {
+): boolean {
+  if (force) return false;
+  const { matching, differing } = compareUnmanaged(into, files, existing);
+  if (differing.length > 0) {
     throw new ApiError(
-      `refusing to overwrite files not managed by SkillForge: ${unmanaged.join(", ")}; use --force`,
+      `refusing to overwrite files not managed by SkillForge: ${differing.join(", ")}; use --force`,
       EXIT.LOCAL_CHANGES,
     );
   }
+  return matching.length > 0;
+}
+
+function installedStatus(wasPresent: boolean, adopted: boolean): InstallResult["status"] {
+  if (wasPresent) return "updated";
+  return adopted ? "adopted" : "installed";
+}
+
+function installLine(status: InstallResult["status"], key: string, version: string): string {
+  if (status === "adopted") return `Adopted ${key}@${version} (local files match the registry)`;
+  return `${status === "installed" ? "Installed" : "Updated"} ${key}@${version}`;
 }
 
 function handleSameVersion(
@@ -557,6 +618,7 @@ function commitInstall(
   pinField: { pin?: string },
   quiet: boolean,
   ctx: AppContext,
+  adopted = false,
 ): InstallResult {
   const next: LockFile = {
     registry: registryUrl,
@@ -573,9 +635,9 @@ function commitInstall(
   };
   writeLock(into, next);
 
-  const status: InstallResult["status"] = wasPresent ? "updated" : "installed";
+  const status = installedStatus(wasPresent, adopted);
   if (!quiet && !ctx.out.json) {
-    ctx.out.write(`${status === "installed" ? "Installed" : "Updated"} ${key}@${version}`);
+    ctx.out.write(installLine(status, key, version));
   }
   return { status, key, version };
 }
@@ -682,7 +744,7 @@ export async function installOne(
     method,
     quiet,
   );
-  assertUnmanagedOk(into, files, existing, flags.force);
+  const adopted = assertUnmanagedOk(into, files, existing, flags.force);
   const stale = collectStalePaths(into, existing, files, version, digest, flags.force);
   const fileMap = writeInstalledFiles(into, files, stale);
   const result = commitInstall(
@@ -698,6 +760,7 @@ export async function installOne(
     pinField,
     quiet,
     ctx,
+    adopted,
   );
   return finishInstall(ctx, target, method, result, quiet);
 }
@@ -855,6 +918,8 @@ async function clearPurgedPins(
 
 type SyncSummary = {
   installed: string[];
+  /** sync-adopt-identical: copied before SkillForge, matched the registry, now in the lock. */
+  adopted: string[];
   updated: string[];
   up_to_date: string[];
   removed: string[];
@@ -947,9 +1012,7 @@ async function syncInstallItems(
       continue;
     }
     const label = `${result.key}@${result.version}`;
-    if (result.status === "installed") summary.installed.push(label);
-    else if (result.status === "updated") summary.updated.push(label);
-    else summary.up_to_date.push(label);
+    summary[result.status].push(label);
   }
 }
 
@@ -995,9 +1058,10 @@ function printSyncSummary(ctx: AppContext, summary: SyncSummary): void {
     return;
   }
   ctx.out.write(
-    `sync: installed=${summary.installed.length} updated=${summary.updated.length} up_to_date=${summary.up_to_date.length} removed=${summary.removed.length} skipped=${summary.skipped.length} failed=${summary.failed.length}`,
+    `sync: installed=${summary.installed.length} updated=${summary.updated.length} up_to_date=${summary.up_to_date.length} removed=${summary.removed.length} skipped=${summary.skipped.length} failed=${summary.failed.length} adopted=${summary.adopted.length}`,
   );
   for (const x of summary.installed) ctx.out.write(`  installed ${x}`);
+  for (const x of summary.adopted) ctx.out.write(`  adopted ${x}`);
   for (const x of summary.updated) ctx.out.write(`  updated ${x}`);
   for (const x of summary.up_to_date) ctx.out.write(`  up_to_date ${x}`);
   for (const x of summary.removed) ctx.out.write(`  removed ${x}`);
@@ -1034,6 +1098,7 @@ export async function runSync(ctx: AppContext, flags: SyncFlags): Promise<void> 
 
   const summary: SyncSummary = {
     installed: [],
+    adopted: [],
     updated: [],
     up_to_date: [],
     removed: [],

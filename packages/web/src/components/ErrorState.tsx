@@ -14,7 +14,7 @@ export function ErrorState({ message, onRetry }: Props) {
       {onRetry ? (
         <button
           type="button"
-          className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+          className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
           onClick={onRetry}
         >
           {STR.common.retry}

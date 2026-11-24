@@ -118,6 +118,14 @@ export const apiErrors = {
   session_required: "Sign in to do this: an API token cannot create tokens.",
   self_promotion_forbidden:
     "The author of the latest version cannot promote it to active; another reviewer has to.",
+  security_not_cleared:
+    "This version has security findings no reviewer has cleared. Open the Quality tab.",
+  item_security_not_cleared:
+    "A pack item has security findings no reviewer has cleared. Open the Quality tab for that version.",
+  self_clearance_forbidden:
+    "You cannot clear the findings of a version you published. Another reviewer has to.",
+  nothing_to_clear: "This version has no blocking security findings to clear.",
+  already_cleared: "These findings already have a current clearance.",
   // sign-in and users
   invalid_credentials: "Invalid username or password.",
   account_disabled: "This account is disabled.",

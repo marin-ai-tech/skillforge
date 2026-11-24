@@ -6,6 +6,7 @@ recipes.
 
 ## 🚀 Start here
 
+- [First steps](00-first-steps.md) — the whole path from starting the registry to checking it with your agents.
 - [Why SkillForge](01-why-skillforge.md) — the problem it solves and how.
 - [User guide](02-user-guide.md) — publish, review and install artifacts.
 - [Self-hosting](03-self-hosting.md) — install, configure, upgrade and back up the registry.

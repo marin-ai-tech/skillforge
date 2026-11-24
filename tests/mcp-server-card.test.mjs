@@ -90,7 +90,7 @@ test("card: description without values, policy, usage as numbers only", async ()
   assert.deepEqual([token.isSecret, token.isRequired], [true, true]);
   assert.equal(r.data.tools.length, 2);
   assert.deepEqual(r.data.policy, { allowed: true, reasons: [] });
-  assert.deepEqual(r.data.usage, { installs: 2, people: 2, same_version: 1 });
+  assert.deepEqual(r.data.usage, { installs: 2, people: 2, same_version: 1, other_versions: [] });
   const raw = JSON.stringify(r.data);
   assert.ok(!raw.includes("\"value\"") && !raw.includes("\"default\""), raw);
   assert.ok(!raw.includes("github.com"), "the value of a non-secret variable is not shown");
@@ -100,7 +100,7 @@ test("card: description without values, policy, usage as numbers only", async ()
   assert.equal(remote.status, 200);
   assert.equal(remote.data.remotes[0].origin, "https://mcp.sentry.dev");
   assert.deepEqual(remote.data.remotes[0].headers.map((h) => [h.name, h.isSecret]), [["Authorization", true]]);
-  assert.deepEqual(remote.data.usage, { installs: 1, people: 1, same_version: 0 });
+  assert.deepEqual(remote.data.usage, { installs: 1, people: 1, same_version: 0, other_versions: [] });
 });
 
 test("the policy changed after publication — the card shows the mismatch", async () => {
@@ -133,7 +133,7 @@ test("inventory: approved, candidate and shadow server", async () => {
   const inv = await api(base, "GET", "/api/v1/admin/inventory", undefined, { cookie: admin.cookie });
   assert.equal(inv.status, 200);
   const by = Object.fromEntries(inv.data.mcp.servers.map((s) => [s.key, s.registry]));
-  assert.deepEqual(by["package:npx:@modelcontextprotocol/server-github"], { name: "github-tools", status: "active" });
-  assert.deepEqual(by["origin:https://mcp.sentry.dev"], { name: "sentry-remote", status: "candidate" });
+  assert.deepEqual(by["package:npx:@modelcontextprotocol/server-github"], { name: "github-tools", status: "active", version: "2025.4.8" });
+  assert.deepEqual(by["origin:https://mcp.sentry.dev"], { name: "sentry-remote", status: "candidate", version: null });
   assert.equal(by["package:npx:tickets-mcp"], null);
 });

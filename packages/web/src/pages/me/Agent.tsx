@@ -372,7 +372,7 @@ function AgentRefreshHint({
               type="button"
               data-testid="agent-rescan"
               disabled={rescanPending}
-              className="rounded-sf bg-accent px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+              className="rounded-sf bg-accent px-3 py-1.5 text-xs font-medium text-on-accent disabled:opacity-40"
               onClick={onRescan}
             >
               {rescanPending ? STR.ws.agent.scanning : STR.ws.agent.rescan}

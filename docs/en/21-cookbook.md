@@ -68,12 +68,20 @@ See [Artifact types](05-artifact-types.md).
 
 1. `/me/tokens` → create a token with the **MCP** flag (optionally limited by tags); pick your client
    (Claude Code, Codex, Cursor, OpenCode, Qwen Code) and the page shows the ready command to connect.
-2. Run it, for example over HTTP in Claude Code:
+2. Use it, for example over HTTP in Claude Code: put this block in the project `.mcp.json` and set
+   `SKILLFORGE_MCP_TOKEN` to the MCP token in the environment Claude Code starts from (the file keeps only the
+   variable name):
+
+```json
+{"mcpServers":{"skillforge":{"type":"http","url":"http://127.0.0.1:8787/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
+```
 
 ```bash
-claude mcp add --transport http skillforge http://127.0.0.1:8787/mcp --header "Authorization: Bearer <MCP token>"
 claude mcp list   # skillforge: … Connected
 ```
+
+An entry made by the former `claude mcp add --transport http` command keeps the token in `~/.claude.json` in plain
+text: remove it with `claude mcp remove skillforge` and connect again.
 
 Or over stdio through the CLI bridge: `claude mcp add skillforge -e SKILLFORGE_URL=<url> -e SKILLFORGE_TOKEN=<MCP token> -- skillforge mcp`;
 the same bridge in Codex: `codex mcp add skillforge --env SKILLFORGE_URL=<url> -- skillforge mcp` after saving the
@@ -183,6 +191,27 @@ Removes files and the lock-file entry; the registry is untouched.
 3. Scheduling — the **Routines** tab: POSIX cron (`N/S` = `N..max` stepped;
    `dom|dow` = "either"), `Run now` fires off-schedule; output lands in
    run-outputs.
+
+
+## 18. Two agents on one machine
+
+1. Sign in the admin account and a station account as two CLI profiles (the second login must not move `default`):
+
+```bash
+skillforge login --url <base> --token <admin-token> --name admin
+skillforge login --url <base> --token <station-token> --profile station
+```
+
+2. In the station project, write a Profile Binding so commands and the MCP bridge use that profile:
+
+```bash
+mkdir -p .skillforge
+echo station > .skillforge/profile
+skillforge profile list --json
+skillforge whoami
+```
+
+3. Point the agent at the stdio bridge in that project (`skillforge mcp` then sends the profile's MCP token). Save the MCP token once with `skillforge login --url <base> --mcp-token-stdin --profile station`.
 
 ## See also
 

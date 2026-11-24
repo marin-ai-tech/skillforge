@@ -236,6 +236,7 @@ export const adm = {
       unpinned: "Unpinned",
       literal: "Literal secrets",
       remote: "Remote",
+      drift: "Different version",
     },
     mcpCols: {
       server: "Server",
@@ -247,6 +248,8 @@ export const adm = {
       literal: "Literal secrets",
       disabled: "Disabled",
       registry: "In the registry",
+      registryVersion: "Version in the registry",
+      drift: "Different version",
     },
     mcpNotInRegistry: "no",
   },

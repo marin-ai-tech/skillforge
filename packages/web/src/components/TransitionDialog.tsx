@@ -132,7 +132,7 @@ export function TransitionDialog({
             <Button
               type="button"
               data-testid="transition-confirm"
-              className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent disabled:opacity-50"
               pending={busy}
               disabled={!canConfirm}
               onClick={() => onConfirm(reason.trim())}

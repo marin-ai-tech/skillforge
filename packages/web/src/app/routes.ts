@@ -26,6 +26,7 @@ export const ROUTES = [
   "/me/password",
   "/me/agents",
   "/packs",
+  "/packs/:name",
   "/me/agents/:name",
   "/me/notifications",
   "/teams",

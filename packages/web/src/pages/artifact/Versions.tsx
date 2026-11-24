@@ -417,7 +417,7 @@ export function Versions({ type, name, versions, onSelect, isAdmin }: Props) {
                 <Button
                   type="button"
                   data-testid="validate-confirm"
-                  className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white"
+                  className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
                   pending={mut.isPending}
                   onClick={() => mut.mutate()}
                 >

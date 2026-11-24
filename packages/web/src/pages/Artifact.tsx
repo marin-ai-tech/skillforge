@@ -236,6 +236,7 @@ type TabCtx = {
   setQuery: (patch: Record<string, string | null>) => void;
   meReady: boolean;
   canManageEvals: boolean;
+  canManageSource: boolean;
   orchestrationEnabled: boolean;
   selectedVersion: string;
   extTabs: ExtTab[];
@@ -510,7 +511,9 @@ function CoreTabContent({ ctx }: { ctx: TabCtx }) {
         <VersionTab
           versionQ={versionQ}
           version={version}
-          render={(v) => <Overview artifact={artifact} version={v} />}
+          render={(v) => (
+            <Overview artifact={artifact} version={v} canManage={ctx.canManageSource} />
+          )}
         />
       ) : null}
       {tab === "files" ? (
@@ -769,7 +772,7 @@ export function Artifact() {
     meReady,
     teamMembers: teamDetailQ.data?.members,
   });
-  const { canManageEvals } = perms;
+  const { canManageEvals, canManageSource } = perms;
 
   return (
     <div className="space-y-4">
@@ -854,6 +857,7 @@ export function Artifact() {
           setQuery,
           meReady,
           canManageEvals,
+          canManageSource,
           orchestrationEnabled,
           selectedVersion,
           extTabs,

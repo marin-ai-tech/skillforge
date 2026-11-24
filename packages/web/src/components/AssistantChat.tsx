@@ -341,7 +341,7 @@ export function AssistantChat({ mode, onMode, status, pageTopic }: Props) {
                 type="submit"
                 data-testid="assistant-send"
                 disabled={!input.trim()}
-                className="inline-flex items-center gap-1.5 rounded-sf bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-sf bg-accent px-3 py-1.5 text-sm text-on-accent disabled:opacity-50"
               >
                 <Send size={14} aria-hidden="true" />
                 {STR.tips.help.assistant.send}

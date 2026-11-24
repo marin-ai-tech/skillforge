@@ -8,6 +8,8 @@ related: pages/artifact
 
 Shows the canonical file list for the selected immutable version, including path and size. Expand directories and open a file to view stored contents on the Files tab of the artifact page.
 
+A version with up to 100 files opens fully. A larger one opens only the artifact's own folder and the path to the selected file; use **Expand all** and **Collapse all** above the tree. **Filter files** shows the files whose path contains the text you type (any case), with their folders open, at most 500 rows; clearing the field brings back the tree as you left it.
+
 ## When to use
 
 Use when inspecting exactly what bytes were stored for a digest—especially after publish or when debugging missing references (W_REFERENCE_MISSING).

@@ -54,6 +54,23 @@ export const art = {
     policyViolated: "Does not match the current MCP policy:",
     usage: (installs: number, people: number, same: number) =>
       `In the inventory: ${installs} install(s) by ${people} people, ${same} on this version.`,
+    otherVersions: (list: string) => `Other versions in agent snapshots: ${list}`,
+    releaseTitle: "Source releases",
+    checkNow: "Check now",
+    releaseCheckDisabled: "Release checks are turned off on this server",
+    release: {
+      never: "Not checked yet",
+      upToDate: "Up to date: {identifier} {upstream} at the source",
+      updateAvailable:
+        "{upstream} is out at the source; the registry has {registry}. Review the package, then publish a new version of this artifact in the registry.",
+      notFound: "The package is not found at the source",
+      failed: (detail: string) => `The check failed (${detail})`,
+      unsupported: "Release checks are not available for container images",
+      remoteOnly: "Release checks are not available for remote-only servers",
+      checked: (time: string) => `· checked ${time}`,
+      checking: "Checking\u2026",
+      howToUpdate: "How to update",
+    },
     installHint:
       "SkillForge does not install MCP servers into agents yet: configure the server in your agent and set the secret variables on your machine.",
   },
@@ -81,6 +98,15 @@ export const art = {
     source: "Source",
     frontmatterUnreadable: "Frontmatter could not be read; showing the source.",
     selectFile: "Select a file",
+    filterLabel: "Filter files",
+    filterPlaceholder: "Part of a name or path",
+    matches: (n: number) => `${n} ${n === 1 ? "file matches" : "files match"}`,
+    matchesCapped: (n: number, max: number) => `${n} files match · showing the first ${max}`,
+    noMatches: (q: string) => `No files match “${q}”.`,
+    expandAll: "Expand all",
+    collapseAll: "Collapse all",
+    summary: (files: number, dirs: number) =>
+      `${files} ${files === 1 ? "file" : "files"} in ${dirs} ${dirs === 1 ? "folder" : "folders"}`,
   },
   install: {
     settingsTitle: "Settings profile",
@@ -133,6 +159,22 @@ export const art = {
     },
     securityMention: "mentioned as a warning",
     securityNote: "A pattern check, not proof: a pass does not mean the artifact is safe.",
+    clearance: {
+      none: "No reviewer has cleared these findings yet. Until then the version cannot become active, be assigned to a team or enter a pack.",
+      authorNote: "You cannot clear your own version; another reviewer has to.",
+      current: (user: string, date: string, reason: string) =>
+        `Cleared as false positives by ${user}, ${date}: ${reason}`,
+      stale: (user: string) =>
+        `The mark by ${user} no longer covers the findings of this version (the scan changed). A reviewer needs to clear it again.`,
+      reasonLabel: "Reason (required, up to 500 characters)",
+      reasonHint: "Explain why these findings are false positives.",
+      submit: "Mark findings as false positives",
+      remove: "Remove the mark",
+      removeTitle: "Remove the mark?",
+      removeBody: "The version will be blocked again where a mark is required.",
+      removeHelp:
+        "After removal a reviewer can mark the findings again. The security verdict stays fail.",
+    },
     riskChip: { warn: "Risk: check", fail: "Risk: high" },
     missing: "No quality report for this version.",
     duplicates: "Possible duplicates",

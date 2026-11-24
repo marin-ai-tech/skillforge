@@ -120,7 +120,7 @@ function MirrorsForm() {
               pending={add.isPending}
               disabled={url.trim() === ""}
               onClick={() => add.mutate()}
-              className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
+              className="rounded-sf bg-accent px-3 py-1.5 text-on-accent disabled:opacity-50"
             >
               {STR.import.mirrorAdd}
             </Button>

@@ -29,9 +29,10 @@ a step needs one, tell me the exact command to run in my own terminal and wait u
    skillforge sync --status active --runtime <your runtime: claude-code, codex, cursor, opencode, qwen or gemini>
    Tell me what was installed and what was skipped, with the reasons.
 4. Ask me to create a second token on <server>/me/tokens with "Allow agents to load active skills via MCP" checked,
-   to pick you in the client switch under it and to run the HTTP command the page shows. If your client is not in the
-   switch, tell me how to add an HTTP MCP server named skillforge at <server>/mcp with the header
-   "Authorization: Bearer <token>". Then check that the skillforge MCP server answers by calling search_artifacts;
+   to pick you in the client switch under it and to apply the HTTP snippet the page shows. If your client is not in
+   the switch, tell me how to add an HTTP MCP server named skillforge at <server>/mcp with the header
+   "Authorization: Bearer ${SKILLFORGE_MCP_TOKEN}": the token lives only in the SKILLFORGE_MCP_TOKEN environment
+   variable, never in a config file. Then check that the skillforge MCP server answers by calling search_artifacts;
    if you only see it after a restart, tell me so.
 5. Finish with two lines: how to update (skillforge sync) and how to cut access (revoke the tokens on <server>/me/tokens).
 ```
@@ -41,7 +42,7 @@ If the agent only needs to search and read approved skills, the short prompt con
 ```text
 Connect yourself to the SkillForge MCP server at <server>/mcp. Do not ask me for the token in this chat: ask me to
 create a token on <server>/me/tokens with "Allow agents to load active skills via MCP" checked, to pick you in the
-client switch under it and to run the HTTP command the page shows. Then call search_artifacts and show me what you
+client switch under it and to apply the HTTP snippet the page shows. Then call search_artifacts and show me what you
 can see.
 ```
 
@@ -104,7 +105,8 @@ an `Origin` header are rejected, so a web page cannot drive MCP on your behalf.
 ### Connecting a client
 
 After you create the token, the tokens page shows a snippet for HTTP and one for the stdio bridge, with a
-switch per client. HTTP is the main way: the command carries the MCP token, and nothing else is needed.
+switch per client. HTTP is the main way: the command carries the MCP token, and nothing else is needed; for Claude
+Code the HTTP snippet is a project `.mcp.json` block that names the `SKILLFORGE_MCP_TOKEN` variable instead.
 
 The stdio bridge `skillforge mcp` keeps the token out of the agent's configuration. It needs the MCP token, which
 the CLI keeps next to your regular one. Save it once; it reads the first line of stdin, so the token stays out of
@@ -123,9 +125,9 @@ the client's environment, then the saved MCP token, then the regular one; a regu
 the bridge then prints the command above. It exits with code 3 without a URL and 4 without a token.
 
 ```bash
-# claude-code
-claude mcp add --transport http skillforge <server>/mcp --header "Authorization: Bearer <token>"
-claude mcp add skillforge -- skillforge mcp
+# claude-code: HTTP is a project .mcp.json block (below); the token never appears on the command line
+claude mcp add skillforge -- skillforge mcp                                   # recommended
+claude mcp remove skillforge      # an entry from the former HTTP command kept the token in ~/.claude.json
 
 # Codex: the token never appears on the command line
 codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN
@@ -138,6 +140,15 @@ opencode mcp add skillforge -- skillforge mcp
 # Qwen Code (user scope)
 qwen mcp add -s user -t http -H "Authorization: Bearer <token>" skillforge <server>/mcp
 qwen mcp add -s user skillforge skillforge mcp
+```
+
+For Claude Code over HTTP, put this block into the project `.mcp.json` and set `SKILLFORGE_MCP_TOKEN` to the MCP
+token in the environment Claude Code starts from. Claude Code expands `${SKILLFORGE_MCP_TOKEN}` at start, so the file
+keeps only the variable name. The former `claude mcp add --transport http` command wrote the token into
+`~/.claude.json` in plain text; remove such an entry with `claude mcp remove skillforge` and connect again.
+
+```json
+{"mcpServers":{"skillforge":{"type":"http","url":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
 ```
 
 For Codex over HTTP, set `SKILLFORGE_TOKEN=<token>` (the MCP token) in the environment Codex starts from. Cursor is
@@ -258,10 +269,76 @@ On the artifact page, the Overview of an `mcp-server` shows the MCP server card:
 - variables and headers, marked secret or required;
 - the tools it declares;
 - whether this version matches the current MCP policy, with the reason when it does not;
-- how many installs the inventory has seen, by how many people, and how many run this exact version.
+- how many installs the inventory has seen, by how many people, and how many run this exact version;
+- source releases: whether a newer package version is out at npm or PyPI (or that the check failed, or that checks
+  are not available for container images). The owner, a maintainer or an admin can start a check from the card;
+- other pinned versions seen in agent snapshots, when they differ from the version in the registry.
 
-The usage numbers are counts only. A package matches by its identifier whatever the launcher (`npx`, `bunx`,
-`pnpm dlx`), a remote server by its origin.
+The usage numbers are counts only. A package matches by its identifier and registry type whatever the launcher (`npx`, `bunx`,
+`pnpm dlx`, `uvx`), a remote server by its origin. The organisation inventory also has columns for the version in
+the registry and for how many installs use a different version.
+
+Release checks use `SKILLFORGE_NPM_REGISTRY_URL` and `SKILLFORGE_PYPI_URL` (https, or http only on loopback).
+`SKILLFORGE_MCP_RELEASE_CHECK=false` turns the checks off. See [Environment variables](03-self-hosting.md#environment-variables).
+
+### Connecting an approved server to an agent
+
+SkillForge does not install MCP servers into agents: each person, or their agent, adds the server to the agent's
+MCP configuration by hand, in the version the registry approves. The artifact is the source of truth, so the
+configuration copies `server.json` and does not invent a version.
+
+The quickest way is to let the agent do it. The agent must be able to run commands and already be connected to the
+registry over MCP ([Connect with a prompt](#connect-with-a-prompt)). Replace `<name>` with the artifact name, for
+example `codegraph`:
+
+```text
+This prompt needs a coding agent that can run commands and is already connected to our SkillForge registry over MCP.
+
+Connect the MCP server <name> approved in our SkillForge registry to this project, in the approved version. Never ask
+me for a secret in this chat: when the server needs a key or a token, tell me the variable to set or the command to
+run in my own terminal, and wait until I say it is done. Show me every file change before you apply it.
+1. Read the approved description: call get_artifact with type "mcp-server" and name "<name>", then read_artifact_file
+   for mcp/<name>/server.json and mcp/<name>/MCP.md. Tell me the package and version (or the remote address), the
+   transport, the arguments, the variables and headers it needs, and the tools it declares.
+2. Add it to this project's MCP configuration for your client (for Claude Code: .mcp.json), exactly as server.json
+   says. A package runs pinned: npm as npx -y <identifier>@<version> <arguments>, pypi as uvx <identifier>==<version>
+   <arguments>, oci as the image by its digest. A remote server is added by its url, with secret headers as references
+   to variables, never literal values. Keep the other servers as they are; replace a server with the same name only
+   after I agree.
+3. Follow the setup steps in MCP.md (for example, building an index), restart if your client needs it, and check that
+   the server's tools answer.
+4. Tell the registry what you run: skillforge agent scan --runtime <your runtime> --mcp (names, versions and variable
+   names only, never values), and show me the summary it prints.
+5. Finish with one line: to update, the new version is approved in SkillForge first, then the version in the
+   configuration changes.
+```
+
+By hand, the same steps:
+
+1. Open the artifact page (`/artifacts/mcp-server/<name>`) and read the server card and `MCP.md`.
+2. Add the server to the project configuration. For a package, pin the version from `server.json`; for Claude Code,
+   in `.mcp.json`:
+
+   ```json
+   { "mcpServers": { "codegraph": { "type": "stdio", "command": "npx", "args": ["-y", "@colbymchenry/codegraph@1.6.4", "serve", "--mcp"] } } }
+   ```
+
+   On Windows, Claude Code starts a stdio server through `npx` only behind `cmd /c`. The scan reads the package
+   and version behind the wrapper (`/c` or `/k`, unwrapped once), so the entry still matches the approved artifact:
+
+   ```json
+   { "mcpServers": { "codegraph": { "type": "stdio", "command": "cmd", "args": ["/c", "npx", "-y", "@colbymchenry/codegraph@1.6.4", "serve", "--mcp"] } } }
+   ```
+
+   A project entry wins over a user-level entry with the same name, so a project stays on the approved version even
+   when a global install changes. A remote server keeps its secret as a variable reference, for example
+   `"headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" }`, and the value lives in the environment.
+3. Do what `MCP.md` asks (an index, a login), restart the agent if it needs it, and call one of the declared tools.
+4. Run `skillforge agent scan --runtime claude-code --mcp`, so the inventory shows the server and its version next to
+   the approved one.
+
+To update, register the new version of the artifact first, then change the version in the configuration and scan
+again. A server that runs without a matching artifact shows up in the inventory as a shadow server (see below).
 
 ## Shadow MCP servers
 

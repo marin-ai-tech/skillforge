@@ -58,7 +58,7 @@ const RULES: Rule[] = [
     id: "instruction_override",
     severity: "high",
     quotable: true,
-    re: /\b(?:ignore|disregard|forget)\s+(?:all\s+|any\s+)?(?:the\s+)?(?:previous|prior|above|earlier)\s+(?:instructions|rules|messages)\b|\b(?:do not|don't|never)\s+(?:tell|inform|show)\s+the\s+user\b|\bwithout\s+(?:telling|informing|asking)\s+the\s+user\b/i,
+    re: /\b(?:ignore|disregard|forget)\s+(?:all\s+|any\s+)?(?:the\s+)?(?:previous|prior|above|earlier)\s+(?:instructions|rules|messages)\b|\b(?:do not|don't|never)\s+(?:tell|inform|show)\s+the\s+user\b|\bwithout\s+(?:telling|informing|asking)\s+the\s+user\b(?!\s+to\s+(?!approve|confirm|allow|agree|consent)\w)/i,
   },
   {
     id: "exfiltration",

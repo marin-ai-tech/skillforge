@@ -7,6 +7,7 @@ learn:
   - How to validate and publish from CI
   - How install, sync and the lock file keep folders in step
   - What each exit code means
+  - How to choose a CLI profile and bind a project to one
 related: getting-started/upload-artifacts, getting-started/install, pages/tokens, actions/tokens/create, getting-started/agent-support
 ---
 
@@ -26,6 +27,15 @@ Authenticate with a Bearer token or an interactive password flow:
 
 Credentials live in `~/.skillforge/config.json` (mode `0600` on POSIX) or the path in `SKILLFORGE_CONFIG`. Override the registry with `--url` / `SKILLFORGE_URL` and the token with `--token` / `SKILLFORGE_TOKEN` (flags win over env over config). A stored token is sent only when the selected registry URL matches that entry (trailing slash stripped, host compared case-insensitively); a mismatched `--url` or `SKILLFORGE_URL` does not reuse another registry's token. Use `skillforge whoami` and `skillforge logout` to inspect or revoke the stored token.
 
+## Profiles
+
+One machine can hold several CLI profiles (named sign-ins) in `~/.skillforge/config.json`. Choose one with `--profile <name>`, `SKILLFORGE_PROFILE`, or a Profile Binding file `.skillforge/profile` in the project: a single profile name, looked up from the current directory upwards (the file next to the CLI config is not a binding). The flag and the variable win over the binding.
+
+An explicit profile uses its own address and tokens. `SKILLFORGE_TOKEN` is ignored then (one line on stderr says so); `--token` still wins. If several profiles share an address and none is the default, the CLI refuses with `profile_ambiguous` instead of picking the first. A missing name is `profile_not_found`; a profile and a different `--url` is `profile_url_conflict`; a broken binding is `profile_binding_invalid`. These refusals happen before any request. `skillforge profile list` (and `profile list --json`) lists names, addresses and whether tokens exist, never the tokens themselves; `skillforge doctor` shows the active profile and its source. `login --profile` writes that profile and does not move `default` when one already exists.
+
+> [!WARNING]
+> A cloned repository can place `.skillforge/profile` and point commands at one of your profiles (for example `admin`). The file cannot set an address or a token, so the token still goes only to that profile's host. Override with `--profile` or `SKILLFORGE_PROFILE`, and check `skillforge profile list` or `skillforge doctor` for the source and the file path.
+
 ## Validate and publish in CI
 
 Point CI at a directory or a single markdown file:
@@ -41,7 +51,7 @@ The CLI prints Blocking `E_*` and Warning `W_*` codes, then `type/name@version` 
 
 ## Install, sync, and the lock file
 
-`skillforge install skill/name[@version] --into .claude` downloads `bundle.zip`, writes canonical paths under the install root, and records `version`, `digest`, per-file sha256, and `installed_at` in `.skillforge-lock.json`. Re-running the same version prints `up to date`. If a tracked file was edited locally, install exits with code 5 unless you pass `--force`. Lock file paths are validated before any delete or overwrite; a corrupt lock with unsafe paths (`..`, backslashes, or absolute paths) stops the command with exit code 1 and leaves files and the lock unchanged. Install refuses to overwrite unmanaged files that are not listed in the current lock entry unless you pass `--force`.
+`skillforge install skill/name[@version] --into .claude` downloads `bundle.zip`, writes canonical paths under the install root, and records `version`, `digest`, per-file sha256, and `installed_at` in `.skillforge-lock.json`. Re-running the same version prints `up to date`. If a tracked file was edited locally, install exits with code 5 unless you pass `--force`. Lock file paths are validated before any delete or overwrite; a corrupt lock with unsafe paths (`..`, backslashes, or absolute paths) stops the command with exit code 1 and leaves files and the lock unchanged. Install refuses to overwrite unmanaged files that are not listed in the current lock entry unless you pass `--force`; only the files that differ from what would be written are named. Files copied into the project before SkillForge that match the registry (the same bytes, or a text file that differs only in line endings, `CRLF` or `LF`) are adopted: the version's files are written, the lock gets an entry, and `install` prints `Adopted <key>@<version> (local files match the registry)`. `sync` lists them in the `adopted` group (`adopted=N` in the summary line, `adopted type/name@version` lines, the `adopted` field with `--json`). Extra local files in the artifact folder stay and do not block adoption.
 
 > [!WARNING]
 > `--force` overwrites locally edited tracked files and unmanaged files alike; check what changed before you use it.
@@ -102,7 +112,7 @@ skillforge agent rm --name laptop
 
 - `skillforge health` checks the server; `skillforge doctor` prints a health checklist, and an admin can download a diagnostics bundle with `--bundle`. `skillforge project status` compares the current project with the registry.
 - `skillforge search <query>`, `skillforge list` and `skillforge info <type/name>` find artifacts and show their install commands; `skillforge suggest` proposes registry skills for this project from local signals and asks for consent first.
-- `skillforge pack list` shows team method packs; `skillforge pack install <name[@version]> --role <role>` installs a pack, or one role of it, at its pinned versions.
+- `skillforge pack list` shows team method packs; `skillforge pack install <name[@version]> --role <role>` installs a pack, or one role of it, at its pinned versions. `skillforge pack publish pack.json` publishes a pack version from a JSON file with the pack body (`--dry-run` only checks and prints every problem); `skillforge pack show <name[@version]>` prints a version, who published it and its roles.
 - `skillforge evals push|run|runs|batch|batches|journal` manages eval suites and runs; `batch` runs one kind of eval across several runners.
 - `skillforge runs list|show|watch`, `skillforge workflows list|save|run|trace` and `skillforge routines list|save|run|runs|disable` work with recorded runs, workflows and scheduled routines.
 - `skillforge news [--since <date>] [--unread] [--kind <kinds>] [--limit <n>]` prints the registry news you can see: date, kind, text and link, or the API answer with `--json`. `skillforge news seen` marks the feed seen, so `--unread` then shows only newer news. It needs a personal API token: with an MCP token the command exits with code 4.

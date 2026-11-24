@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { useHelp } from "../help/HelpProvider.tsx";
 import { STR } from "../lib/strings.ts";
+import { Button } from "./Button.tsx";
 
 type Props = {
   open: boolean;
@@ -10,6 +11,8 @@ type Props = {
   helpTopic?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  busy?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -45,6 +48,8 @@ export function ConfirmDialog({
   helpTopic,
   confirmLabel = STR.ui.confirm.confirm,
   cancelLabel = STR.ui.confirm.cancel,
+  busy = false,
+  children,
   onConfirm,
   onCancel,
 }: Props) {
@@ -77,14 +82,14 @@ export function ConfirmDialog({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onCancel();
+        if (!busy) onCancel();
         return;
       }
       if (e.key === "Tab" && dialogRef.current) keepTabInside(e, dialogRef.current);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
+  }, [open, onCancel, busy]);
 
   if (!open) return null;
 
@@ -120,24 +125,27 @@ export function ConfirmDialog({
             </>
           ) : null}
         </p>
+        {children}
         <div className="mt-4 flex justify-end gap-2">
-          <button
+          <Button
             ref={cancelRef}
             type="button"
             data-testid="dialog-cancel"
             className="rounded-sf border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-2"
+            pending={busy}
             onClick={onCancel}
           >
             {cancelLabel}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             data-testid="dialog-confirm"
-            className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-white"
+            className="rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
+            pending={busy}
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

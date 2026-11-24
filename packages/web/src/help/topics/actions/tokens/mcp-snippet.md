@@ -6,9 +6,9 @@ related: pages/tokens, getting-started/mcp, getting-started/cli, actions/tokens/
 
 ## What it does
 
-After you create an MCP-enabled token, shows copyable connect commands for HTTP (`…/mcp` with an Authorization header) and for the `skillforge mcp` stdio bridge so agents can attach in one step. A client switch picks the syntax for your client (Claude Code by default; [Agent support](getting-started/agent-support) lists the connect method of every runtime):
+After you create an MCP-enabled token, shows copyable connect commands (for Claude Code and Cursor, JSON blocks) for HTTP (`…/mcp` with an Authorization header) and for the `skillforge mcp` stdio bridge so agents can attach in one step. A client switch picks the syntax for your client (Claude Code by default; [Agent support](getting-started/agent-support) lists the connect method of every runtime):
 
-- Claude Code: `claude mcp add --transport http skillforge <server>/mcp --header "Authorization: Bearer <token>"` or `claude mcp add skillforge -- skillforge mcp`.
+- Claude Code: a block for the project `.mcp.json` with `"Authorization": "Bearer ${SKILLFORGE_MCP_TOKEN}"` (set `SKILLFORGE_MCP_TOKEN` in the environment Claude Code starts from; the token is never in the file) or, recommended, `claude mcp add skillforge -- skillforge mcp`. An entry made by the former `claude mcp add --transport http` command keeps the token in `~/.claude.json`: remove it with `claude mcp remove skillforge`.
 - Codex: `codex mcp add skillforge --url <server>/mcp --bearer-token-env-var SKILLFORGE_TOKEN` (the token is never in the command; set `SKILLFORGE_TOKEN` in the environment Codex starts from) or, recommended, `codex mcp add skillforge --env SKILLFORGE_URL=<server> -- skillforge mcp`.
 - Cursor: JSON for the user-level `~/.cursor/mcp.json` with `url` and `headers`, or with `command` and `args` for stdio (recommended). Do not commit a token: keep it out of the project `.cursor/mcp.json`.
 - OpenCode: `opencode mcp add skillforge --url <server>/mcp --header "Authorization=Bearer <token>"` or `opencode mcp add skillforge -- skillforge mcp`.

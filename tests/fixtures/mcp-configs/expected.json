@@ -12,6 +12,20 @@
       ],
       "servers": [
         {
+          "name": "codegraph",
+          "scope": "project",
+          "transport": "stdio",
+          "launcher": "npx",
+          "package": "@colbymchenry/codegraph",
+          "pinned": true,
+          "version": "1.6.4",
+          "origin": null,
+          "env": [],
+          "headers": [],
+          "literal_secret": false,
+          "enabled": true
+        },
+        {
           "name": "github",
           "scope": "project",
           "transport": "stdio",

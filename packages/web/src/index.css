@@ -11,6 +11,7 @@
   --color-line: var(--sf-line);
   --color-field-line: var(--sf-field-line);
   --color-accent: var(--sf-accent);
+  --color-on-accent: var(--sf-on-accent);
   --color-accent-soft: var(--sf-accent-soft);
   --color-st-candidate: var(--sf-st-candidate);
   --color-st-candidate-bg: var(--sf-st-candidate-bg);
@@ -28,6 +29,7 @@
   --color-type-hook: var(--sf-type-hook);
   --color-type-plugin: var(--sf-type-plugin);
   --color-danger: var(--sf-danger);
+  --color-on-danger: var(--sf-on-danger);
   --color-danger-bg: var(--sf-danger-bg);
   --color-warning: var(--sf-warning);
   --color-warning-bg: var(--sf-warning-bg);

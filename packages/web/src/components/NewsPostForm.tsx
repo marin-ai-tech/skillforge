@@ -415,7 +415,7 @@ export function NewsPostForm({
             type="submit"
             data-testid="news-form-submit"
             pending={mut.isPending}
-            className="min-h-6 rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-bg"
+            className="min-h-6 rounded-sf bg-accent px-3 py-1.5 text-sm font-medium text-on-accent"
           >
             {publishLabel}
           </Button>

@@ -186,12 +186,15 @@ export function Files({ artifact, version }: Props) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-      <FileTree
-        entries={version.files}
-        selected={selected}
-        onSelect={selectFile}
-        treeTestId="files-tree"
-      />
+      <div className="p-1 max-lg:max-h-[60vh] max-lg:overflow-y-auto sf-below-chrome-lg lg:sticky lg:self-start lg:overflow-y-auto">
+        <FileTree
+          key={version.version}
+          entries={version.files}
+          selected={selected}
+          onSelect={selectFile}
+          treeTestId="files-tree"
+        />
+      </div>
       <div data-testid="file-viewer" className="rounded-sf border border-line bg-surface p-4">
         <FileBody
           path={entry ? selected : null}

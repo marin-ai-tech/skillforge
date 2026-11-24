@@ -210,7 +210,7 @@ export function RubricEditor({ testId, title, value, onSave, saving, message }: 
             data-testid="rubric-save"
             pending={saving}
             onClick={() => onSave(draft)}
-            className="rounded-sf bg-accent px-3 py-1.5 text-accent-fg disabled:opacity-50"
+            className="rounded-sf bg-accent px-3 py-1.5 text-on-accent disabled:opacity-50"
           >
             {S.save}
           </Button>

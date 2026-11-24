@@ -3,7 +3,7 @@ import type { SecurityReport } from "./security.ts";
 import type { ContextCost } from "./context-cost.ts";
 
 /** 4: the report carries a security section (content-security-scan). 5: a context cost section (context-cost). */
-export const QUALITY_ALGORITHM = 5;
+export const QUALITY_ALGORITHM = 6;
 
 export const QUALITY_CODES = {
   Q_DESC_SHORT: "Q_DESC_SHORT",

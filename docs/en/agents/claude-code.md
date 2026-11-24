@@ -113,12 +113,21 @@ value. Each change prints as `<path>: <old> -> <new>`. Before writing, the CLI s
 ## Connect Claude Code over MCP
 
 Create an MCP-enabled token on `/me/tokens` (see [Agent runtimes](README.md#connect-an-agent-over-mcp)). The client
-switch selects Claude Code by default and shows two commands:
+switch selects Claude Code by default and shows two snippets: a block for the project `.mcp.json` (HTTP) and the
+stdio bridge command:
+
+```json
+{"mcpServers":{"skillforge":{"type":"http","url":"<server>/mcp","headers":{"Authorization":"Bearer ${SKILLFORGE_MCP_TOKEN}"}}}}
+```
 
 ```bash
-claude mcp add --transport http skillforge <server>/mcp --header "Authorization: Bearer <token>"
 claude mcp add skillforge -- skillforge mcp
 ```
+
+The first one names the `SKILLFORGE_MCP_TOKEN` variable: set it to the MCP token in the environment Claude Code
+starts from; Claude Code expands it at start, so the file keeps only the name. An entry made by the former
+`claude mcp add --transport http` command keeps the token in `~/.claude.json` in plain text: remove it with
+`claude mcp remove skillforge` and connect again.
 
 The second one runs the `skillforge mcp` stdio bridge and keeps the token out of Claude Code's configuration. Save
 the MCP token for it once with `skillforge login --url <server> --mcp-token-stdin`; your regular login stays.

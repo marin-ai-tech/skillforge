@@ -1,5 +1,5 @@
 // A skill costs tokens on every turn (name and description in the skill list), on invocation (body of the main file) and on demand (other
-// text files). The estimate is in the quality report (`quality.context`, algorithm 5), the level is in the catalog summary.
+// text files). The estimate is in the quality report (`quality.context`, algorithm 6), the level is in the catalog summary.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
@@ -53,7 +53,7 @@ after(async () => {
 
 test("skill: every turn — name and description, on invocation — body, on demand — other files", async () => {
   const q = await quality("skill", "cheap-notes");
-  assert.equal(q.algorithm, 5);
+  assert.equal(q.algorithm, 6);
   assert.ok(q.context, "no quality.context");
   assert.equal(q.context.every_turn, latin(`cheap-notes: ${SHORT_DESC}`));
   assert.equal(q.context.on_use, q.metrics.body_tokens_est, "on invocation — body of the main file");

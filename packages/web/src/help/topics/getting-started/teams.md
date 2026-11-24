@@ -33,7 +33,7 @@ Use **Teams** in the nav (signed-in only), or CLI: `teams list|show|create|add|r
 
 ## Availability for teams
 
-On an artifact's page, **Availability for teams** (`availability`) sets the artifact for each team: not available, available (the default), installed by default, or required. Admins change it for any team, a team's lead for their own team; every change goes to the audit log. `skillforge sync` installs what the user's teams require or install by default, `--prune` keeps required artifacts, `skillforge uninstall` refuses to remove a required one without `--force`, and `skillforge install` refuses an artifact that is not available for the user's teams without `--force`. For someone in several teams the most permissive state wins. Only active artifacts count.
+On an artifact's page, **Availability for teams** (`availability`) sets the artifact for each team: not available, available (the default), installed by default, or required. Admins change it for any team, a team's lead for their own team; every change goes to the audit log. `skillforge sync` installs what the user's teams require or install by default, `--prune` keeps required artifacts, `skillforge uninstall` refuses to remove a required one without `--force`, and `skillforge install` refuses an artifact that is not available for the user's teams without `--force`. For someone in several teams the most permissive state wins. Only active artifacts count. A member sees their assignments with `GET /api/v1/me/assignments`: lists of `required`, `default` and `unavailable` artifacts.
 
 > [!NOTE]
 > Availability guides installation; it does not hide anything. To keep an artifact from other teams, use its visibility.

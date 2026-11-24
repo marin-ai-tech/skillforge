@@ -17,6 +17,7 @@ import { scanAndStore } from "../agents/server-ops.ts";
 import { buildMyAgentsList } from "../agents/my-list.ts";
 import { decodeBase64Strict } from "../lib/base64.ts";
 import { parseMcpSnapshot, type McpSnapshot } from "../agents/mcp-body.ts";
+import { notifyMcpDrifts } from "../mcp-registry/release-check.ts";
 import {
   listMcpServers,
   mcpScannedAt,
@@ -36,6 +37,16 @@ export type AgentsPluginOpts = {
   db: Database;
   config: AppConfig;
 };
+
+/** After a successful store: drift notices must not fail or delay the upload. */
+function notifyDriftsIfPresent(
+  db: Database,
+  dataDir: string | undefined,
+  mcp: McpSnapshot | undefined,
+  log?: (msg: string) => void,
+): void {
+  if (mcp) notifyMcpDrifts(db, dataDir, mcp.servers, log);
+}
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -275,6 +286,7 @@ export const agentsRoutes: FastifyPluginAsync<AgentsPluginOpts> = async (app, op
       snapshot,
       mcp: mcp.value,
     });
+    notifyDriftsIfPresent(db, config.dataDir, mcp.value, (msg) => request.log.error(msg));
 
     const compared = compareAgent(db, agent, {
       viewer: request.user ? { username: request.user.username, role: request.user.role } : null,

@@ -92,7 +92,7 @@ test("QUALITY_CODES has exactly the eighteen codes", () => {
 
 test("strong skill: grade A, no checks, metrics", () => {
   const q = assessQuality(skill());
-  assert.equal(q.algorithm, 5);
+  assert.equal(q.algorithm, 6);
   assert.ok(!("hook" in q));
   assert.deepEqual(q.checks, []);
   assert.equal(q.score, 100);
@@ -417,14 +417,14 @@ test("deterministic and never throws on degenerate artifacts", () => {
     digest: "",
   };
   const q = assessQuality(empty);
-  assert.equal(q.algorithm, 5);
+  assert.equal(q.algorithm, 6);
   assert.ok(has(q, "Q_DESC_SHORT"));
   assert.equal(q.metrics.markdown_files, 0);
   const binary: ParsedArtifact = {
     ...empty,
     canonical: [{ path: "skills/x/SKILL.md", content: new Uint8Array([0xff, 0xfe, 0x00, 0x80]) }],
   };
-  assert.equal(assessQuality(binary).algorithm, 5);
+  assert.equal(assessQuality(binary).algorithm, 6);
   const hookNoJson: ParsedArtifact = { ...empty, type: "hook" };
   assert.deepEqual(assessQuality(hookNoJson).hook, { rows: [], risks: [] });
   const hookBadJson: ParsedArtifact = {

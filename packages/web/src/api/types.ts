@@ -41,6 +41,17 @@ export type McpCardInput = {
   isRequired: boolean;
   isSecret: boolean;
 };
+export type McpReleaseState =
+  "up_to_date" | "update_available" | "failed" | "not_found" | "unsupported";
+export type McpRelease = {
+  registry_type: string;
+  identifier: string;
+  registry_version: string | null;
+  upstream_version: string | null;
+  state: McpReleaseState;
+  state_detail: string | null;
+  checked_at: string;
+};
 export type McpCard = {
   version: string;
   packages: Array<{
@@ -54,7 +65,13 @@ export type McpCard = {
   remotes: Array<{ type: string; url: string; origin: string | null; headers: McpCardInput[] }>;
   tools: Array<{ name: string; description: string | null }>;
   policy: { allowed: boolean; reasons: string[] };
-  usage: { installs: number; people: number; same_version: number };
+  usage: {
+    installs: number;
+    people: number;
+    same_version: number;
+    other_versions: Array<{ version: string; installs: number }>;
+  };
+  release: McpRelease | null;
 };
 
 /** Which MCP package types and remote origins may be published (mcp-policy). */
@@ -319,6 +336,14 @@ export type UsageReportResponse = {
   transfer_rate: number | null;
 };
 
+export type SecurityClearance = {
+  cleared_by: string;
+  cleared_at: string;
+  reason: string;
+  findings: Array<{ rule: string; file: string; line: number }>;
+  current: boolean;
+};
+
 export type VersionDetail = {
   version: string;
   /** quality-rubric: score by company and team rules at publish. */
@@ -344,6 +369,7 @@ export type VersionDetail = {
   published_by: string;
   published_at: string;
   quality?: QualityReport | null;
+  security_clearance?: SecurityClearance | null;
   components?: Array<{ type: string; name: string; path: string }>;
 };
 
@@ -946,7 +972,21 @@ export type MeOverview = {
   } | null;
   activity: MeOverviewActivityItem[];
   sessions: MeSessionsSummary;
+  usage_reports: { reports: number; artifacts: number; items: MeUsageItem[]; more: boolean };
   notifications?: { unread: number };
+};
+
+/** One artifact in «My usage reports» (my-space-usage). */
+export type MeUsageItem = {
+  type: string;
+  name: string;
+  reports: number;
+  uses: number;
+  helped: number;
+  not_helped: number;
+  basis: { loaded: number; assigned: number; unspecified: number };
+  last_version: string | null;
+  last_reported_at: string;
 };
 
 export type FacetCount = { value: string; count: number };
@@ -1047,6 +1087,8 @@ export type NotificationDto = {
   read: boolean;
   /** `news_summary` only: the stored item count, for a title in the reader's language; null otherwise. */
   summary_items?: number | null;
+  /** `mcp_version` only: fields for a title in the reader's language. */
+  meta?: { event: "release" | "drift"; version: string; registry_version: string };
 };
 
 export type NotificationsListResponse = {
@@ -1062,6 +1104,7 @@ export type NotificationPrefs = {
   status_change: boolean;
   plugin: boolean;
   source: boolean;
+  mcp_version: boolean;
 };
 
 export type EvalGate = "off" | "required";
@@ -1325,7 +1368,8 @@ export type InventoryMcpServer = {
   unpinned_installs: number;
   literal_secret_installs: number;
   disabled_installs: number;
-  registry: { name: string; status: string } | null;
+  drift_installs: number;
+  registry: { name: string; status: string; version: string | null } | null;
 };
 export type InventoryMcp = {
   totals: {
@@ -1336,6 +1380,7 @@ export type InventoryMcp = {
     unpinned_installs: number;
     literal_secret_installs: number;
     remote_installs: number;
+    drift_installs: number;
   };
   servers: InventoryMcpServer[];
 };
@@ -1374,6 +1419,30 @@ export type PackVersion = {
   description: string;
   published_by: string;
   published_at: string;
+  roles: Array<{
+    name: string;
+    description: string;
+    items: Array<{ type: string; name: string; version: string }>;
+  }>;
+};
+
+/** A problem of a method pack draft (pack-authoring); `role: null` — of the pack itself. */
+export type MethodPackProblem = {
+  role: string | null;
+  type?: string;
+  name?: string;
+  version?: string;
+  code: string;
+  message: string;
+  latest?: string;
+};
+
+/** The body of POST /api/v1/packs and /api/v1/packs/check. */
+export type MethodPackDraft = {
+  name: string;
+  version: string;
+  title: string;
+  description: string;
   roles: Array<{
     name: string;
     description: string;

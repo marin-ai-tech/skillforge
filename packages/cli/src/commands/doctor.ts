@@ -4,6 +4,7 @@ import type { AppContext } from "../context.ts";
 import { requireClient, setExit } from "../context.ts";
 import { ApiError } from "../client.ts";
 import { EXIT, exitFromHttpStatus, type ExitCode } from "../exit.ts";
+import { ConfigError } from "../config-error.ts";
 import {
   defaultConfigPath,
   loadConfig,
@@ -35,6 +36,48 @@ function parseEnginesNode(raw: string | undefined): { minMajor: number } | null 
   const minMajor = Number(m[1]);
   if (!Number.isFinite(minMajor)) return null;
   return { minMajor };
+}
+
+const DOCTOR_CONFIG_CODES = new Set([
+  "profile_not_found",
+  "profile_ambiguous",
+  "profile_url_conflict",
+  "profile_binding_invalid",
+]);
+
+function resolveDoctorRegistry(ctx: AppContext): {
+  resolved: ResolvedRegistry | null;
+  configError?: ConfigError;
+} {
+  try {
+    return {
+      resolved: resolveRegistry({
+        url: ctx.globals.url,
+        token: ctx.globals.token,
+        profile: ctx.globals.profile,
+      }),
+    };
+  } catch (err) {
+    if (err instanceof ConfigError && DOCTOR_CONFIG_CODES.has(err.code)) {
+      return { resolved: null, configError: err };
+    }
+    throw err;
+  }
+}
+
+function checkCliConfigOrError(
+  resolved: ResolvedRegistry | null,
+  configError?: ConfigError,
+): DoctorCheck {
+  if (configError) {
+    return {
+      id: "cli_config",
+      ok: false,
+      message: configError.message,
+      severity: "error",
+    };
+  }
+  return checkCliConfig(resolved);
 }
 
 function checkCliConfig(resolved: ResolvedRegistry | null): DoctorCheck {
@@ -73,6 +116,15 @@ function checkCliConfig(resolved: ResolvedRegistry | null): DoctorCheck {
       id: "cli_config",
       ok: false,
       message: `config found at ${configPath} but no default registry entry`,
+      severity: "error",
+    };
+  }
+  const sel = resolved?.selection;
+  if (sel?.name) {
+    return {
+      id: "cli_config",
+      ok: true,
+      message: `config found at ${configPath} (profile: ${sel.name}, from ${sel.source})`,
       severity: "error",
     };
   }
@@ -261,12 +313,9 @@ function printDoctorResult(
 
 /** Non-bundle health/status checklist for skillforge doctor. */
 async function runDoctorChecks(ctx: AppContext): Promise<void> {
-  const resolved = resolveRegistry({
-    url: ctx.globals.url,
-    token: ctx.globals.token,
-  });
+  const { resolved, configError } = resolveDoctorRegistry(ctx);
   const checks: DoctorCheck[] = [
-    checkCliConfig(resolved),
+    checkCliConfigOrError(resolved, configError),
     checkRegistryUrl(resolved),
     checkCredentials(resolved),
     await checkServerHealth(resolved),

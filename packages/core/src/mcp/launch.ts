@@ -116,7 +116,28 @@ function bySubcommand(launcher: string, args: readonly string[]): Omit<Launch, "
   return null;
 }
 
+/**
+ * The program behind a Windows `cmd /c <program> …` (or `/k`) wrapper and its arguments; null without a wrapper. One
+ * argument with spaces after the switch is split on whitespace (no quote parsing).
+ */
+function unwrapCmd(
+  command: string,
+  args: readonly string[],
+): { command: string; args: readonly string[] } | null {
+  if (launcherName(command) !== "cmd" || args.length < 2) return null;
+  const flag = args[0]!.toLowerCase();
+  if (flag !== "/c" && flag !== "/k") return null;
+  const rest = args.length === 2 ? args[1]!.trim().split(/\s+/) : args.slice(1);
+  return { command: rest[0]!, args: rest.slice(1) };
+}
+
+/** Launcher, package and pinning of a stdio server; a `cmd /c` wrapper is unwrapped once. */
 export function analyzeLaunch(command: string, args: readonly string[]): Launch {
+  const wrapped = unwrapCmd(command, args);
+  return wrapped ? analyzeProgram(wrapped.command, wrapped.args) : analyzeProgram(command, args);
+}
+
+function analyzeProgram(command: string, args: readonly string[]): Launch {
   const launcher = launcherName(command);
   if (!launcher) return { launcher, package: null, pinned: false, version: null };
   if (launcher === "npx" || launcher === "bunx") return { launcher, ...npxLike(args) };

@@ -114,6 +114,7 @@ export async function runMcp(ctx: AppContext): Promise<void> {
   const resolved = resolveBridgeToken({
     url: ctx.globals.url,
     token: ctx.globals.token,
+    profile: ctx.globals.profile,
   });
 
   if (!resolved) {

@@ -54,7 +54,7 @@ test("rows: order of hooks.json, matcher normalisation, action per type, timeout
       ],
     }),
   );
-  assert.equal(q.algorithm, 5);
+  assert.equal(q.algorithm, 6);
   assert.deepEqual(rows(q), [
     {
       event: "Stop",

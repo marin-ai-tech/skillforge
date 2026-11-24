@@ -55,6 +55,10 @@ The [Glossary](glossary.md) defines every term used in these pages.
 - `/me/agents` — my local agents (scan of an agent folder: `.claude`, `.codex`,
   `.cursor`, …; publish from snapshot); `/me/agents/:name` — details.
 
+
+## CLI profiles
+
+Several named sign-ins can live side by side in `~/.skillforge/config.json` as CLI profiles. Choose one with `--profile`, `SKILLFORGE_PROFILE`, or a Profile Binding file `.skillforge/profile` in the project (one profile name, searched upward; the file in the CLI config directory is not a binding). An explicit profile uses its own address and tokens; `SKILLFORGE_TOKEN` does not override it (`--token` still wins). `skillforge profile list` shows names and addresses, never tokens. A cloned repository can point the binding at one of your profiles; override it with `--profile` or `SKILLFORGE_PROFILE`.
 ## 3. Catalog and artifact page
 
 - `/artifacts` — search, filters by type/status/team/labels, pagination.
@@ -149,6 +153,16 @@ skillforge harvest sessions --out <dir> --name <name>
   available for your teams and `uninstall` of one your team requires need
   `--force`. `install` of a replaced artifact warns and names the successor;
   `sync` installs the successor and removes the replaced one.
+- **Skills copied before SkillForge.** A file of the version that is already on
+  disk without a lock entry is compared with what `install` or `sync` would
+  write. If every such file matches (the same bytes, or a text file that
+  differs only in `CRLF`/`LF`), the artifact is **adopted**: its files are
+  written, the lock gets an entry, `install` prints `Adopted <key>@<version>
+  (local files match the registry)` and `sync` reports it as `adopted`
+  (`adopted=N`, `  adopted <key>@<version>`, the `adopted` field with `--json`).
+  A file that differs is refused with exit code 5, and only the differing
+  files are named; `--force` overwrites as before. Extra local files in the
+  folder stay.
 - **Layers of edits (overlays).** A company (admin), a team (its lead) or you
   can keep edits over an artifact — append to a file, replace a file, add a
   file — with `PUT …/overlays/company|team/<team>|me`. `install` and `sync`
@@ -165,7 +179,10 @@ skillforge harvest sessions --out <dir> --name <name>
   roles, each with artifacts at pinned versions.
   `skillforge pack install team-method@1.0.0 --role developer` installs one
   role (all roles without `--role`); `sync` keeps the pinned versions, installing a
-  newer pack version moves them. `skillforge pack list` lists packs.
+  newer pack version moves them. `skillforge pack list` lists packs. A pack has its own page,
+  `/packs/<name>`, with versions, who published them and a diff between two versions; its owner
+  publishes a new version there after a check, or with `skillforge pack publish pack.json`
+  (`--dry-run` only checks). `skillforge pack show <name>[@version]` prints a version.
 - **Rules from your sessions.** `skillforge harvest sessions` collects rules
   you keep asking your agent for from local Claude Code session logs (only
   your own words) and writes a rule draft on disk (a skill draft with

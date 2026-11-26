@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ConfigError } from "./config-error.ts";
+import { stripBom } from "./stdin.ts";
 
 /** A CLI profile name: host:port, [::1]:8787, and ordinary identifiers, up to 128 characters. */
 export const PROFILE_NAME_RE = /^[A-Za-z0-9[][A-Za-z0-9._:@[\]-]{0,127}$/;
@@ -44,7 +45,7 @@ export function parseProfileBinding(filePath: string): string {
   if (!st) throw bindingInvalid(filePath);
   if (st.size > BINDING_MAX_BYTES) throw bindingInvalid(filePath);
   const raw = fs.readFileSync(filePath, "utf8");
-  const text = raw.startsWith("\uFEFF") ? raw.slice(1) : raw;
+  const text = stripBom(raw);
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())

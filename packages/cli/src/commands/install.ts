@@ -23,6 +23,7 @@ import {
   translateCommand,
   translateRule,
   type AgentTranslateMethod,
+  type RestrictionClass,
   type RuntimeDef,
   type RuntimeInstallMethod,
   type RuntimeScope,
@@ -57,6 +58,7 @@ export type InstallFlags = TargetFlags & {
   force?: boolean;
   allowDowngrade?: boolean;
   allowRisky?: boolean;
+  allowWeakerRestrictions?: boolean;
 };
 
 /** content-security-scan: a version whose scan failed is not installed without --allow-risky. */
@@ -263,7 +265,12 @@ async function resolveVersionDetail(
 
 type FileMethod = Exclude<RuntimeInstallMethod, "plugin" | "settings">;
 
-const AGENT_METHODS: readonly FileMethod[] = ["codex-toml", "opencode-agent", "cursor-agent"];
+const AGENT_METHODS: readonly FileMethod[] = [
+  "codex-toml",
+  "opencode-agent",
+  "cursor-agent",
+  "qwen-agent",
+];
 
 function isAgentMethod(method: FileMethod): method is AgentTranslateMethod {
   return AGENT_METHODS.includes(method);
@@ -364,6 +371,63 @@ function translateBundle(
     for (const w of t.warnings) ctx.out.error(`warning: ${w}`);
     return { path: t.path, content: Buffer.from(t.content, "utf8") };
   });
+}
+
+/** agent-restrictions-translation: the agent's tool restrictions this runtime cannot enforce (before translation). */
+function unenforcedRestrictions(
+  files: UnzippedFile[],
+  type: string,
+  name: string,
+  method: FileMethod,
+): RestrictionClass[] {
+  if (type !== "agent" || (method !== "files" && !isAgentMethod(method))) return [];
+  const main = files.find((f) => f.path === `agents/${name}.md`);
+  if (!main) return [];
+  return translateAgent(method, name, main.content.toString("utf8")).unenforced;
+}
+
+/** agent-restrictions-translation: the mark of the current agent translation, kept in the lock. */
+const AGENT_TRANSLATION = "tool-restrictions";
+
+function translationField(type: string, method: FileMethod): { translation?: string } {
+  return type === "agent" && isAgentMethod(method) ? { translation: AGENT_TRANSLATION } : {};
+}
+
+/** A restriction the runtime cannot enforce: the install stops before any file is written. */
+export class WeakerRestrictionsError extends ApiError {
+  constructor(name: string, runtime: string, classes: readonly RestrictionClass[]) {
+    const hint =
+      runtime === "claude-code"
+        ? "it does not apply readonly; add tools or disallowedTools to the agent"
+        : "install it for another runtime";
+    super(
+      `agent ${name}: ${runtime} cannot enforce ${classes.join(", ")} (the agent forbids it); ${hint}, or use --allow-weaker-restrictions`,
+      EXIT.VALIDATION,
+    );
+    this.name = "WeakerRestrictionsError";
+  }
+}
+
+/**
+ * The lock field for restrictions the runtime does not enforce: refused unless --allow-weaker-restrictions, or the
+ * lock already records the same (or a larger) set for this artifact.
+ */
+function weakerRestrictionsField(
+  ctx: AppContext,
+  name: string,
+  runtime: string,
+  unenforced: readonly RestrictionClass[],
+  flags: InstallFlags,
+  existing: LockArtifact | undefined,
+): { weaker_restrictions?: string[] } {
+  if (unenforced.length === 0) return {};
+  const waived = existing?.weaker_restrictions ?? [];
+  const covered = unenforced.every((c) => waived.includes(c));
+  if (!flags.allowWeakerRestrictions && !covered) {
+    throw new WeakerRestrictionsError(name, runtime, unenforced);
+  }
+  ctx.out.error(`warning: agent ${name}: ${runtime} does not enforce ${unenforced.join(", ")}`);
+  return { weaker_restrictions: [...unenforced] };
 }
 
 function removeFiles(into: string, absPaths: readonly string[]): void {
@@ -511,7 +575,7 @@ async function downloadBundleFiles(
   into: string,
   method: FileMethod,
   quiet: boolean,
-): Promise<UnzippedFile[]> {
+): Promise<{ files: UnzippedFile[]; unenforced: RestrictionClass[] }> {
   const { type, name, version } = release;
   const zipRes = await client.request(
     "GET",
@@ -530,7 +594,8 @@ async function downloadBundleFiles(
   const layered = applyLayers(raw, release.layers, (m) => {
     if (!quiet) ctx.out.error(m);
   });
-  return translateBundle(ctx, layered, name, method);
+  const unenforced = unenforcedRestrictions(layered, type, name, method);
+  return { files: translateBundle(ctx, layered, name, method), unenforced };
 }
 
 /** Layers for this install and the lock field that records them. */
@@ -672,6 +737,45 @@ function finishInstall(
   return result;
 }
 
+/**
+ * The same layers on disk: the same version is reused, unless the agent translation changed (agent-restrictions-
+ * translation) — then it is reinstalled, but a translated file the person edited is not overwritten (exit code 5).
+ */
+function reuseInstalled(
+  a: {
+    into: string;
+    lock: LockFile;
+    key: string;
+    existing: LockArtifact;
+    target: ReturnType<typeof resolveTarget>;
+    pin: string | undefined;
+    version: string;
+    digest: string;
+    flags: InstallFlags;
+    quiet: boolean;
+    ctx: AppContext;
+  },
+  translation: { translation?: string },
+): InstallResult | "continue" {
+  if (a.existing.translation !== translation.translation) {
+    assertNoLocalChanges(a.into, a.existing, a.flags.force);
+    return "continue";
+  }
+  return handleSameVersion(
+    a.into,
+    a.lock,
+    a.key,
+    a.existing,
+    a.target,
+    a.pin,
+    a.version,
+    a.digest,
+    a.flags,
+    a.quiet,
+    a.ctx,
+  );
+}
+
 export async function installOne(
   ctx: AppContext,
   client: SkillforgeClient,
@@ -717,26 +821,17 @@ export async function installOne(
   const runtimeField = target.runtime ? { runtime: target.runtime.id } : {};
   const pinField = pin !== undefined ? { pin } : {};
   const overlays = await overlayState(client, type, name);
+  const translation = translationField(type, method);
 
-  // A changed layer is a reason to reinstall even the same version.
   if (existing && existing.overlays === overlays.digest) {
-    const same = handleSameVersion(
-      into,
-      lock,
-      key,
-      existing,
-      target,
-      pin,
-      version,
-      digest,
-      flags,
-      quiet,
-      ctx,
+    const same = reuseInstalled(
+      { into, lock, key, existing, target, pin, version, digest, flags, quiet, ctx },
+      translation,
     );
     if (same !== "continue") return finishInstall(ctx, target, method, same, quiet);
   }
 
-  const files = await downloadBundleFiles(
+  const { files, unenforced } = await downloadBundleFiles(
     ctx,
     client,
     { type, name, version, meta, registryUrl, layers: overlays.layers },
@@ -744,6 +839,7 @@ export async function installOne(
     method,
     quiet,
   );
+  const weaker = weakerRestrictionsField(ctx, name, runtime.id, unenforced, flags, existing);
   const adopted = assertUnmanagedOk(into, files, existing, flags.force);
   const stale = collectStalePaths(into, existing, files, version, digest, flags.force);
   const fileMap = writeInstalledFiles(into, files, stale);
@@ -756,7 +852,7 @@ export async function installOne(
     version,
     digest,
     fileMap,
-    { ...runtimeField, ...overlays.field },
+    { ...runtimeField, ...overlays.field, ...weaker, ...translation },
     pinField,
     quiet,
     ctx,
@@ -1004,7 +1100,11 @@ async function syncInstallItems(
         summary.skipped.push({ artifact: key, reason: "purged" });
         continue;
       }
-      if (err instanceof DowngradeError || err instanceof RiskyError) {
+      if (
+        err instanceof DowngradeError ||
+        err instanceof RiskyError ||
+        err instanceof WeakerRestrictionsError
+      ) {
         summary.skipped.push({ artifact: key, reason: err.message });
         continue;
       }
@@ -1083,6 +1183,7 @@ export async function runSync(ctx: AppContext, flags: SyncFlags): Promise<void> 
     force: flags.force,
     allowDowngrade: flags.allowDowngrade,
     allowRisky: flags.allowRisky,
+    allowWeakerRestrictions: flags.allowWeakerRestrictions,
   };
 
   const assignments = await fetchAssignments(client);

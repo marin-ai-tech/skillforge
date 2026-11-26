@@ -56,10 +56,13 @@ documents project commands only); use --scope project".
 | Type | File | Content |
 |---|---|---|
 | command | `commands/<name>.md` | the body only; the frontmatter is removed |
-| agent | `agents/<name>.md` | frontmatter `name` and `description`, body unchanged |
+| agent | `agents/<name>.md` | frontmatter `name` and `description` (and `readonly: true` for an agent that may not edit), body unchanged |
 
 Agent frontmatter fields other than `name` and `description`, such as `tools` or `model`, are dropped. The CLI
-prints `warning: agent <name>: dropped <fields> (not supported by cursor)` to stderr.
+prints `warning: agent <name>: dropped <fields> (not supported by cursor)` to stderr. Cursor can forbid an agent
+editing (`readonly: true`) but not the shell or the network: an agent that forbids itself either one — for example
+`tools: Read, Grep, Bash`, which lists no network tool — is refused with exit code 1 unless you pass
+`--allow-weaker-restrictions`.
 
 ## Connect Cursor over MCP
 

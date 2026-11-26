@@ -2,6 +2,7 @@ import readline from "node:readline";
 import { resolveBridgeToken } from "../config.ts";
 import type { AppContext } from "../context.ts";
 import { EXIT } from "../exit.ts";
+import { stripBom } from "../stdin.ts";
 
 function extractErrorMessage(status: number, text: string): string {
   try {
@@ -141,8 +142,10 @@ export async function runMcp(ctx: AppContext): Promise<void> {
     crlfDelay: Infinity,
   });
 
+  let first = true;
   for await (const line of rl) {
-    await forwardLine(baseUrl, token, line);
+    await forwardLine(baseUrl, token, first ? stripBom(line) : line);
+    first = false;
   }
 
   process.exitCode = EXIT.OK;

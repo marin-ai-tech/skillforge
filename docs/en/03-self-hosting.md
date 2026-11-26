@@ -357,6 +357,20 @@ content, and the file reads again in every version. Republishing without changes
 refused with `digest_exists`. If the source file is gone, restore the data directory from a backup (see
 [Restore](#restore)).
 
+## Why the server stopped
+
+The server log `<data_dir>/logs/skillforge.log` records how the process ended:
+
+| Record | When | Fields |
+|---|---|---|
+| `server_stopping` | A stop was asked: `SIGINT` (Ctrl+C), `SIGTERM` (`docker stop`, systemd), `SIGHUP` (the terminal or the Windows console window closed) or `SIGBREAK` (Ctrl+Break on Windows) | `signal` |
+| `server_crashed` | An error nobody handled (`uncaught_exception`, `unhandled_rejection`) or a failed start (`start_failed`, for example the port is taken). The process exits with code 1 | `kind`, `error`, `stack` (secrets masked) |
+| `server_exit` | Last record of every exit the process sees | `code` |
+
+If the log ends without `server_exit`, the process was killed from outside and could not write anything: `kill -9`,
+`Stop-Process` or Task Manager on Windows, the out-of-memory killer, a container runtime that ran out of patience. Look
+at the system or container log (`docker inspect` shows `OOMKilled`) for the reason.
+
 ## Health
 
 `GET /api/v1/health` is always available without sign-in and returns `status`, `version`, `commit`, `uptime_s`, `db`,

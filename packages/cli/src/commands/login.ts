@@ -11,6 +11,7 @@ import {
   type RegistryEntry,
 } from "../config.ts";
 import { EXIT } from "../exit.ts";
+import { stripBom } from "../stdin.ts";
 import type { AppContext } from "../context.ts";
 import { setExit } from "../context.ts";
 
@@ -19,7 +20,7 @@ async function readPasswordStdin(): Promise<string> {
   for await (const chunk of process.stdin) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  const text = Buffer.concat(chunks).toString("utf8");
+  const text = stripBom(Buffer.concat(chunks).toString("utf8"));
   const firstLine = text.split(/\r?\n/)[0] ?? "";
   return firstLine.replace(/\r$/, "");
 }
@@ -46,7 +47,7 @@ async function readFirstLineStdin(): Promise<string> {
   });
   try {
     for await (const line of rl) {
-      return line.replace(/\r$/, "").trim();
+      return stripBom(line).replace(/\r$/, "").trim();
     }
     return "";
   } finally {

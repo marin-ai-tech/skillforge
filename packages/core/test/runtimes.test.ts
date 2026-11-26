@@ -120,7 +120,7 @@ test("runtimeSupport: methods and reasons", () => {
     ["codex", "codex-toml"],
     ["opencode", "opencode-agent"],
     ["cursor", "cursor-agent"],
-    ["qwen", "files"],
+    ["qwen", "qwen-agent"], // agent-restrictions-translation: disallowedTools in Qwen names
   ] as const;
   for (const [id, method] of agentMethods) {
     for (const scope of ["project", "user"] as const)

@@ -35,7 +35,7 @@ Support is verified against the real client: the marketplace, MCP and settings.
 |---|---|
 | `skill` | copied as is to `skills/<name>/` |
 | `command` | copied as is to `commands/<name>.md` |
-| `agent` | copied as is to `agents/<name>.md` |
+| `agent` | copied as is to `agents/<name>.md`; Claude Code applies `tools` and `disallowedTools` but not `readonly`, so an agent that forbids itself editing only with `readonly` is refused with exit code 1 (add `tools` or `disallowedTools`, or pass `--allow-weaker-restrictions`) |
 | `hook` | only through the plugin marketplace (`/plugin install`) |
 | `plugin` | only through the plugin marketplace (`/plugin install`) |
 | `settings` | merged into a Claude Code settings file with `skillforge settings apply` |

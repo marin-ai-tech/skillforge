@@ -65,16 +65,20 @@ skillforge install skill/pdf-tools --into "$CODEX_HOME"
 
 ## Codex agents in TOML
 
-An agent is written as `agents/<name>.toml` with three keys:
+An agent is written as `agents/<name>.toml` with three keys, plus two for a restricted agent:
 
 | TOML key | From the registry agent |
 |---|---|
 | `name` | the artifact name |
 | `description` | the `description` frontmatter field |
 | `developer_instructions` | the markdown body, decoded back exactly as written |
+| `sandbox_mode = "read-only"` | when the agent forbids itself editing (`tools` without an edit tool, `disallowedTools` with one, or `readonly: true`) |
+| `web_search = "disabled"` | when the agent forbids itself the network |
 
 Other frontmatter fields, such as `tools` or `model`, have no Codex equivalent. The CLI drops them and prints
-`warning: agent <name>: dropped <fields> (not supported by codex)` to stderr.
+`warning: agent <name>: dropped <fields> (not supported by codex)` to stderr. Codex has no switch for the shell:
+an agent that forbids itself the shell is refused with exit code 1 unless you pass `--allow-weaker-restrictions`,
+which installs it without that restriction and records `weaker_restrictions` in the lock file.
 
 ## Installs from older versions under .agents
 

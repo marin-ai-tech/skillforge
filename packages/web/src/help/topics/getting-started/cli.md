@@ -23,7 +23,7 @@ Authenticate with a Bearer token or an interactive password flow:
 
 - `skillforge login --url <base> --token <sf_...>` verifies the token with `GET /api/v1/me` and stores it.
 - `skillforge login --url <base> --mcp-token-stdin` saves an MCP token for the `skillforge mcp` bridge next to the regular one: it reads the first line of stdin, checks it against `/mcp` and refuses a token without MCP consent (exit code 4, nothing saved). Other commands never send it, and a new login to the same address keeps it; `logout` removes it from the config but does not revoke it.
-- `skillforge login --url <base> --username <user> --password-stdin` reads the password from stdin (first line), creates a session cookie, then creates an API token named `cli <hostname>`. The password is never written to disk.
+- `skillforge login --url <base> --username <user> --password-stdin` reads the password from stdin (first line), creates a session cookie, then creates an API token named `cli <hostname>`. The password is never written to disk. A BOM at the start of stdin (Windows PowerShell 5.1 adds one or two) is dropped; the rest of the line, spaces included, is the password.
 
 Credentials live in `~/.skillforge/config.json` (mode `0600` on POSIX) or the path in `SKILLFORGE_CONFIG`. Override the registry with `--url` / `SKILLFORGE_URL` and the token with `--token` / `SKILLFORGE_TOKEN` (flags win over env over config). A stored token is sent only when the selected registry URL matches that entry (trailing slash stripped, host compared case-insensitively); a mismatched `--url` or `SKILLFORGE_URL` does not reuse another registry's token. Use `skillforge whoami` and `skillforge logout` to inspect or revoke the stored token.
 
@@ -56,7 +56,7 @@ The CLI prints Blocking `E_*` and Warning `W_*` codes, then `type/name@version` 
 > [!WARNING]
 > `--force` overwrites locally edited tracked files and unmanaged files alike; check what changed before you use it.
 
-Before writing files, `install` and `sync` check three things. A version whose security scan failed is refused with exit code 1 until you review it and pass `--allow-risky`. Moving to a lower version than the installed one is refused with exit code 5 unless you pass `--allow-downgrade`. Every file and the version signature are checked against the registry key remembered at login; a different key stops the command with `signing key changed` until you run `skillforge login` again, and a damaged copy in the registry stops it with `blob_corrupt` without installing anything. `sync` does not stop on one such artifact: it lists it in `failed` (`failed type/name: reason` lines, or `{ artifact, reason, code }` with `--json`), installs the rest and exits with the worst code among the failures; an unreachable registry or a refused sign-in still stop it at once.
+Before writing files, `install` and `sync` check four things. A version whose security scan failed is refused with exit code 1 until you review it and pass `--allow-risky`. An agent whose tool restrictions (editing, shell, network) the runtime cannot enforce is refused with exit code 1 unless you pass `--allow-weaker-restrictions` (see [Agent support](getting-started/agent-support)). Moving to a lower version than the installed one is refused with exit code 5 unless you pass `--allow-downgrade`. Every file and the version signature are checked against the registry key remembered at login; a different key stops the command with `signing key changed` until you run `skillforge login` again, and a damaged copy in the registry stops it with `blob_corrupt` without installing anything. `sync` does not stop on one such artifact: it lists it in `failed` (`failed type/name: reason` lines, or `{ artifact, reason, code }` with `--json`), installs the rest and exits with the worst code among the failures; an unreachable registry or a refused sign-in still stop it at once.
 
 `sync` also follows your teams: artifacts your teams require or install by default join the selected set, and artifacts no longer available to your teams leave it. An artifact marked as replaced gives way to its successor (`replaced <old> -> <new>` on stderr), and `install` of a replaced artifact prints a warning naming the successor. `uninstall` of an artifact your team requires needs `--force`.
 
@@ -126,7 +126,7 @@ skillforge agent rm --name laptop
 | 1 | Validation or bad input |
 | 2 | Conflict (version/digest) |
 | 3 | No registry configured or unreachable (`SKILLFORGE_URL` / `skillforge login --url`) |
-| 4 | Unauthorized or forbidden (`skillforge login`) |
+| 4 | Not signed in (the message ends with `run skillforge login`) or not allowed: the message names the reason, for example `your role does not allow this` or `mcp_token_forbidden` for an MCP token |
 | 5 | Local changes blocked install |
 | 6 | Not found |
 

@@ -90,13 +90,23 @@ const CODE_HINTS: Record<string, string> = {
   version_exists: "this version already exists; publish a higher one with --version",
   digest_exists:
     "the same content is already published as another version; change the files to publish a new one",
+  mcp_token_forbidden:
+    "this command needs a regular token; an MCP token works only for agents (skillforge login --url <base> --token <regular token>)",
 };
+
+/** fix-cli-server-message: the server's own text follows its code, so the person sees why it refused. */
+function codeWithText(err: string, data: object): string {
+  const hint = CODE_HINTS[err];
+  if (hint) return `${err}: ${hint}`;
+  const text = (data as { message?: unknown }).message;
+  return typeof text === "string" && text.length > 0 ? `${err}: ${text}` : err;
+}
 
 function messageFromResultData(result: RequestResult): string {
   let message = `HTTP ${result.status}`;
   if (result.data && typeof result.data === "object" && result.data !== null) {
     const err = (result.data as { error?: unknown }).error;
-    if (typeof err === "string") message = CODE_HINTS[err] ? `${err}: ${CODE_HINTS[err]}` : err;
+    if (typeof err === "string") message = codeWithText(err, result.data);
     else if (typeof (result.data as { message?: unknown }).message === "string") {
       message = (result.data as { message: string }).message;
     }
@@ -106,10 +116,15 @@ function messageFromResultData(result: RequestResult): string {
   return message;
 }
 
-/** English not_owner message shared by early and late 403 handlers. */
-function notOwnerMessage(owner: unknown): string {
-  const name = typeof owner === "string" ? owner : "another user";
-  return `not_owner: the artifact is owned by ${name}; ask the owner to add you as a maintainer`;
+type RefusalBody = { error?: unknown; owner?: unknown; message?: unknown };
+
+/** English not_owner message shared by early and late 403 handlers; the server's text names what is owned (a pack). */
+function notOwnerMessage(body: RefusalBody): string {
+  const next = "ask the owner to add you as a maintainer";
+  if (typeof body.message === "string" && body.message.length > 0)
+    return `not_owner: ${body.message}; ${next}`;
+  const name = typeof body.owner === "string" ? body.owner : "another user";
+  return `not_owner: the artifact is owned by ${name}; ${next}`;
 }
 
 function early403OwnerError(result: RequestResult): ApiError | null {
@@ -121,15 +136,12 @@ function early403OwnerError(result: RequestResult): ApiError | null {
   ) {
     return null;
   }
-  const body = result.data as { error?: unknown; owner?: unknown };
+  const body = result.data as RefusalBody;
   if (body.error !== "not_owner") return null;
-  return new ApiError(notOwnerMessage(body.owner), EXIT.VALIDATION, result.status, result.data);
+  return new ApiError(notOwnerMessage(body), EXIT.VALIDATION, result.status, result.data);
 }
 
-function late403Special(
-  result: RequestResult,
-  body: { error?: unknown; owner?: unknown } | undefined,
-): ApiError | null {
+function late403Special(result: RequestResult, body: RefusalBody | undefined): ApiError | null {
   if (result.status !== 403 || !body) return null;
   if (body.error === "not_team_member") {
     return new ApiError(
@@ -140,13 +152,23 @@ function late403Special(
     );
   }
   if (body.error === "not_owner") {
-    return new ApiError(notOwnerMessage(body.owner), EXIT.NOT_OWNER, result.status, result.data);
+    return new ApiError(notOwnerMessage(body), EXIT.NOT_OWNER, result.status, result.data);
   }
   return null;
 }
 
-function decorateAuthMessage(message: string, code: ExitCode): string {
-  if (code === EXIT.UNAUTHORIZED) return `${message}; run skillforge login`;
+/**
+ * Signing in helps only on 401; a 403 means the account is known (fix-cli-server-message): `forbidden` is the role
+ * check, other 403 codes carry their own reason. Both keep exit code 4.
+ */
+function decorateAuthMessage(message: string, code: ExitCode, result: RequestResult): string {
+  if (result.status === 401) return `${message}; run skillforge login`;
+  if (result.status === 403) {
+    const err = (result.data as RefusalBody | undefined)?.error;
+    return err === "forbidden" || err === undefined
+      ? `${message}; your role does not allow this`
+      : message;
+  }
   if (code === EXIT.NOT_FOUND && !/not found/i.test(message)) return `not found: ${message}`;
   return message;
 }
@@ -225,11 +247,11 @@ export class SkillforgeClient {
     const code = exitFromHttpStatus(result.status);
     let message = messageFromResultData(result);
 
-    const body = result.data as { error?: unknown; owner?: unknown } | undefined;
+    const body = result.data as RefusalBody | undefined;
     const special = late403Special(result, body);
     if (special) return special;
 
-    message = decorateAuthMessage(message, code);
+    message = decorateAuthMessage(message, code, result);
     return new ApiError(message, code, result.status, result.data);
   }
 }

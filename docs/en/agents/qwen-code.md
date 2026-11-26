@@ -1,7 +1,8 @@
 # Qwen Code
 
-Qwen Code reads skills, commands and agents from its `.qwen` folders. SkillForge installs skills and agents
-unchanged and adapts the argument placeholder of commands. This page lists the folders, the command translation, the
+Qwen Code reads skills, commands and agents from its `.qwen` folders. SkillForge installs skills
+unchanged, writes agents with their tool restrictions as `disallowedTools`, and adapts the argument placeholder of
+commands. This page lists the folders, the command translation, the
 MCP connection in the user scope, and the limits.
 
 ## On this page
@@ -32,7 +33,7 @@ Support is verified against the real client in automated tests.
 |---|---|
 | `skill` | copied as is to `skills/<name>/` |
 | `command` | translated to `commands/<name>.md` |
-| `agent` | copied as is to `agents/<name>.md` |
+| `agent` | translated to `agents/<name>.md`: `name`, `description` and, for a restricted agent, `disallowedTools` in Qwen tool names (`edit`, `write_file`, `run_shell_command`, `exec`, `web_fetch`, `web_search`); `tools` and other fields are dropped with a warning, because Qwen Code does not know the Claude Code tool names |
 | `hook` | not supported: "hooks are not supported by qwen (its hooks use a different event and settings schema); install the hook in Claude Code with /plugin install" |
 | `plugin` | not supported: "Claude Code plugins are not supported by qwen; install the plugin in Claude Code with /plugin install" |
 | `settings` | not supported: "settings profiles are not supported by qwen (they target Claude Code settings.json)" |

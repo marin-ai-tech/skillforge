@@ -15,6 +15,16 @@ export type LockArtifact = {
   pin?: string;
   /** artifact-overlays: fingerprint of the layers applied; a change reinstalls the same version. */
   overlays?: string;
+  /**
+   * agent-restrictions-translation: tool restrictions of the agent this runtime does not enforce, accepted with
+   * --allow-weaker-restrictions; a later install of the same set needs no flag.
+   */
+  weaker_restrictions?: string[];
+  /**
+   * agent-restrictions-translation: the agent translation this install used; a different one (or none, from a former
+   * CLI) reinstalls the same version, so tool restrictions reach agents installed before them.
+   */
+  translation?: string;
 };
 
 export type LockFile = {

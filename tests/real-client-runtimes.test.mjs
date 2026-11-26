@@ -1,7 +1,8 @@
 // Installation with
 // `skillforge install --runtime codex|opencode|qwen` is verified by the client ITSELF, without calling the model:
 //   Codex     — `codex debug prompt-input` (skill roots), the agent is TOML with three keys;
-//   OpenCode  — `opencode debug skill`, `opencode agent list` (and no "Configuration is invalid");
+//   OpenCode  — `opencode debug skill`, `opencode agent list` (and no "Configuration is invalid"), `opencode debug agent`
+//               (the tools an agent may use: agent-restrictions-translation);
 //   Qwen Code — `qwen serve` → GET /workspaces/<path>/skills|agents.
 // Home directories are isolated (HOME/USERPROFILE, CODEX_HOME, XDG_*, QWEN_HOME); every process has a kill-timeout.
 // Binary: SKILLFORGE_<CLIENT>_BIN (path to .js/.exe) or an npm wrapper `<client>.cmd` in PATH; if none — skip with a reason.
@@ -16,7 +17,7 @@ import { startServer, api, login, loadDir, toB64, FIXTURES, ROOT, ADMIN_PASSWORD
 
 const CLI = join(ROOT, "packages", "cli", "dist", "index.js");
 const CALL_TIMEOUT_MS = 120_000;
-const MARKERS = ["pdf-tools", "rt-user-skill", "quirky-agent"];
+const MARKERS = ["pdf-tools", "rt-user-skill", "quirky-agent", "plain-agent", "reviewer"];
 let srv;
 let base;
 let work;
@@ -97,6 +98,8 @@ function installAll(runtime, ctx) {
   sf(["install", "skill/pdf-tools", "--runtime", runtime], ctx);
   sf(["install", "skill/rt-user-skill", "--runtime", runtime, "--scope", "user"], ctx);
   sf(["install", "agent/quirky-agent", "--runtime", runtime], ctx);
+  sf(["install", "agent/plain-agent", "--runtime", runtime], ctx);
+  sf(["install", "agent/reviewer", "--runtime", runtime], ctx);
 }
 
 async function publishActive(admin, body, type, name) {
@@ -119,6 +122,10 @@ before(async () => {
   await publishActive(admin, { type: "skill", files: [{ path: "rt-user-skill/SKILL.md", content_base64: b64(userSkill) }] }, "skill", "rt-user-skill");
   const agent = "---\nname: quirky-agent\ndescription: Probe agent with Claude-only keys.\ntools: Read, Grep, Bash\nmodel: sonnet\ncolor: blue\n---\nYou are a probe. Keep ''' and \"\"\" and \\ intact.\n";
   await publishActive(admin, { type: "agent", files: [{ path: "quirky-agent.md", content_base64: b64(agent) }] }, "agent", "quirky-agent");
+  const plain = "---\nname: plain-agent\ndescription: Probe agent without tool restrictions.\nmodel: sonnet\n---\nYou write.\n";
+  await publishActive(admin, { type: "agent", files: [{ path: "plain-agent.md", content_base64: b64(plain) }] }, "agent", "plain-agent");
+  // The sdlc 0.34.1 reviewer role as the registry stores it: tools [read, grep, glob, bash], readonly: true.
+  await publishActive(admin, { type: "agent", files: toB64(loadDir(join(FIXTURES, "sdlc-reviewer"))) }, "agent", "reviewer");
 });
 
 after(async () => {
@@ -138,7 +145,13 @@ test("Codex: debug prompt-input sees the project and user skill; the agent is TO
   assert.ok(seen.out.includes("pdf-tools"), `Codex does not see the project skill:\n${seen.out.slice(0, 2000)}`);
   assert.ok(seen.out.includes("rt-user-skill"), "Codex does not see the user skill (~/.codex/skills)");
   const toml = parseToml(readFileSync(join(ctx.proj, ".codex", "agents", "quirky-agent.toml"), "utf8"));
-  assert.deepEqual(Object.keys(toml).sort(), ["description", "developer_instructions", "name"]);
+  assert.deepEqual(Object.keys(toml).sort(), ["description", "developer_instructions", "name", "sandbox_mode", "web_search"]);
+  assert.deepEqual([toml.sandbox_mode, toml.web_search], ["read-only", "disabled"]);
+  const plain = parseToml(readFileSync(join(ctx.proj, ".codex", "agents", "plain-agent.toml"), "utf8"));
+  assert.deepEqual(Object.keys(plain).sort(), ["description", "developer_instructions", "name"], "no restrictions — three keys");
+  // Codex refuses a config key or value it does not know with a non-zero exit (checked with web_search = "no-such").
+  assert.equal(seen.code, 0, `Codex reports a config error:
+${seen.out.slice(0, 2000)}`);
 
   sf(["uninstall", "skill/pdf-tools", "--runtime", "codex"], ctx);
   const after = run("codex", ["debug", "prompt-input", "hi"], ctx);
@@ -155,6 +168,18 @@ test("OpenCode: debug skill and agent list see what was installed; configuration
   const agents = run("opencode", ["agent", "list"], ctx);
   assert.ok(!/Configuration is invalid/i.test(agents.out), agents.out);
   assert.match(agents.out, /quirky-agent \(subagent\)/, agents.out);
+  // The client resolves the tools each agent may use: the restricted ones cannot edit, the plain one can.
+  const tools = (name) => {
+    const r = run("opencode", ["debug", "agent", name], ctx);
+    const json = JSON.parse(r.out.slice(r.out.indexOf("{")));
+    return json.tools;
+  };
+  const reviewer = tools("reviewer");
+  assert.deepEqual([reviewer.edit, reviewer.write, reviewer.bash, reviewer.webfetch], [false, false, true, false], JSON.stringify(reviewer));
+  const quirky = tools("quirky-agent");
+  assert.deepEqual([quirky.edit, quirky.write], [false, false], JSON.stringify(quirky));
+  const plain = tools("plain-agent");
+  assert.deepEqual([plain.edit, plain.write, plain.bash], [true, true, true], `negative: no restrictions — ${JSON.stringify(plain)}`);
 });
 
 test("Qwen Code: qwen serve serves skills of both scopes and the agent", { skip: CLIENTS.qwen ? false : "qwen not found" }, async () => {
@@ -188,6 +213,11 @@ test("Qwen Code: qwen serve serves skills of both scopes and the agent", { skip:
     const qa = agents.agents.find((a) => a.name === "quirky-agent");
     assert.ok(qa, JSON.stringify(agents));
     assert.equal(qa.level, "project");
+    const rv = agents.agents.find((a) => a.name === "reviewer");
+    assert.ok(rv?.disallowedTools?.includes("edit") && rv.disallowedTools.includes("write_file"), JSON.stringify(rv));
+    assert.ok(!rv.disallowedTools.includes("run_shell_command"), "the reviewer keeps the shell");
+    const pa = agents.agents.find((a) => a.name === "plain-agent");
+    assert.ok(pa && !pa.disallowedTools, `negative: no restrictions — ${JSON.stringify(pa)}`);
   } finally {
     clearTimeout(killer);
     child.kill();

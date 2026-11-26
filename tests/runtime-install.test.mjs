@@ -1,11 +1,12 @@
 // Installing artifacts for runtimes (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Qwen Code, Devin, Reckon): skill paths by
 // the directories the clients read themselves (verified 15.10.2026), command translation (Gemini TOML and Qwen Code
-// with {{args}}, OpenCode/Cursor markdown), agent translation (Codex TOML, OpenCode and Cursor — trimmed frontmatter,
-// Qwen Code — as is), refusal for unsupported combinations, hooks only as a plugin, lock in the runtime's base
+// with {{args}}, OpenCode/Cursor markdown), agent translation (Codex TOML, OpenCode, Cursor and Qwen Code — trimmed
+// frontmatter with the agent's tool restrictions in each runtime's mechanism, agent-restrictions-translation), refusal for unsupported combinations, hooks only as a plugin, lock in the runtime's base
 // directory, uninstall.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,12 +20,12 @@ let base;
 let admin;
 let work;
 
-function cli(args, { cwd, home } = {}) {
+function cli(args, { cwd, home, token } = {}) {
   return new Promise((resolve) => {
     const h = home ?? join(work, "home");
     const child = spawn(process.execPath, [CLI, ...args], {
       cwd: cwd ?? work,
-      env: { ...process.env, SKILLFORGE_CONFIG: join(work, "config.json"), SKILLFORGE_URL: base, SKILLFORGE_TOKEN: undefined, NO_COLOR: "1", HOME: h, USERPROFILE: h },
+      env: { ...process.env, SKILLFORGE_CONFIG: join(work, "config.json"), SKILLFORGE_URL: base, SKILLFORGE_TOKEN: token, NO_COLOR: "1", HOME: h, USERPROFILE: h },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let out = "";
@@ -44,6 +45,7 @@ async function publishActive(body, type, name) {
   assert.equal(p.status, 201, JSON.stringify(p.data));
   const t = await api(base, "POST", `/api/v1/artifacts/${type}/${name}/transitions`, { to: "active", reason: "runtime test" }, { cookie: admin.cookie });
   assert.equal(t.status, 200);
+  return p.data;
 }
 
 const newProject = (name) => {
@@ -75,6 +77,14 @@ function parseGeminiToml(text) {
 
 const AGENT_BODY = "Keep ''' and \"\"\" and a backslash \\ and $ARGUMENTS intact.\nSecond line.\n";
 const QUIRKY_DESCRIPTION = "Agent with Claude-only keys and a body that stresses TOML quoting.";
+const PLAIN_DESCRIPTION = "Agent with Claude-only keys and no tool restrictions.";
+const PLAIN_AGENT = `---
+name: plain-agent
+description: ${PLAIN_DESCRIPTION}
+model: sonnet
+color: blue
+---
+` + AGENT_BODY;
 
 function splitMd(text) {
   const m = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text);
@@ -95,6 +105,23 @@ before(async () => {
   await publishActive({ type: "agent", files: toB64(loadDir(join(FIXTURES, "agent-executor"))) }, "agent", "handoff-executor");
   const quirky = "---\nname: quirky-agent\ndescription: Agent with Claude-only keys and a body that stresses TOML quoting.\ntools: Read, Grep, Bash\nmodel: sonnet\ncolor: blue\n---\n" + AGENT_BODY;
   await publishActive({ type: "agent", files: [{ path: "quirky-agent.md", content_base64: Buffer.from(quirky).toString("base64") }] }, "agent", "quirky-agent");
+  await publishActive({ type: "agent", files: [{ path: "plain-agent.md", content_base64: Buffer.from(PLAIN_AGENT).toString("base64") }] }, "agent", "plain-agent");
+  // agent-restrictions-translation: the sdlc roles as the registry stores them, and two agents whose restriction some
+  // runtime cannot express.
+  const reviewer = await publishActive({ type: "agent", files: toB64(loadDir(join(FIXTURES, "sdlc-reviewer"))) }, "agent", "reviewer");
+  await publishActive({ type: "agent", files: toB64(loadDir(join(FIXTURES, "sdlc-developer"))) }, "agent", "developer");
+  const noShell = "---\nname: no-shell-agent\ndescription: Reads and searches only.\ntools: [read, grep]\n---\n" + AGENT_BODY;
+  await publishActive({ type: "agent", files: [{ path: "no-shell-agent.md", content_base64: Buffer.from(noShell).toString("base64") }] }, "agent", "no-shell-agent");
+  const readonlyOnly = "---\nname: readonly-only\ndescription: Forbids editing only with readonly.\nreadonly: true\n---\n" + AGENT_BODY;
+  await publishActive({ type: "agent", files: [{ path: "readonly-only.md", content_base64: Buffer.from(readonlyOnly).toString("base64") }] }, "agent", "readonly-only");
+  const pack = await api(base, "POST", "/api/v1/packs", {
+    name: "sdlc-team",
+    version: "1.0.0",
+    title: "sdlc team",
+    description: "The reviewer role of an sdlc team.",
+    roles: [{ name: "reviewer", description: "Reviews changes", items: [{ type: "agent", name: "reviewer", version: reviewer.version.version }] }],
+  }, { cookie: admin.cookie });
+  assert.equal(pack.status, 201, JSON.stringify(pack.data));
   await publishActive({ type: "hook", name: "destructive-guard", files: toB64(loadDir(join(FIXTURES, "hook-guard"))) }, "hook", "destructive-guard");
 });
 
@@ -186,51 +213,172 @@ test("command: Gemini — TOML with {{args}}, OpenCode — markdown with a descr
   }
 });
 
-test("agent: Claude Code and Qwen Code — as is; Codex — TOML; OpenCode and Cursor — trimmed frontmatter with a warning", async () => {
-  const proj = newProject("agents");
-  const published = readFileSync(join(FIXTURES, "agent-executor", "handoff-executor.md"), "utf8");
-  for (const [runtime, dir] of [["claude-code", ".claude"], ["qwen", ".qwen"]]) {
-    const r = await cli(["install", "agent/handoff-executor", "--runtime", runtime], { cwd: proj });
-    assert.equal(r.code, 0, `${runtime}: ${r.err}`);
-    assert.equal(readFileSync(join(proj, dir, "agents", "handoff-executor.md"), "utf8"), published, `${runtime}: agent file was changed`);
-  }
-
-  const cx = await cli(["install", "agent/quirky-agent", "--runtime", "codex"], { cwd: proj });
+test("agent without restrictions: Claude Code as is; Qwen Code and Cursor — name + description; Codex — three TOML keys; OpenCode — description + mode", async () => {
+  const proj = newProject("agents-plain");
+  const cc = await cli(["install", "agent/plain-agent", "--runtime", "claude-code"], { cwd: proj });
+  assert.equal(cc.code, 0, cc.err);
+  assert.equal(readFileSync(join(proj, ".claude", "agents", "plain-agent.md"), "utf8"), PLAIN_AGENT, "claude-code: as is");
+  const qw = await cli(["install", "agent/plain-agent", "--runtime", "qwen"], { cwd: proj });
+  assert.equal(qw.code, 0, qw.err);
+  assert.deepEqual(splitMd(readFileSync(join(proj, ".qwen", "agents", "plain-agent.md"), "utf8")), {
+    fm: { name: "plain-agent", description: PLAIN_DESCRIPTION },
+    body: AGENT_BODY,
+  });
+  const cx = await cli(["install", "agent/plain-agent", "--runtime", "codex"], { cwd: proj });
   assert.equal(cx.code, 0, cx.err);
-  const toml = parseToml(readFileSync(join(proj, ".codex", "agents", "quirky-agent.toml"), "utf8"));
+  const toml = parseToml(readFileSync(join(proj, ".codex", "agents", "plain-agent.toml"), "utf8"));
   assert.deepEqual(Object.keys(toml).sort(), ["description", "developer_instructions", "name"], "Codex: exactly three keys");
-  assert.equal(toml.name, "quirky-agent");
-  assert.equal(toml.description, QUIRKY_DESCRIPTION);
   assert.equal(toml.developer_instructions, AGENT_BODY, "Codex: body character by character");
-  for (const key of ["tools", "model", "color"]) assert.ok(cx.err.includes(key), `Codex: warning without ${key}: ${cx.err}`);
+  for (const key of ["model", "color"]) assert.ok(cx.err.includes(key), `Codex: warning without ${key}: ${cx.err}`);
   const lockCx = JSON.parse(readFileSync(join(proj, ".codex", ".skillforge-lock.json"), "utf8"));
-  assert.deepEqual(Object.keys(lockCx.artifacts["agent/quirky-agent"].files), ["agents/quirky-agent.toml"], "lock: actual path");
-
-  const oc = await cli(["install", "agent/quirky-agent", "--runtime", "opencode"], { cwd: proj });
+  assert.deepEqual(Object.keys(lockCx.artifacts["agent/plain-agent"].files), ["agents/plain-agent.toml"], "lock: actual path");
+  assert.equal(lockCx.artifacts["agent/plain-agent"].weaker_restrictions, undefined, "nothing weaker — no lock field");
+  const oc = await cli(["install", "agent/plain-agent", "--runtime", "opencode"], { cwd: proj });
   assert.equal(oc.code, 0, oc.err);
-  const ocMd = splitMd(readFileSync(join(proj, ".opencode", "agents", "quirky-agent.md"), "utf8"));
-  assert.deepEqual(ocMd.fm, { description: QUIRKY_DESCRIPTION, mode: "subagent" });
+  const ocMd = splitMd(readFileSync(join(proj, ".opencode", "agents", "plain-agent.md"), "utf8"));
+  assert.deepEqual(ocMd.fm, { description: PLAIN_DESCRIPTION, mode: "subagent" });
   assert.equal(ocMd.body, AGENT_BODY);
-  assert.match(oc.err, /warning: agent quirky-agent: dropped .*not supported by opencode/);
-  for (const key of ["name", "tools", "model", "color"]) assert.ok(oc.err.includes(key), `OpenCode: warning without ${key}`);
-
-  const cu = await cli(["install", "agent/quirky-agent", "--runtime", "cursor"], { cwd: proj });
+  assert.match(oc.err, /warning: agent plain-agent: dropped .*not supported by opencode/);
+  const cu = await cli(["install", "agent/plain-agent", "--runtime", "cursor"], { cwd: proj });
   assert.equal(cu.code, 0, cu.err);
-  const cuMd = splitMd(readFileSync(join(proj, ".cursor", "agents", "quirky-agent.md"), "utf8"));
-  assert.deepEqual(cuMd.fm, { name: "quirky-agent", description: QUIRKY_DESCRIPTION });
-  assert.equal(cuMd.body, AGENT_BODY);
-  for (const key of ["tools", "model", "color"]) assert.ok(cu.err.includes(key), `Cursor: warning without ${key}`);
+  assert.deepEqual(splitMd(readFileSync(join(proj, ".cursor", "agents", "plain-agent.md"), "utf8")).fm, {
+    name: "plain-agent",
+    description: PLAIN_DESCRIPTION,
+  });
 
-  const un = await cli(["uninstall", "agent/quirky-agent", "--runtime", "codex"], { cwd: proj });
+  const un = await cli(["uninstall", "agent/plain-agent", "--runtime", "codex"], { cwd: proj });
   assert.equal(un.code, 0, un.err);
-  assert.ok(!existsSync(join(proj, ".codex", "agents", "quirky-agent.toml")), "uninstall removed .toml");
+  assert.ok(!existsSync(join(proj, ".codex", "agents", "plain-agent.toml")), "uninstall removed .toml");
 
   for (const runtime of ["gemini", "devin", "reckon"]) {
-    const no = await cli(["install", "agent/handoff-executor", "--runtime", runtime], { cwd: proj });
+    const no = await cli(["install", "agent/plain-agent", "--runtime", runtime], { cwd: proj });
     assert.equal(no.code, 1, `${runtime}: ${no.code}`);
     assert.match(no.err, /not supported/i);
   }
   assert.ok(!existsSync(join(proj, ".gemini", "agents")) && !existsSync(join(proj, ".agents")) && !existsSync(join(proj, ".reckon")), "refusal writes no files");
+});
+
+// agent-restrictions-translation (#208): `tools: Read, Grep, Bash` forbids editing and network. Each runtime gets the
+// restriction in its own mechanism; Cursor cannot forbid network, so it refuses unless --allow-weaker-restrictions.
+test("agent with tools: OpenCode permission, Codex read-only sandbox, Qwen disallowedTools; Claude Code as is; Cursor refuses", async () => {
+  const proj = newProject("agents-restricted");
+  const published = readFileSync(join(FIXTURES, "agent-executor", "handoff-executor.md"), "utf8");
+  const cc = await cli(["install", "agent/handoff-executor", "--runtime", "claude-code"], { cwd: proj });
+  assert.equal(cc.code, 0, cc.err);
+  assert.equal(readFileSync(join(proj, ".claude", "agents", "handoff-executor.md"), "utf8"), published, "claude-code: as is");
+
+  const cx = await cli(["install", "agent/quirky-agent", "--runtime", "codex"], { cwd: proj });
+  assert.equal(cx.code, 0, cx.err);
+  const toml = parseToml(readFileSync(join(proj, ".codex", "agents", "quirky-agent.toml"), "utf8"));
+  assert.deepEqual(Object.keys(toml).sort(), ["description", "developer_instructions", "name", "sandbox_mode", "web_search"]);
+  assert.deepEqual([toml.sandbox_mode, toml.web_search], ["read-only", "disabled"]);
+  assert.equal(toml.developer_instructions, AGENT_BODY);
+
+  const oc = await cli(["install", "agent/quirky-agent", "--runtime", "opencode"], { cwd: proj });
+  assert.equal(oc.code, 0, oc.err);
+  const ocMd = splitMd(readFileSync(join(proj, ".opencode", "agents", "quirky-agent.md"), "utf8"));
+  assert.deepEqual(ocMd.fm, { description: QUIRKY_DESCRIPTION, mode: "subagent", permission: { edit: "deny", webfetch: "deny" } });
+  assert.equal(ocMd.body, AGENT_BODY);
+
+  const qw = await cli(["install", "agent/quirky-agent", "--runtime", "qwen"], { cwd: proj });
+  assert.equal(qw.code, 0, qw.err);
+  assert.deepEqual(splitMd(readFileSync(join(proj, ".qwen", "agents", "quirky-agent.md"), "utf8")).fm, {
+    name: "quirky-agent",
+    description: QUIRKY_DESCRIPTION,
+    disallowedTools: ["edit", "write_file", "web_fetch", "web_search"],
+  });
+
+  const cu = await cli(["install", "agent/quirky-agent", "--runtime", "cursor"], { cwd: proj });
+  assert.equal(cu.code, 1, `Cursor cannot forbid network: ${cu.out}\n${cu.err}`);
+  assert.match(cu.err, /quirky-agent.*cursor.*network/i);
+  assert.match(cu.err, /--allow-weaker-restrictions/);
+  assert.ok(!existsSync(join(proj, ".cursor", "agents", "quirky-agent.md")), "refusal writes no agent file");
+  const lockPath = join(proj, ".cursor", ".skillforge-lock.json");
+  assert.ok(!existsSync(lockPath) || !JSON.parse(readFileSync(lockPath, "utf8")).artifacts["agent/quirky-agent"], "no lock entry");
+
+  const forced = await cli(["install", "agent/quirky-agent", "--runtime", "cursor", "--allow-weaker-restrictions"], { cwd: proj });
+  assert.equal(forced.code, 0, forced.err);
+  assert.deepEqual(splitMd(readFileSync(join(proj, ".cursor", "agents", "quirky-agent.md"), "utf8")).fm, {
+    name: "quirky-agent",
+    description: QUIRKY_DESCRIPTION,
+    readonly: true,
+  });
+  assert.match(forced.err, /warning: agent quirky-agent: cursor does not enforce network/);
+  assert.deepEqual(JSON.parse(readFileSync(lockPath, "utf8")).artifacts["agent/quirky-agent"].weaker_restrictions, ["network"]);
+  const sync = await cli(["sync", "--runtime", "cursor"], { cwd: proj });
+  assert.equal(sync.code, 0, `sync repeats the recorded waiver without the flag: ${sync.err}`);
+});
+
+test("sdlc reviewer role: install and pack install --role keep it read-only; a restriction the runtime cannot express is refused", async () => {
+  const proj = newProject("agents-sdlc");
+  const viaInstall = await cli(["install", "agent/reviewer", "--runtime", "opencode"], { cwd: proj });
+  assert.equal(viaInstall.code, 0, viaInstall.err);
+  assert.deepEqual(splitMd(readFileSync(join(proj, ".opencode", "agents", "reviewer.md"), "utf8")).fm.permission, {
+    edit: "deny",
+    webfetch: "deny",
+  }, "as sdlc writes it: edit and webfetch deny, bash allowed");
+
+  const packProj = newProject("agents-sdlc-pack");
+  // pack install reads /api/v1/packs, which needs a signed-in user (method-packs)
+  const token = (await api(base, "POST", "/api/v1/me/tokens", { name: "runtime-packs" }, { cookie: admin.cookie })).data.token;
+  for (const runtime of ["opencode", "codex", "qwen"]) {
+    const r = await cli(["pack", "install", "sdlc-team", "--role", "reviewer", "--runtime", runtime], { cwd: packProj, token });
+    assert.equal(r.code, 0, `${runtime}: ${r.err}`);
+  }
+  assert.deepEqual(splitMd(readFileSync(join(packProj, ".opencode", "agents", "reviewer.md"), "utf8")).fm.permission, { edit: "deny", webfetch: "deny" });
+  const toml = parseToml(readFileSync(join(packProj, ".codex", "agents", "reviewer.toml"), "utf8"));
+  assert.deepEqual([toml.sandbox_mode, toml.web_search], ["read-only", "disabled"]);
+  assert.deepEqual(splitMd(readFileSync(join(packProj, ".qwen", "agents", "reviewer.md"), "utf8")).fm.disallowedTools, ["edit", "write_file", "web_fetch", "web_search"]);
+
+  // negative: the developer role may edit — no edit restriction anywhere
+  const dev = await cli(["install", "agent/developer", "--runtime", "opencode"], { cwd: proj });
+  assert.equal(dev.code, 0, dev.err);
+  assert.deepEqual(splitMd(readFileSync(join(proj, ".opencode", "agents", "developer.md"), "utf8")).fm.permission, { webfetch: "deny" });
+
+  const noShell = await cli(["install", "agent/no-shell-agent", "--runtime", "codex"], { cwd: proj });
+  assert.equal(noShell.code, 1, `Codex cannot forbid the shell: ${noShell.err}`);
+  assert.match(noShell.err, /no-shell-agent.*codex.*shell/i);
+  assert.ok(!existsSync(join(proj, ".codex", "agents", "no-shell-agent.toml")));
+
+  const ro = await cli(["install", "agent/readonly-only", "--runtime", "claude-code"], { cwd: proj });
+  assert.equal(ro.code, 1, `Claude Code does not apply readonly: ${ro.err}`);
+  assert.match(ro.err, /readonly-only.*claude-code.*edit/i);
+  assert.match(ro.err, /tools|disallowedTools/);
+  assert.ok(!existsSync(join(proj, ".claude", "agents", "readonly-only.md")));
+});
+// agent-restrictions-translation, task 3.1: an agent installed by a former CLI (old translation, no `translation` mark
+// in the lock) gets its restrictions at the next sync of the same version; a file the person edited is not overwritten.
+test("compatibility: sync translates an agent installed by a former CLI again; an edited file is kept (exit code 5)", async () => {
+  for (const edited of [false, true]) {
+    const proj = newProject(`agents-compat-${edited ? "edited" : "clean"}`);
+    const r = await cli(["install", "agent/reviewer", "--runtime", "opencode"], { cwd: proj });
+    assert.equal(r.code, 0, r.err);
+    const file = join(proj, ".opencode", "agents", "reviewer.md");
+    const lockPath = join(proj, ".opencode", ".skillforge-lock.json");
+    const current = readFileSync(file, "utf8");
+    // What the former CLI wrote: description and mode only, and a lock entry without the translation mark.
+    const former = current.replace(/permission:\n(  .*\n)+/, "");
+    assert.ok(!former.includes("permission"), former);
+    writeFileSync(file, former);
+    const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+    const entry = lock.artifacts["agent/reviewer"];
+    assert.ok(entry.translation, "the new CLI marks its translation");
+    delete entry.translation;
+    entry.files["agents/reviewer.md"] = createHash("sha256").update(former).digest("hex");
+    writeFileSync(lockPath, JSON.stringify(lock, null, 2));
+    if (edited) writeFileSync(file, former + "A note of my own.\n");
+
+    const s = await cli(["sync", "--runtime", "opencode"], { cwd: proj });
+    const after = readFileSync(file, "utf8");
+    if (edited) {
+      assert.ok(after.endsWith("A note of my own.\n"), "the edited file is not overwritten");
+      assert.notEqual(s.code, 0, `sync reports the local change: ${s.out}\n${s.err}`);
+    } else {
+      assert.equal(s.code, 0, s.err);
+      assert.deepEqual(splitMd(after).fm.permission, { edit: "deny", webfetch: "deny" }, "the restriction arrived");
+      assert.ok(JSON.parse(readFileSync(lockPath, "utf8")).artifacts["agent/reviewer"].translation);
+    }
+  }
 });
 
 test("hook — only as a plugin (/plugin install), no files are written", async () => {

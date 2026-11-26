@@ -27,7 +27,7 @@ the runtime selectors in the web interface.
 | [Gemini CLI](gemini-cli.md) | `gemini` | `.gemini` | `~/.gemini` | as is | TOML | not supported | not yet (`GEMINI.md`) | any MCP client over HTTP | no |
 | [Cursor](cursor.md) | `cursor` | `.cursor` | `~/.cursor` | as is | body only, project scope | `name` + `description` | `.mdc`, project scope | JSON for `~/.cursor/mcp.json` | yes |
 | [OpenCode](opencode.md) | `opencode` | `.opencode` | `~/.config/opencode` | as is | `description` frontmatter | `description` + `mode: subagent` | project scope, added to `instructions` | `opencode mcp add` | yes |
-| [Qwen Code](qwen-code.md) | `qwen` | `.qwen` | `~/.qwen` | as is | `$ARGUMENTS` becomes `{{args}}` | as is | not yet (`QWEN.md`) | `qwen mcp add -s user` | no |
+| [Qwen Code](qwen-code.md) | `qwen` | `.qwen` | `~/.qwen` | as is | `$ARGUMENTS` becomes `{{args}}` | `name` + `description` (+ `disallowedTools`) | not yet (`QWEN.md`) | `qwen mcp add -s user` | no |
 | [Devin](devin.md) | `devin` | `.agents` | none | as is | not supported | not supported | not supported | any MCP client over HTTP | no |
 | [Reckon](reckon.md) | `reckon` | `.reckon` | none | as is | not supported | not supported | not supported | through Claude Code | no |
 
@@ -81,6 +81,13 @@ skillforge uninstall skill/pdf-tools --runtime codex
   skipped and exits 0.
 - When the CLI translates a file and has to drop something, it prints `warning: …` to stderr, for example
   `agent reviewer: dropped tools, model (not supported by cursor)`.
+- An agent's tool restrictions — editing, the shell and the network, read from `tools`, `disallowedTools` and
+  `readonly: true` — are written in each runtime's own form: OpenCode `permission`, Codex `sandbox_mode =
+  "read-only"` and `web_search = "disabled"`, Cursor `readonly: true`, Qwen Code `disallowedTools`; Claude Code
+  gets the file as is. A restriction the runtime cannot express (the shell for Codex and Cursor, the network for
+  Cursor, editing forbidden only by `readonly` for Claude Code) stops the install with exit code 1 before any file
+  is written. `--allow-weaker-restrictions` installs anyway, prints what is not enforced and records it in the
+  lock file as `weaker_restrictions`.
 
 Before writing anything, the CLI checks the signature of the version against the registry key remembered at login,
 and stops if a symlink or junction would lead outside the agent folder. Method packs install the same way:

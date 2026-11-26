@@ -3,6 +3,18 @@
 All notable changes to SkillForge. Versions follow [Semantic Versioning](https://semver.org/); while the major version
 is 0, a minor version may change behavior.
 
+## 0.6.3 — 2026-11-26
+
+### Changed
+- Installing an agent keeps its tool restrictions in every runtime. Restrictions written as `tools` (an allow-list), `disallowedTools` or `readonly: true` are read as three classes — editing, shell, network — and written in the runtime's own form: OpenCode `permission` deny, Codex `sandbox_mode = "read-only"` and `web_search = "disabled"`, Cursor `readonly: true`, Qwen Code `disallowedTools` in Qwen tool names. Before, a reviewer agent forbidden to edit files could edit them after `install` for OpenCode, Codex or Qwen Code.
+- A restriction the runtime cannot enforce (Codex and Cursor cannot forbid the shell, Cursor cannot forbid the network, Claude Code does not apply `readonly`) stops `install`, `sync` and `pack install` with exit code 1 before any file is written. `--allow-weaker-restrictions` installs anyway and records the lost classes in the lock as `weaker_restrictions`.
+- An agent installed by a former CLI is reinstalled at the same version on the next `sync`, so its restrictions arrive; a file you edited is kept (exit code 5).
+
+### Fixed
+- CLI refusals print the server's text after the code, for example `version_not_newer: version must be greater than 1.0.0`. `run skillforge login` is suggested only when signing in helps (HTTP 401); a role that does not allow the command says `your role does not allow this`. `not_owner` on a pack names the pack and its owner, and `mcp_token_forbidden` says the command needs a regular token. Exit codes are unchanged.
+- `skillforge login --password-stdin` signs in when Windows PowerShell 5.1 pipes the password: the one or two BOMs PowerShell puts at the start of stdin are dropped (the rest of the line, spaces included, is the password). Every stdin reader of the CLI drops them now.
+- The server log says why the server stopped: `server_stopping` with the signal (including `SIGHUP` and `SIGBREAK` on Windows), `server_crashed` for an unhandled error or a failed start (the process exits with code 1, secrets masked), and `server_exit` with the code. A log without `server_exit` at the end means the process was killed from outside; see «Why the server stopped» in the self-hosting guide.
+
 ## 0.6.2 — 2026-11-24
 
 ### Fixed

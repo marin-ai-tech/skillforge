@@ -20,9 +20,9 @@ SkillForge serves eight agent runtimes. This table is the single place that says
 | Claude Code | `.claude/skills`, `~/.claude/skills` | as is | as is | `.claude/rules`, `~/.claude/rules` | `claude mcp add` (HTTP or stdio) | `.claude` | real client (marketplace, MCP, settings) |
 | Codex | `.codex/skills`, `~/.codex/skills` | not supported (custom prompts are deprecated; publish as a skill) | `.codex/agents/<name>.toml` (see limitation) | block in `AGENTS.md`, project only | `codex mcp add` (token via `SKILLFORGE_TOKEN` or stdio) | `.codex` | real client in automated tests (skills, MCP config); agents: known limitation |
 | Gemini CLI | `.gemini/skills`, `~/.gemini/skills` | `commands/<name>.toml` | not supported | block in `GEMINI.md`, project only | any MCP client: HTTP `<server>/mcp` with `Authorization: Bearer` | `.gemini` | documentation |
-| Cursor | `.cursor/skills`, `~/.cursor/skills` | body only, project scope | `name` + `description` frontmatter | `.cursor/rules/<name>.mdc`, project only | JSON for `~/.cursor/mcp.json` | `.cursor` | documentation (client not installed on the test stand) |
-| OpenCode | `.opencode/skills`, `~/.config/opencode/skills` | `description` frontmatter | `description` + `mode: subagent` | `.opencode/rules`, project only; added to `instructions` | `opencode mcp add` | `.opencode` | real client in automated tests |
-| Qwen Code | `.qwen/skills`, `~/.qwen/skills` | `$ARGUMENTS` → `{{args}}` | as is | block in `QWEN.md`, project only | `qwen mcp add -s user` | `.qwen` | real client in automated tests |
+| Cursor | `.cursor/skills`, `~/.cursor/skills` | body only, project scope | `name` + `description` frontmatter (+ `readonly`) | `.cursor/rules/<name>.mdc`, project only | JSON for `~/.cursor/mcp.json` | `.cursor` | documentation (client not installed on the test stand) |
+| OpenCode | `.opencode/skills`, `~/.config/opencode/skills` | `description` frontmatter | `description` + `mode: subagent` (+ `permission`) | `.opencode/rules`, project only; added to `instructions` | `opencode mcp add` | `.opencode` | real client in automated tests |
+| Qwen Code | `.qwen/skills`, `~/.qwen/skills` | `$ARGUMENTS` → `{{args}}` | `name` + `description` (+ `disallowedTools`) | block in `QWEN.md`, project only | `qwen mcp add -s user` | `.qwen` | real client in automated tests |
 | Devin | `.agents/skills` (project only) | not supported | not supported | not supported | any MCP client (as Gemini CLI) | `.agents` | documentation |
 | Reckon | `.reckon/skills` (project only) | not supported | not supported | not supported | through Claude Code | `.reckon` (learned skills) | real client |
 
@@ -34,6 +34,20 @@ SkillForge serves eight agent runtimes. This table is the single place that says
 - **MCP connect** is the client choice on `/me/tokens` after you create an MCP-enabled token.
 - **Agent-folder scan** is the folder that `skillforge agent scan --runtime <id>` and the Add agent dialog read for that runtime.
 - **Verified by** says whether support was checked against the real client or only against the client documentation.
+
+## Tool restrictions of agents
+
+An agent can forbid itself three classes of tools: editing, the shell and the network. The CLI reads them from the agent's frontmatter: `tools` is an allow-list (a class with none of its tools listed is forbidden), `disallowedTools` forbids a class it names, and `readonly: true` forbids editing. Tool names count in the Claude Code, sdlc and Qwen Code vocabularies, in any letter case (`Edit`, `write`, `write_file`; `Bash`, `PowerShell`, `run_shell_command`; `WebFetch`, `web_search`). `install`, `sync` and `pack install` write each restriction in the runtime's own form:
+
+| Runtime | Editing | Shell | Network |
+|---|---|---|---|
+| Claude Code | `tools` and `disallowedTools` as written | as written | as written |
+| Codex | `sandbox_mode = "read-only"` | cannot be forbidden | `web_search = "disabled"` |
+| Cursor | `readonly: true` | cannot be forbidden | cannot be forbidden |
+| OpenCode | `permission`: `edit: deny` | `bash: deny` | `webfetch: deny` |
+| Qwen Code | `disallowedTools`: `edit`, `write_file` | `run_shell_command`, `exec` | `web_fetch`, `web_search` |
+
+A restriction the runtime cannot express stops the install with exit code 1 before any file is written, and the message names the agent, the runtime and the class. Claude Code does not apply `readonly`, so an agent that forbids editing only with `readonly` is refused there too: add `tools` or `disallowedTools` to the agent. To install anyway, pass `--allow-weaker-restrictions`: the CLI writes what the runtime can express, prints `warning: agent <name>: <runtime> does not enforce <classes>` and records the classes in the lock file (`weaker_restrictions`), so a later `sync` of the same set needs no flag. An agent without `tools`, `disallowedTools` and `readonly` installs as before.
 
 ## Hooks, plugins and settings profiles
 

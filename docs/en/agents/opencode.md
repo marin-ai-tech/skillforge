@@ -53,11 +53,16 @@ skillforge outdated --runtime opencode
 | Type | File | Frontmatter | Body |
 |---|---|---|---|
 | command | `commands/<name>.md` | only `description` (omitted when there is none) | unchanged |
-| agent | `agents/<name>.md` | exactly `description` and `mode: subagent` | unchanged |
+| agent | `agents/<name>.md` | `description`, `mode: subagent` and, for a restricted agent, `permission` | unchanged |
 
 OpenCode takes the agent name from the file name. Other agent fields are dropped on purpose, because OpenCode rejects
 its whole configuration when it meets Claude Code values of `color` or `tools`. The CLI prints
 `warning: agent <name>: dropped <fields> (not supported by opencode)` to stderr.
+
+The restrictions those fields carry are not lost: an agent that forbids itself editing, the shell or the network
+(`tools` without the class, `disallowedTools` with it, `readonly: true`) gets `permission` with `edit: deny`,
+`bash: deny` or `webfetch: deny`. For an sdlc reviewer role (`tools: [read, grep, glob, bash]`, `readonly: true`)
+that is `edit: deny` and `webfetch: deny`, the same as sdlc writes; `opencode debug agent <name>` shows the result.
 
 ## Connect OpenCode over MCP
 

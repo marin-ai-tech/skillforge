@@ -365,11 +365,23 @@ addGlobals(
     .option("--into <dir>", "Install root (default: .claude)")
     .option("--runtime <id>", RUNTIME_OPTION)
     .option("--scope <scope>", SCOPE_OPTION)
-    .option("--force", "Overwrite local changes", false),
+    .option("--force", "Overwrite local changes", false)
+    .option(
+      "--allow-weaker-restrictions",
+      "Install an agent even if this runtime cannot enforce all of its tool restrictions (recorded in the lock)",
+      false,
+    ),
 ).action(
   async (
     spec: string,
-    opts: { role?: string; into?: string; runtime?: string; scope?: string; force?: boolean },
+    opts: {
+      role?: string;
+      into?: string;
+      runtime?: string;
+      scope?: string;
+      force?: boolean;
+      allowWeakerRestrictions?: boolean;
+    },
     cmd: Command,
   ) => {
     const ctx = createContext(globalsFrom(cmd));
@@ -473,7 +485,12 @@ addGlobals(
     .option("--scope <scope>", SCOPE_OPTION)
     .option("--force", "Overwrite local changes", false)
     .option("--allow-downgrade", "Allow installing a lower version than the installed one", false)
-    .option("--allow-risky", "Install even if the registry's security scan failed", false),
+    .option("--allow-risky", "Install even if the registry's security scan failed", false)
+    .option(
+      "--allow-weaker-restrictions",
+      "Install an agent even if this runtime cannot enforce all of its tool restrictions (recorded in the lock)",
+      false,
+    ),
 ).action(
   async (
     spec: string,
@@ -484,6 +501,7 @@ addGlobals(
       force?: boolean;
       allowDowngrade?: boolean;
       allowRisky?: boolean;
+      allowWeakerRestrictions?: boolean;
     },
     cmd: Command,
   ) => {
@@ -496,6 +514,7 @@ addGlobals(
         force: Boolean(opts.force),
         allowDowngrade: Boolean(opts.allowDowngrade),
         allowRisky: Boolean(opts.allowRisky),
+        allowWeakerRestrictions: Boolean(opts.allowWeakerRestrictions),
       });
     } catch (e) {
       handleError(ctx, e);
@@ -571,7 +590,12 @@ addGlobals(
     .option("--prune", "Remove installed artifacts not in the filtered set", false)
     .option("--force", "Overwrite local changes", false)
     .option("--allow-downgrade", "Allow moving to a lower version than the installed one", false)
-    .option("--allow-risky", "Install even if the registry's security scan failed", false),
+    .option("--allow-risky", "Install even if the registry's security scan failed", false)
+    .option(
+      "--allow-weaker-restrictions",
+      "Install an agent even if this runtime cannot enforce all of its tool restrictions (recorded in the lock)",
+      false,
+    ),
 ).action(
   async (
     opts: {
@@ -585,6 +609,7 @@ addGlobals(
       force?: boolean;
       allowDowngrade?: boolean;
       allowRisky?: boolean;
+      allowWeakerRestrictions?: boolean;
     },
     cmd: Command,
   ) => {
@@ -601,6 +626,7 @@ addGlobals(
         force: Boolean(opts.force),
         allowDowngrade: Boolean(opts.allowDowngrade),
         allowRisky: Boolean(opts.allowRisky),
+        allowWeakerRestrictions: Boolean(opts.allowWeakerRestrictions),
       });
     } catch (e) {
       handleError(ctx, e);

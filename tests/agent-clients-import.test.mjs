@@ -188,16 +188,19 @@ test("broken TOML: 200, candidate goes to invalid, the rest is kept", async () =
 
 const CIRCLE = {
   codex: { dir: ".codex", keys: ["skill/pdf-tools", "agent/quirky-agent"], translated: ["agent/quirky-agent"] },
-  cursor: { dir: ".cursor", keys: ["skill/pdf-tools", "agent/quirky-agent", "command/summarize"], translated: ["agent/quirky-agent", "command/summarize"] },
+  // agent-restrictions-translation: Cursor cannot forbid network, so quirky-agent (tools without a network tool) needs
+  // --allow-weaker-restrictions there; the round trip itself is unchanged.
+  cursor: { dir: ".cursor", keys: ["skill/pdf-tools", "agent/quirky-agent", "command/summarize"], translated: ["agent/quirky-agent", "command/summarize"], flags: ["--allow-weaker-restrictions"] },
   opencode: { dir: ".opencode", keys: ["skill/pdf-tools", "agent/quirky-agent", "command/summarize"], translated: ["agent/quirky-agent", "command/summarize"] },
-  qwen: { dir: ".qwen", keys: ["skill/pdf-tools", "agent/quirky-agent", "command/summarize"], translated: ["command/summarize"] },
+  // agent-restrictions-translation: Qwen agents are translated (qwen-agent: name, description, disallowedTools).
+  qwen: { dir: ".qwen", keys: ["skill/pdf-tools", "agent/quirky-agent", "command/summarize"], translated: ["agent/quirky-agent", "command/summarize"] },
 };
 
 for (const [runtime, spec] of Object.entries(CIRCLE)) {
   test(`${runtime} round trip: install -> agent scan -> in_sync, translated items are marked translated`, () => {
     const proj = project(`circle-${runtime}`);
     for (const key of spec.keys) {
-      const i = sf(["install", key, "--runtime", runtime], proj);
+      const i = sf(["install", key, "--runtime", runtime, ...(spec.flags ?? [])], proj);
       assert.equal(i.code, 0, `${key}: ${i.out}\n${i.err}`);
     }
     const s = sf(["agent", "scan", "--runtime", runtime, "--name", `circle-${runtime}`, "--json"], proj);

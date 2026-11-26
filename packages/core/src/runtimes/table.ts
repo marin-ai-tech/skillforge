@@ -8,7 +8,8 @@ export type RuntimeScope = "project" | "user";
 /**
  * How an artifact type is installed for a runtime:
  * `files` — canonical bundle paths as is; `gemini-toml` / `opencode-md` / `cursor-md` / `qwen-md` — command
- * translation; `codex-toml` / `opencode-agent` / `cursor-agent` — agent translation;
+ * translation; `codex-toml` / `opencode-agent` / `cursor-agent` / `qwen-agent` — agent translation (with the agent's
+ * tool restrictions in the runtime's own mechanism);
  * `cursor-rule` / `opencode-rule` — rule translation (opencode-rule also adds the rules folder to `instructions`);
  * `rules-block` — a rule copy in `skillforge/rules/` plus the SkillForge block in the agent's shared file;
  * `plugin` — only via the Claude Code marketplace (`/plugin install`); `settings` — only `skillforge settings apply`.
@@ -22,6 +23,7 @@ export type RuntimeInstallMethod =
   | "codex-toml"
   | "opencode-agent"
   | "cursor-agent"
+  | "qwen-agent"
   | "cursor-rule"
   | "opencode-rule"
   | "rules-block"
@@ -215,7 +217,7 @@ export const RUNTIMES: readonly RuntimeDef[] = [
     docs_url: "https://github.com/QwenLM/qwen-code",
     project_dir: ".qwen",
     user_dir: ".qwen",
-    types: nonClaudeTypes("qwen", { method: "qwen-md" }, { method: "files" }),
+    types: nonClaudeTypes("qwen", { method: "qwen-md" }, { method: "qwen-agent" }),
   },
   {
     id: "devin",
